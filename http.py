@@ -61,7 +61,7 @@ class Request():
       s.write("%s: %s\r\n" % (h, self.headers[h]))
     s.write("\r\n")
     if self.content:
-      s.write(self.content.getvalue())
+      s.write(self.content)
     return s.getvalue()
 
   def __call__(self):
@@ -86,19 +86,25 @@ class Request():
   def inject(self, **kwds):
     return Injection(self, **kwds) 
 
+  @staticmethod
+  def filter(reqs, **kwds):
+    for k in kwds:
+      reqs = [r for r in reqs if getattr(r, k) == kwds[k]]
+    return reqs
+
 class Response():
   
   def __init__(self, fd):
     self.http_version, self.status, self.reason = read_banner(fd).strip().split(" ", 2)
     self.set_headers(read_headers(fd))
     self.content = read_content(fd, self.headers, self.status)
-    #self.clear_content = _clear_content(self.headers, self.content)
+    self.readable_content = _clear_content(self.headers, self.content)
 
   def __repr__(self):
     flags = []
     if "Transfer-Encoding" in self.headers: flags.append("Chunked")
     if "Content-Encoding" in self.headers: flags.append("Gzip")
-    if self.content: flags.append(str(len(self.content.getvalue())))
+    if self.content: flags.append(str(len(self.content)))
     if str(self.status).startswith("2"):
       return "<" + great_success(str(self.status)) + " " + " ".join(flags)  + ">"
     else: 
@@ -111,8 +117,19 @@ class Response():
       s.write("%s: %s\r\n" % (h, self.headers[h]))
     s.write("\r\n")
     if self.content:
-      s.write(self.content.getvalue())
+      s.write(self.readable_content)
     return s.getvalue()
+
+  def raw(self):
+    s = StringIO()
+    s.write("%s %s %s\r\n" % (self.http_version, self.status, self.reason))
+    for h in self.headers:
+      s.write("%s: %s\r\n" % (h, self.headers[h]))
+    s.write("\r\n")
+    if self.content:
+      s.write(self.content)
+    return s.getvalue()
+    
  
   def set_headers(self, headers):
     self.headers = {}
@@ -143,12 +160,12 @@ def read_headers(fp):
 
 def read_content(fp, headers, status=None):
   if "Transfer-Encoding" in headers:
-    return _chunked_read_content(fp)
+    return _chunked_read_content(fp).getvalue()
   elif "Content-Length" in headers:
     length = int(headers["Content-Length"])
-    return _read_content(fp, length)
+    return _read_content(fp, length).getvalue()
   elif status == "200": # No indication on what we should read, so just read
-    return StringIO(fp.read())
+    return fp.read()
   return None
 
 def _chunked_read_content(fp):
@@ -174,17 +191,19 @@ def _read_content(fp, length):
 
 def _clear_content(headers, content):
   if "Transfer-Encoding" in headers:
+    content_io = StringIO(content)
     buffer = StringIO()
     while True:
-      s = int(content.readline(),16)
-      if s == 0:
+      s = int(content_io.readline(), 16)
+      if s == 0: 
+        readable_content = buffer.getvalue()
         break
-      buffer.write(_read_content(content, s))
-      content.readline()
+      buffer.write(_read_content(content_io, s).getvalue())
+      content_io.readline()
   else:
-    buffer = content
+    readable_content = content
   if "Content-Encoding" in headers and headers["Content-Encoding"] == "gzip":
-    cs = StringIO(buffer)
+    cs = StringIO(readable_content)
     gzipper = gzip.GzipFile(fileobj=cs)
-    buffer = gzipper.read()
-  return buffer.getvalue()
+    return gzipper.read()
+  return readable_content

@@ -14,8 +14,8 @@ import ssl
 from http import Request, Response
 
 PORT = 8080
-CERT_FILE = "cert-srv.pem"
-KEY_FILE = "key-srv.pem"
+CERT_FILE = "cert/cert-srv.pem"
+KEY_FILE = "cert/key-srv.pem"
 
 class Proxy():
 
@@ -63,13 +63,13 @@ class Proxy():
             print repr(r)
           r()
           print repr(r.response)
-          self.wfile.write(str(r.response))
+          self.wfile.write(r.response.raw())
           self.server.reqs.append(r)  
         else: 
           r()
-          self.wfile.write(str(r.response))
+          self.wfile.write(r.response.raw())
  
-      except socket.timeout, e:
+      except (ssl.SSLError, socket.timeout), e:
         self.close_connection = 1
         return
      
