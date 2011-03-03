@@ -25,5 +25,3 @@ if __name__ == "__main__":
     print "Using classic interpreter, for a better experience, install Ipython"
     code.interact()
 
-
-

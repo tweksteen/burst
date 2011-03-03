@@ -33,15 +33,15 @@ class Proxy():
                                       certfile=CERT_FILE, keyfile=KEY_FILE)
       self.rfile = self.ssl_sock.makefile('rb', self.rbufsize)
       self.wfile = self.ssl_sock.makefile('wb', self.wbufsize)
-      return Request.create_request(self.rfile, hostname=r.hostname, port=r.port, use_ssl=True)
+      return Request(self.rfile, hostname=r.hostname, port=r.port, use_ssl=True)
    
     def handle_one_request(self):
       """
       Accept a request, enable the user to modify, drop or forward it.
       """
       try:
-        r = Request.create_request(self.rfile)
-        if r.init_ssl:
+        r = Request(self.rfile)
+        if r.method == "CONNECT":
           r = self.bypass_ssl(r)
         if not self.server.filter.search(r.url):
           if self.server.prompt:
@@ -63,11 +63,11 @@ class Proxy():
             print repr(r)
           r()
           print repr(r.response)
-          self.wfile.write(r.response.raw)
+          self.wfile.write(str(r.response))
           self.server.reqs.append(r)  
         else: 
           r()
-          self.wfile.write(r.response.raw)
+          self.wfile.write(str(r.response))
  
       except socket.timeout, e:
         self.close_connection = 1
