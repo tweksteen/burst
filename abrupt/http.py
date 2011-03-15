@@ -42,11 +42,11 @@ class Request():
     return urlparse.urlparse(self.url).query
   
   def set_headers(self, headers):
-    self.headers = {}
+    self.headers = []
     for l in headers.splitlines():
       if l:
         t, v = [q.strip() for q in l.split(":", 1)]
-        self.headers[t] = v
+        self.headers.append((t, v))
 
   def __repr__(self):
     if self.use_ssl:
@@ -60,8 +60,8 @@ class Request():
   def __str__(self):
     s = StringIO()
     s.write("%s %s %s\r\n" % (self.method, self.url, self.http_version))
-    for h in self.headers:
-      s.write("%s: %s\r\n" % (h, self.headers[h]))
+    for h, v in self.headers:
+      s.write("%s: %s\r\n" % (h, v))
     s.write("\r\n")
     if self.content:
       s.write(self.content)
@@ -73,7 +73,7 @@ class Request():
         conn = httplib.HTTPSConnection(self.hostname + ":" + str(self.port))
       else:
         conn = httplib.HTTPConnection(self.hostname + ":" + str(self.port))
-    conn.request(self.method, self.url, self.content, self.headers)
+    conn.request(self.method, self.url, self.content, dict(self.headers))
     self.response = Response(conn.sock.makefile('rb',0))
 
   def edit(self):
@@ -102,8 +102,10 @@ class Response():
 
   def __repr__(self):
     flags = []
-    if "Transfer-Encoding" in self.headers: flags.append("Chunked")
-    if "Content-Encoding" in self.headers: flags.append("Gzip")
+    headers_keys = zip(*self.headers)
+    if headers_keys:
+      if "Transfer-Encoding" in headers_keys[0]: flags.append("Chunked")
+      if "Content-Encoding" in headers_keys[0]: flags.append("Gzip")
     if self.content: flags.append(str(len(self.content)))
     if self.status.startswith("2"):
       st = great_success(self.status)
@@ -116,8 +118,8 @@ class Response():
   def __str__(self):
     s = StringIO()
     s.write("%s %s %s\r\n" % (self.http_version, self.status, self.reason))
-    for h in self.headers:
-      s.write("%s: %s\r\n" % (h, self.headers[h]))
+    for h, v in self.headers:
+      s.write("%s: %s\r\n" % (h, v))
     s.write("\r\n")
     if self.content:
       s.write(self.readable_content)
@@ -126,19 +128,19 @@ class Response():
   def raw(self):
     s = StringIO()
     s.write("%s %s %s\r\n" % (self.http_version, self.status, self.reason))
-    for h in self.headers:
-      s.write("%s: %s\r\n" % (h, self.headers[h]))
+    for h, v in self.headers:
+      s.write("%s: %s\r\n" % (h, v))
     s.write("\r\n")
     if self.content:
       s.write(self.content)
     return s.getvalue()
     
   def set_headers(self, headers):
-    self.headers = {}
+    self.headers = [] 
     for l in headers.splitlines():
       if l:
         t, v = [q.strip() for q in l.split(":", 1)]
-        self.headers[t] = v
+        self.headers.append((t, v))
 
   def preview(self):
     fd, fname = tempfile.mkstemp()
@@ -161,10 +163,11 @@ def read_headers(fp):
   return headers
 
 def read_content(fp, headers, status=None):
-  if "Transfer-Encoding" in headers:
+  if ("Transfer-Encoding", "chunked") in headers:
     return _chunked_read_content(fp).getvalue()
-  elif "Content-Length" in headers:
-    length = int(headers["Content-Length"])
+  elif "Content-Length" in zip(*headers)[0]:
+    length_str = zip(*headers)[1][zip(*headers)[0].index("Content-Length")]
+    length = int(length_str)
     return _read_content(fp, length).getvalue()
   elif status == "200": # No indication on what we should read, so just read
     return fp.read()
@@ -192,7 +195,7 @@ def _read_content(fp, length):
   return buffer
 
 def _clear_content(headers, content):
-  if "Transfer-Encoding" in headers:
+  if ("Transfer-Encoding", "chunked") in headers:
     content_io = StringIO(content)
     buffer = StringIO()
     while True:
@@ -204,7 +207,7 @@ def _clear_content(headers, content):
       content_io.readline()
   else:
     readable_content = content
-  if "Content-Encoding" in headers and headers["Content-Encoding"] == "gzip":
+  if ("Content-Encoding", "gzip") in headers:
     cs = StringIO(readable_content)
     gzipper = gzip.GzipFile(fileobj=cs)
     return gzipper.read()

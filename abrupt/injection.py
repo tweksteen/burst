@@ -3,10 +3,9 @@
 import urllib
 import urlparse
 import httplib
-from copy import deepcopy
 import traceback
 
-from http import HTTPConnection
+from abrupt.http import HTTPConnection
 
 class Injection():
 

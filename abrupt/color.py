@@ -1,8 +1,4 @@
 #!/usr/bin/python
-#
-# abrupt.color
-# tw@securusglobal.com
-#
 
 try:
   from IPython.ColorANSI import InputTermColors
