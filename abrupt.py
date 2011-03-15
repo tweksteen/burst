@@ -1,11 +1,6 @@
-#!/usr/bin/python
-#
-# abrupt 
-# tw@securusglobal.com
-#
+#!/usr/bin/python2
 
-from http import Request, Response
-from proxy import p, w, p1, w1
+from abrupt import *
 
 if __name__ == "__main__":
   import code
@@ -14,12 +9,9 @@ if __name__ == "__main__":
   __builtin__.__dict__.update(abrupt_builtins)
   try:
     import IPython
-    from color import *
-    print success("~~--[ ") + great_success("Abrupt 0.1") + success(" ]--~~")
-    print "comment and bugs: tw@securusglobal.com"
-    print "p(): to run a interactive proxy"
-    print "w(): to run a passive proxy",
-    ipshell = IPython.Shell.IPShellEmbed([''])
+    from abrupt.color import *
+    print success("~~--[ ") + great_success("Abrupt 0.1") + success(" ]--~~"),
+    ipshell = IPython.Shell.IPShellEmbed()
     ipshell()
   except ImportError:
     print "Using classic interpreter, for a better experience, install Ipython"

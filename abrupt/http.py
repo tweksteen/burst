@@ -1,8 +1,4 @@
 #!/usr/bin/python
-#
-# abrupt.http 
-# tw@securusglobal.com
-#
 
 import httplib
 import urlparse
@@ -11,10 +7,15 @@ import os
 import tempfile
 import webbrowser
 import subprocess
+import copy
 from StringIO import StringIO
 
-from color import *
-from payload import Injection
+from abrupt.color import *
+
+class HTTPConnection(httplib.HTTPConnection):
+
+  def _clear(self):
+    self.__state = httplib._CS_IDLE
 
 class Request():
   
@@ -49,10 +50,12 @@ class Request():
 
   def __repr__(self):
     if self.use_ssl:
-      return "<" + " ".join([info(self.method), self.hostname, self.path, warning("SSL")]) + " >"
+      return "<" + " ".join([info(self.method), self.hostname, self.path, warning("SSL")]) + ">"
     else:
-      return "<" + " ".join([info(self.method), self.hostname, self.path]) + " >"
+      return "<" + " ".join([info(self.method), self.hostname, self.path]) + ">"
   
+  def copy(self):
+    return copy.deepcopy(self)
 
   def __str__(self):
     s = StringIO()
@@ -64,14 +67,14 @@ class Request():
       s.write(self.content)
     return s.getvalue()
 
-  def __call__(self):
-    if self.use_ssl:
-      conn = httplib.HTTPSConnection(self.hostname + ":" + str(self.port))
-    else:
-      conn = httplib.HTTPConnection(self.hostname + ":" + str(self.port))
+  def __call__(self, conn=None):
+    if not conn:
+      if self.use_ssl:
+        conn = httplib.HTTPSConnection(self.hostname + ":" + str(self.port))
+      else:
+        conn = httplib.HTTPConnection(self.hostname + ":" + str(self.port))
     conn.request(self.method, self.url, self.content, self.headers)
     self.response = Response(conn.sock.makefile('rb',0))
-    conn.close()
 
   def edit(self):
     fd, fname = tempfile.mkstemp()
@@ -82,9 +85,6 @@ class Request():
     f = open(fname, 'r')
     r_new = Request(f, self.hostname, self.port, self.use_ssl)
     return r_new
-
-  def inject(self, **kwds):
-    return Injection(self, **kwds) 
 
   @staticmethod
   def filter(reqs, **kwds):
@@ -105,10 +105,13 @@ class Response():
     if "Transfer-Encoding" in self.headers: flags.append("Chunked")
     if "Content-Encoding" in self.headers: flags.append("Gzip")
     if self.content: flags.append(str(len(self.content)))
-    if str(self.status).startswith("2"):
-      return "<" + great_success(str(self.status)) + " " + " ".join(flags)  + ">"
-    else: 
-      return "<" + error(str(self.status)) + " " + " ".join(flags)  + ">"
+    if self.status.startswith("2"):
+      st = great_success(self.status)
+    elif self.status.startswith("3"):
+      st = warning(self.status)
+    else:
+      st = error(self.status)
+    return "<" + st + " " + " ".join(flags)  + ">"
 
   def __str__(self):
     s = StringIO()
@@ -130,7 +133,6 @@ class Response():
       s.write(self.content)
     return s.getvalue()
     
- 
   def set_headers(self, headers):
     self.headers = {}
     for l in headers.splitlines():
