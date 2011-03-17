@@ -1,7 +1,7 @@
 import re
 import math
 
-from color import *
+from abrupt.color import *
 
 def binary_frequency_test(s):
   """

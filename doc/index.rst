@@ -2,8 +2,7 @@ Abrupt's documentation
 ======================
 
 Abrupt is a web app penetration framework. You can use it as a stand-alone 
-application or use the provided library at your own convenience.
-
+application or use the provided library to make your own tool.
 
 Quickstart
 ----------
@@ -11,7 +10,7 @@ Quickstart
 You can start using abrupt right now, just by starting the interpreter::
 
   $ python abrupt.py
-  ~~--[ Abrupt 0.1 ]--~~
+  ~~--[ Abrupt 0.2 ]--~~
 
   In [1]: 
 
@@ -33,7 +32,7 @@ request and prompt the user for directions::
 You can now configure your browser to use http://localhost:8080 as your proxy.
 All the request will be captured by Abrupt::
 
-  <GET www.phrack.com /> ? 
+  <GET www.phrack.org /> ? 
 
 For each request, you can decide what to do:
  
@@ -41,11 +40,12 @@ For each request, you can decide what to do:
   * (e)dit - manually edit the request in your favorite $EDITOR
   * (d)rop - drop the request
   * (f)orward - Forward the request
+  * (c)ontinue - Forward this request and the following
 
 Forward is the default action if none is passed. 
 Once a request has been made, you can see the response status and length::
 
-  <GET www.phrack.com /> ? f
+  <GET www.phrack.org /> ? f
   <200 Gzip 5419>
 
 Once you're done with your requests, use Ctrl-C to exit. This function returned
@@ -54,12 +54,12 @@ modify them or create an injection based on them::
 
   KeyboardInterrupt
   1 request intercepted
-  Out[1]: [<GET www.phrack.com />]
+  Out[1]: [<GET www.phrack.org />]
 
   In [2]: requests = _
   
   In [3]: requests[0]
-  Out[3]: <GET www.phrack.com /> 
+  Out[3]: <GET www.phrack.org /> 
 
 Some other functions exists : *w*, just display the requests, doesn't provided
 any interaction. *p1* and *w1*, working as *p* and *w* but only intercept
@@ -79,7 +79,7 @@ Abrupt have its own representation of HTTP request and response::
   Accept: text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8
   User-Agent: Mozilla/5.0 (X11; U; Linux i686; en-US; rv:1.9.2.15) Gecko/20110304 Firefox/3.6.15
   Accept-Charset: ISO-8859-1,utf-8;q=0.7,*;q=0.7
-  Host: www.phrack.com
+  Host: www.phrack.org
   Proxy-Connection: keep-alive
 
 Request objects have numerous attributes: hostname, port, headers, path, query, url, content.
@@ -117,7 +117,10 @@ Sequence Analyser
 TBA
 
 
+CheatSheet
+==========
 
-
-
+* (p)roxy  - run a proxy, default on port 8080
+* (w)atch  - run a passive proxy
+* (i)nject - inject a Request
 

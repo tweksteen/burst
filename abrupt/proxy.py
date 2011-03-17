@@ -1,5 +1,3 @@
-#!/usr/bin/python
-
 import re
 import sys
 import socket
@@ -8,7 +6,7 @@ import traceback
 import ssl
 import functools
 
-from abrupt.http import Request, Response
+from abrupt.http import Request, Response, RequestSet
 
 CERT_FILE = "cert/cert-srv.pem"
 KEY_FILE = "cert/key-srv.pem"
@@ -76,12 +74,14 @@ class ProxyHTTPServer(BaseHTTPServer.HTTPServer):
       raise KeyboardInterrupt()
 
 def intercept(port=8080, prompt=True, nb=-1, filter=None):
-  """
-  Intercept all request on port and forward them. If prompt
-  is True, some actions will be displayed to the user for each
-  request. nb is the number of request to intercept. If filter
-  is provided, it should be a regular expression to filter the path
-  requested. By default, it filters .png, .jp(e)g, .gif and .ico.
+  """Intercept all HTTP(S) requests on port. Return a RequestSet of all the 
+  answered requests.
+  
+  port   -- port to listen to
+  prompt -- if True, action will be asked to the user for each request
+  nb     -- number of request to intercept (-1 for infinite)
+  filter -- regular expression to filter ignored files. By default, it 
+            ignores .png, .jp(e)g, .gif and .ico.
   See also: p(), w(), p1(), w1()
   """
   e_nb = 0
@@ -101,9 +101,24 @@ def intercept(port=8080, prompt=True, nb=-1, filter=None):
     return httpd.reqs
   except KeyboardInterrupt:
     print "%d request intercepted" % e_nb
-    return httpd.reqs 
+    return RequestSet(httpd.reqs)
 
-p = functools.partial(intercept)
-w = functools.partial(p, prompt=False)
-p1 = functools.partial(p, nb=1) 
-w1 = functools.partial(w, nb=1)
+def p(**kwds):
+  """Run a proxy. 
+     See also: intercept(), w(), p1()"""
+  return intercept(**kwds)
+
+def w(**kwds): 
+  """Run a proxy without user interaction, all the requests are forwarded. 
+     See also intercept(), p(), w1()"""
+  return p(prompt=False, **kwds)
+
+def p1(**kwds):
+  """Intercept one request and prompt for action.
+     See also: intercept(), p(), w1()"""
+  return p(nb=1, **kwds)[0]
+
+def w1(**kwds):
+  """Intercept one request and forward it.
+     See also: intercept(), p1(), w()"""
+  return w(nb=1, **kwds)[0]

@@ -1,5 +1,3 @@
-#!/usr/bin/python
-
-from abrupt.http import Request, Response
-from abrupt.proxy import p, w, p1, w1
+__all__ = ['console', 'http', 'proxy', 'injection', 'color']
+__version__ = "0.2"
 
