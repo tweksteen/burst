@@ -154,6 +154,9 @@ class RequestSet():
   def __getitem__(self, i):
     return self.reqs[i]
 
+  def __add__(self, other):
+    return RequestSet(self.reqs + other.reqs)
+
   def filter(self, **kwds):
     for k in kwds:
       reqs = [r for r in self.reqs if getattr(r, k) == kwds[k]]
@@ -173,7 +176,7 @@ class RequestSet():
   def __str__(self):
     return make_table(self.reqs, OrderedDict([
       ("Path", lambda r: r.path),
-      ("Query", lambda r: r.query), 
+      ("Query", lambda r: r.query if r.query else "-"), 
       ("Status", lambda r: color_status(r.response.status) if r.response else "-"),
       ("Length", lambda r: str(len(r.response.content)) if (r.response and r.response.content) else "-")
       ]))

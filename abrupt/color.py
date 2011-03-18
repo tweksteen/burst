@@ -7,7 +7,7 @@ try:
   style_error = InputTermColors.Red 
   style_warning = InputTermColors.Yellow
   style_info = InputTermColors.LightBlue
-  style_stealthy = InputTermColors.Black
+  style_stealthy = InputTermColors.LightGray
 
     
   def success(s):
