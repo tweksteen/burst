@@ -175,6 +175,7 @@ class RequestSet():
     
   def __str__(self):
     return make_table(self.reqs, OrderedDict([
+      ("Method", lambda r: info(r.method)),
       ("Path", lambda r: r.path),
       ("Query", lambda r: r.query if r.query else "-"), 
       ("Status", lambda r: color_status(r.response.status) if r.response else "-"),

@@ -1,3 +1,3 @@
 __all__ = ['console', 'http', 'proxy', 'injection', 'color']
-__version__ = "20110318"
+__version__ = "20110321"
 
