@@ -1,3 +1,4 @@
+import re
 import httplib
 import urlparse
 import gzip
@@ -18,9 +19,10 @@ class HTTPConnection(httplib.HTTPConnection):
     self.__state = httplib._CS_IDLE
 
 class Request():
-  
+
   def __init__(self, fd, hostname=None, port=80, use_ssl=False):
-    self.method, url, self.http_version = read_banner(fd).strip().split(" ", 2)
+    if isinstance(fd, basestring): fd = StringIO(fd)
+    self.method, url, self.http_version = read_banner(fd)
     if self.method == "CONNECT":
       self.hostname, self.port = url.split(":", 1)
     else:
@@ -48,11 +50,23 @@ class Request():
         t, v = [q.strip() for q in l.split(":", 1)]
         self.headers.append((t, v))
 
-  def __repr__(self):
-    if self.use_ssl:
-      return "<" + " ".join([info(self.method), self.hostname, self.path, warning("SSL")]) + ">"
+  def _update_content_length(self):
+    if self.content:
+      l = str(len(self.content))
     else:
-      return "<" + " ".join([info(self.method), self.hostname, self.path]) + ">"
+      l = "0"
+    for i, c in enumerate(self.headers):
+      h, v = c  
+      if h.title() == "Content-Length":
+        self.headers[i] = (h, l) 
+        break
+    else:
+      self.headers.append(("Content-Length", l))
+
+  def __repr__(self):
+    fields =[info(self.method), self.hostname, self.path]
+    if self.use_ssl: fields.append(warning("SSL"))
+    return "<" + " ".join(fields) + ">"
   
   def copy(self):
     r_new = copy.copy(self)
@@ -93,7 +107,7 @@ class Request():
 class Response():
   
   def __init__(self, fd):
-    self.http_version, self.status, self.reason = read_banner(fd).strip().split(" ", 2)
+    self.http_version, self.status, self.reason = read_banner(fd)
     self.set_headers(read_headers(fd))
     self.content = read_content(fd, self.headers, self.status)
     self.readable_content = _clear_content(self.headers, self.content)
@@ -154,8 +168,14 @@ class RequestSet():
   def __getitem__(self, i):
     return self.reqs[i]
 
+  def __len__(self):
+    return len(self.reqs)
+
   def __add__(self, other):
     return RequestSet(self.reqs + other.reqs)
+
+  def __bool__(self):
+    return bool(self.reqs)
 
   def filter(self, **kwds):
     for k in kwds:
@@ -169,18 +189,21 @@ class RequestSet():
         status[r.response.status] += 1
       else:
         status["unknown"] += 1
+    status_flat = [ color_status(x) + ":" + str(nb) for x, nb in status.items()]
     hostnames = set([r.hostname for r in self.reqs])
-    return "{" + " ".join([ color_status(x)+":"+str(nb) for x,nb in status.items()]) + " | " + \
-                 ", ".join(hostnames) + "}"
+    return "{" + " ".join(status_flat) + " | " + ", ".join(hostnames) + "}"
     
   def __str__(self):
-    return make_table(self.reqs, OrderedDict([
+    columns =  ([
       ("Method", lambda r: info(r.method)),
       ("Path", lambda r: r.path),
-      ("Query", lambda r: r.query if r.query else "-"), 
       ("Status", lambda r: color_status(r.response.status) if r.response else "-"),
-      ("Length", lambda r: str(len(r.response.content)) if (r.response and r.response.content) else "-")
-      ]))
+      ("Length", lambda r: str(len(r.response.content)) 
+                 if (r.response and r.response.content) else "-")
+      ])
+    if any([hasattr(x, "payload") for x in self.reqs]):
+      columns.insert(2, ("Payload", lambda r: getattr(r,"payload","-"))) 
+    return make_table(self.reqs, columns)
 
   def _init_connection(self):
     if self.use_ssl:
@@ -221,7 +244,7 @@ class RequestSet():
 # mostly inspired by httplib
 
 def read_banner(fp):
-  return fp.readline()
+  return re_space.split(fp.readline().strip(), maxsplit=2)
  
 def read_headers(fp):
   headers = ""

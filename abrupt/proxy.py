@@ -5,11 +5,12 @@ import BaseHTTPServer
 import traceback
 import ssl
 import functools
+import os.path
 
 from abrupt.http import Request, Response, RequestSet
 
-CERT_FILE = "cert/cert-srv.pem"
-KEY_FILE = "cert/key-srv.pem"
+CERT_FILE = os.path.join(os.path.dirname(__file__), "cert/cert-srv.pem")
+KEY_FILE = os.path.join(os.path.dirname(__file__), "cert/key-srv.pem")
 
 class ProxyHTTPRequestHandler(BaseHTTPServer.BaseHTTPRequestHandler):
 

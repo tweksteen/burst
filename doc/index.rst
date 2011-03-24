@@ -132,27 +132,30 @@ Injection
 ^^^^^^^^^
 
 From one request, it is possible to generate a batch of request where one or 
-many parameters change with the *i* function (for now, only the query parameters are set,
-one at a time, with a fixed list of payloads, see abrupt.injection)::
+many parameters change with the *i* function ::
 
   In [14]: r
   Out[14]: <GET phrack.org /issues.html>
 
-  In [15]: attack = i(r)
+  In [15]: attack = i(r, issue="default")
   
   In [16]: r
   Out[16]: {unknown:5 | phrack.org}
 
-In this case, a RequestSet of 5 request has been generated. All the request in this set
-are in a unknown state for now. Let's send them::
+In this case, a RequestSet of 5 requests has been generated. *i* lookup for
+arguments in the query string, the cookie and the post data. You should give 
+the name and the list of payloads name as arguments. Before being injected,
+each payload is pass through the *pre_func* function which is, by default, *e*. 
 
-  In [59]: attack()
+Once the requests have been generated, you can send them::
+
+  In [17]: attack()
   ...
   
-  In [60]: attack
-  Out[60]: {200:5 | phrack.org}
+  In [18]: attack
+  Out[18]: {200:5 | phrack.org}
 
-  In [62]: print attack
+  In [19]: print attack
   Path         Query                                                            Status Length 
   /issues.html issue=%2527                                                      200    2390   
   /issues.html issue=%2527%2B--                                                 200    2390   
@@ -160,6 +163,8 @@ are in a unknown state for now. Let's send them::
   /issues.html issue=-1                                                         200    2390   
   /issues.html issue=2-1                                                        200    1948 
 
+If you want to inject all the undefined parameter with a default value, *default_value*
+can be set. A shortcut for *i(default_value="default")* is *f*. 
 
 Sequence Analyser
 ^^^^^^^^^^^^^^^^^
@@ -168,9 +173,12 @@ TBA
 
 
 CheatSheet
-==========
+----------
 
-* (p)roxy  - run a proxy, default on port 8080
-* (w)atch  - run a passive proxy
-* (i)nject - inject a Request
+* (p)roxy   - run a proxy, default on port 8080
+* (w)atch   - run a passive proxy
+* (i)nject  - inject a Request
+* (f)uzz    - inject all params with default payload
+* (e)ncode  - urlencode a string
+* (d)ecode  - urldecode a string
 

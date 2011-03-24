@@ -4,7 +4,7 @@ try:
   style_normal = InputTermColors.Normal
   style_great_success = InputTermColors.LightGreen
   style_success = InputTermColors.Green
-  style_error = InputTermColors.Red 
+  style_error = InputTermColors.LightRed 
   style_warning = InputTermColors.Yellow
   style_info = InputTermColors.LightBlue
   style_stealthy = InputTermColors.LightGray

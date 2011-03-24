@@ -44,7 +44,7 @@ master_doc = 'index'
 
 # General information about the project.
 project = u'Abrupt'
-copyright = u'2011, Thiebaud Weksteen'
+copyright = u'2011, Thiébaud Weksteen'
 
 # The version info for the project you're documenting, acts as replacement for
 # |version| and |release|, also used in various other places throughout the
@@ -183,7 +183,7 @@ htmlhelp_basename = 'Abruptdoc'
 # (source start file, target name, title, author, documentclass [howto/manual]).
 latex_documents = [
   ('index', 'Abrupt.tex', u'Abrupt Documentation',
-   u'Thiebaud Weksteen', 'manual'),
+   u'Thiébaud Weksteen', 'manual'),
 ]
 
 # The name of an image file (relative to this directory) to place at the top of
@@ -216,5 +216,5 @@ latex_documents = [
 # (source start file, name, description, authors, manual section).
 man_pages = [
     ('index', 'abrupt', u'Abrupt Documentation',
-     [u'Thiebaud Weksteen'], 1)
+     [u'Thiébaud Weksteen'], 1)
 ]
