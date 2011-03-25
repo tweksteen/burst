@@ -92,6 +92,6 @@ def test_char():
   print c[:3]
 
 test_char()
-test_
+test_bin()
 from IPython.Shell import IPShellEmbed
 IPShellEmbed()()

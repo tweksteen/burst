@@ -4,7 +4,7 @@ from distutils.core import setup
 
 setup(
     name = 'abrupt',
-    version = '20110324',
+    version = '0.1',
     packages = ['abrupt'],
     scripts = ['bin/abrupt'],
     package_data = {'abrupt': ['cert/*', 'payloads/*']},
@@ -17,7 +17,7 @@ setup(
         "Development Status :: 4 - Beta",
         "Environment :: Web Environment",
         "Intended Audience :: Developers",
-        "License :: OSI Approved :: BSD License"
+        "License :: OSI Approved :: BSD License",
         "Operating System :: OS Independent",
         "Topic :: Internet :: WWW/HTTP"
         ],

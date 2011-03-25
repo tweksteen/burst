@@ -4,11 +4,16 @@ def interact():
   abrupt_builtins = __import__("all", globals(), locals(), ".").__dict__
   __builtin__.__dict__.update(abrupt_builtins)
   import abrupt
+  import abrupt.conf
   banner = """   _   _                  _   
   /_\ | |__ _ _ _  _ _ __| |_ 
  / _ \| '_ \ '_| || | '_ \  _|
 /_/ \_\_.__/_|  \_,_| .__/\__|
-           v""" + abrupt.__version__ + """|_|"""
+                 """ + abrupt.__version__ + """|_|"""
+  
+  if not abrupt.conf.check_config_dir():
+    print "Generating SSL certificate..."
+    abrupt.proxy.generate_ca_cert()
   try:
     import IPython
     if not len(abrupt.injection.payloads):

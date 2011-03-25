@@ -6,13 +6,33 @@ import traceback
 import ssl
 import functools
 import os.path
+import subprocess
+import shlex
+import random
 
+from abrupt.conf import CONF_DIR
 from abrupt.http import Request, Response, RequestSet
-
-CERT_FILE = os.path.join(os.path.dirname(__file__), "cert/cert-srv.pem")
-KEY_FILE = os.path.join(os.path.dirname(__file__), "cert/key-srv.pem")
+from abrupt.color import *
 
 class ProxyHTTPRequestHandler(BaseHTTPServer.BaseHTTPRequestHandler):
+
+  def generate_serial(self):
+    return hex(random.getrandbits(64))[:-1]
+
+  def generate_ssl_cert(self, domain):
+    domain_cert = os.path.join(CONF_DIR, "certs/", domain + ".pem")
+    if not os.path.exists(domain_cert):
+      gen_req_cmd = "openssl req -new -out %(conf_dir)sreq.pem -key %(conf_dir)skey.pem -subj '/O=Abrupt/CN=%(domain)s'" % {'conf_dir': CONF_DIR, 'domain':domain} 
+      p_req = subprocess.Popen(shlex.split(gen_req_cmd), stdout=subprocess.PIPE, stderr=subprocess.PIPE)
+      ss, se = p_req.communicate()
+      if p_req.returncode:
+        raise Exception("Error while creating the certificate request:" + se)
+      sign_req_cmd = "openssl x509 -req -in %(conf_dir)sreq.pem -CA %(conf_dir)sca.pem -CAkey %(conf_dir)skey.pem -out %(domain_cert)s -set_serial %(serial)s" % {'conf_dir':CONF_DIR, 'domain_cert': domain_cert, 'serial':self.generate_serial()}
+      p_sign = subprocess.Popen(shlex.split(sign_req_cmd), stdout=subprocess.PIPE, stderr=subprocess.PIPE)
+      ss, se = p_sign.communicate()
+      if p_sign.returncode:
+        raise Exception("Error while signing the certificate:" + se)
+    return domain_cert
 
   def bypass_ssl(self, r):
     """
@@ -23,7 +43,7 @@ class ProxyHTTPRequestHandler(BaseHTTPServer.BaseHTTPRequestHandler):
       l = self.rfile.readline()
     self.wfile.write("HTTP/1.1 200 Connection established\r\n\r\n") # yes, sure
     self.ssl_sock = ssl.wrap_socket(self.request, server_side=True,
-                                    certfile=CERT_FILE, keyfile=KEY_FILE)
+                                    certfile=self.generate_ssl_cert(r.hostname), keyfile=os.path.join(CONF_DIR, "key.pem"))
     self.rfile = self.ssl_sock.makefile('rb', self.rbufsize)
     self.wfile = self.ssl_sock.makefile('wb', self.wbufsize)
     return Request(self.rfile, hostname=r.hostname, port=r.port, use_ssl=True)
@@ -63,16 +83,18 @@ class ProxyHTTPRequestHandler(BaseHTTPServer.BaseHTTPRequestHandler):
         self.wfile.write(r.response.raw())
 
     except (ssl.SSLError, socket.timeout), e:
+      print warning(str(e))
       self.close_connection = 1
       return
    
 class ProxyHTTPServer(BaseHTTPServer.HTTPServer):
   
   def handle_error(self, request, client_address):
-    traceback.print_exc()
     exc_type, exc_value, exc_traceback = sys.exc_info()
     if exc_type == KeyboardInterrupt:    
       raise KeyboardInterrupt()
+    else:
+      print warning(str(exc_value))
 
 def intercept(port=8080, prompt=True, nb=-1, filter=None):
   """Intercept all HTTP(S) requests on port. Return a RequestSet of all the 
@@ -103,6 +125,21 @@ def intercept(port=8080, prompt=True, nb=-1, filter=None):
   except KeyboardInterrupt:
     print "%d request intercepted" % e_nb
     return RequestSet(httpd.reqs)
+
+def generate_ca_cert():
+  gen_key_cmd = "openssl genrsa -out %skey.pem 2048" % CONF_DIR
+  gen_ca_cert_cmd = "openssl req -new -x509 -extensions v3_ca -days 3653 " + \
+                    "-subj '/O=Abrupt/CN=Abrupt Proxy' " + \
+                    "-out %(conf_dir)sca.pem -key %(conf_dir)skey.pem" % {'conf_dir': CONF_DIR}
+  p_key = subprocess.Popen(shlex.split(gen_key_cmd), stdout=subprocess.PIPE, stderr=subprocess.PIPE)
+  ss, se = p_key.communicate()
+  if p_key.returncode:
+    raise Exception("Error while creating the key:" + se)
+  p_cert = subprocess.Popen(shlex.split(gen_ca_cert_cmd), stdout=subprocess.PIPE, stderr=subprocess.PIPE)
+  ss, se = p_cert.communicate()
+  if p_cert.returncode:
+    raise Exception("Error while creating the certificate:" + se)
+  print "CA certificate : " + CONF_DIR + "ca.pem"
 
 def p(**kwds):
   """Run a proxy. 

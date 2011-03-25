@@ -1,13 +1,13 @@
-import re
+import os
+import copy
+import gzip
 import httplib
 import urlparse
-import gzip
-import os
 import tempfile
 import webbrowser
 import subprocess
-import copy
-from collections import defaultdict, OrderedDict
+import Cookie
+from collections import defaultdict 
 from StringIO import StringIO
 
 from abrupt.color import *
@@ -42,6 +42,14 @@ class Request():
   @property
   def query(self):
     return urlparse.urlparse(self.url).query
+
+  @property
+  def cookies(self):
+    b = Cookie.SimpleCookie()
+    for h, v in self.headers:
+      if h == "Cookie":
+        b.load(v)
+    return b
   
   def set_headers(self, headers):
     self.headers = []
@@ -103,6 +111,25 @@ class Request():
     r_new = Request(f, self.hostname, self.port, self.use_ssl)
     return r_new
 
+  def extract(self, arg):
+    if arg.startswith("response__"):
+      if self.response: 
+        return self.response.extract(arg.replace("response__", ""))
+    if hasattr(self, arg):
+      return getattr(self, arg)
+    if self.query:
+      query = urlparse.parse_qs(self.query, True)
+      print query
+      if arg in query:
+        return query[arg][0]
+    if self.content:
+      post = urlparse.parse_qs(self.content, True)
+      print post
+      if arg in post:
+        return post[arg][0]
+    c = self.cookies
+    if c:
+      return c[arg].value      
 
 class Response():
   
@@ -131,6 +158,14 @@ class Response():
       s.write(self.readable_content)
     return s.getvalue()
 
+  @property
+  def cookies(self):
+    b = Cookie.SimpleCookie()
+    for h, v in self.headers:
+      if h == "Set-Cookie":
+        b.load(v)
+    return b
+
   def raw(self):
     s = StringIO()
     s.write("%s %s %s\r\n" % (self.http_version, self.status, self.reason))
@@ -155,7 +190,13 @@ class Response():
     webbrowser.open_new_tab(fname)
     os.unlink(fname)
 
-
+  def extract(self, arg):
+    if hasattr(self, arg):
+      return getattr(self, arg)
+    c = self.cookies
+    if arg in c:
+      return c[arg].value
+    
 class RequestSet():
   
   def __init__(self, reqs=None):
@@ -178,9 +219,13 @@ class RequestSet():
     return bool(self.reqs)
 
   def filter(self, **kwds):
+    reqs = self.reqs
     for k in kwds:
-      reqs = [r for r in self.reqs if getattr(r, k) == kwds[k]]
+      reqs = [r for r in reqs if getattr(r, k) == kwds[k]]
     return RequestSet(reqs)
+
+  def extract(self, arg):
+    return [ r.extract(args) for r in self.reqs]
 
   def __repr__(self):
     status = defaultdict(int)
@@ -196,8 +241,9 @@ class RequestSet():
   def __str__(self):
     columns =  ([
       ("Method", lambda r: info(r.method)),
-      ("Path", lambda r: r.path),
-      ("Status", lambda r: color_status(r.response.status) if r.response else "-"),
+      ("Path", lambda r: r.path[:40] + "..." if len(r.path)>40 else r.path),
+      ("Status", lambda r: color_status(r.response.status)
+                 if r.response else "-"),
       ("Length", lambda r: str(len(r.response.content)) 
                  if (r.response and r.response.content) else "-")
       ])

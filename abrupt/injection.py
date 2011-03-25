@@ -61,10 +61,7 @@ def _inject_query(r, pre_func=e, default_payload=None, **kwds):
 
 def _inject_cookie(r, pre_func=e, default_payload=None, **kwds):
   rs = []
-  b = Cookie.SimpleCookie()
-  for h, v in r.headers:
-    if h == "Cookie":
-      b.load(v)
+  b = r.cookies()
   n_headers = [(x,v) for x,v in r.headers if x != "Cookie"]
   for i_pt in b:
     nb = Cookie.SimpleCookie()
@@ -111,18 +108,3 @@ def f(r, **kwds):
   return i(r, default_payload="default", **kwds)
   
 
-def test():
-  from abrupt.http import Request
-  r = Request("""POST http://www.google.com.au/images?q=puppy HTTP/1.1
-Host: www.google.com.au
-User-Agent: Mozilla/5.0 (X11; U; Linux i686; en-US; rv:1.9.2.15) Gecko/20110304 Firefox/3.6.15
-Content-Length: 17
-Cookie: everest_session_v2=IopNipYA70AAAA68; everest_g_v2=g_surferid~IopNipYA70AAAA68; gglck=CAESEPTdouNSobaMC4hy_vmOiPc; $Path="/pouet"
-
-captcha=jfoIslfpP""")
-
-  rs = i(r)
-  print rs
-
-if __name__ == '__main__':
-  test()
