@@ -1,0 +1,12 @@
+
+    _   _                  _   
+   /_\ | |__ _ _ _  _ _ __| |_ 
+  / _ \| '_ \ '_| || | '_ \  _|
+ /_/ \_\_.__/_|  \_,_| .__/\__|
+                  0.1|_|
+
+Abrupt is a web app penetration framework. You can use it as a stand-alone 
+application or use the provided library to quickly forge your own tool. Abrupt 
+is open source. Released under the BSD license. For more information, see 
+COPYING in this directory. For a quick introduction and an overview of the 
+whole tool, read the doc/* files.

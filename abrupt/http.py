@@ -225,7 +225,7 @@ class RequestSet():
     return RequestSet(reqs)
 
   def extract(self, arg):
-    return [ r.extract(args) for r in self.reqs]
+    return [ r.extract(arg) for r in self.reqs]
 
   def __repr__(self):
     status = defaultdict(int)
