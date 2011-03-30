@@ -9,9 +9,9 @@ setup(
     scripts = ['bin/abrupt'],
     package_data = {'abrupt': ['cert/*', 'payloads/*']},
     description = 'Abrupt: interactive HTTP(S) tool',
-    url = "https://github.com/tweksteen/abrupt",
+    url = "https://github.com/securusglobal/abrupt",
     author = u'Thiébaud Weksteen',
-    author_email = "tweksteen@gmail.com",
+    author_email = "thiebaud.weksteen@securusglobal.com",
     classifiers = [
         "Programming Language :: Python",
         "Development Status :: 4 - Beta",
