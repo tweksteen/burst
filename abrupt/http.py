@@ -10,6 +10,7 @@ import Cookie
 from collections import defaultdict 
 from StringIO import StringIO
 
+import abrupt.conf
 from abrupt.color import *
 from abrupt.utils import *
 
@@ -59,10 +60,7 @@ class Request():
         self.headers.append((t, v))
 
   def _update_content_length(self):
-    if self.content:
-      l = str(len(self.content))
-    else:
-      l = "0"
+    l = str(len(self.content)) if self.content else "0"
     for i, c in enumerate(self.headers):
       h, v = c  
       if h.title() == "Content-Length":
@@ -105,7 +103,7 @@ class Request():
     fd, fname = tempfile.mkstemp()
     with os.fdopen(fd, 'w') as f:
       f.write(str(self))
-    editor = os.environ['EDITOR']
+    editor = os.environ['EDITOR'] if 'EDITOR' in os.environ else "/usr/bin/vim"
     ret = subprocess.call(editor + " " + fname, shell=True)
     f = open(fname, 'r')
     r_new = Request(f, self.hostname, self.port, self.use_ssl)
@@ -137,7 +135,10 @@ class Response():
     self.http_version, self.status, self.reason = read_banner(fd)
     self.set_headers(read_headers(fd))
     self.content = read_content(fd, self.headers, self.status)
-    self.readable_content = _clear_content(self.headers, self.content)
+    if self.content:
+      self.readable_content = _clear_content(self.headers, self.content)
+    else:
+      self.readable_content = ""
 
   def __repr__(self):
     flags = []
@@ -218,6 +219,9 @@ class RequestSet():
   def __bool__(self):
     return bool(self.reqs)
 
+  def save(self, name):
+    abrupt.conf.save(self, name)
+    
   def filter(self, **kwds):
     reqs = self.reqs
     for k in kwds:
@@ -248,7 +252,9 @@ class RequestSet():
                  if (r.response and r.response.content) else "-")
       ])
     if any([hasattr(x, "payload") for x in self.reqs]):
-      columns.insert(2, ("Payload", lambda r: getattr(r,"payload","-"))) 
+      columns.insert(2, ("Payload", lambda r: getattr(r,"payload","-")))
+    if len(set([r.hostname for r in self.reqs])) > 1:
+      columns.insert(1, ("Host", lambda r: r.hostname)) 
     return make_table(self.reqs, columns)
 
   def _init_connection(self):
@@ -302,7 +308,9 @@ def read_headers(fp):
   return headers
 
 def read_content(fp, headers, status=None):
-  if ("Transfer-Encoding", "chunked") in headers:
+  if status == "304": 
+    return None
+  elif ("Transfer-Encoding", "chunked") in headers:
     return _chunked_read_content(fp).getvalue()
   elif "Content-Length" in zip(*headers)[0]:
     length_str = zip(*headers)[1][zip(*headers)[0].index("Content-Length")]

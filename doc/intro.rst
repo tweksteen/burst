@@ -27,6 +27,9 @@ have a real experience with it, we highly recommend you to install IPython. By
 default, Abrupt is compatible with HTTPS. For an easier use, we recommend to
 have openssl installed and the openssl command available in the path.
 
+Abrupt adopt the UNIX philosophy, so set you EDITOR and BROWSER environment
+variables buddy.
+
 Quickstart
 ==========
 
@@ -43,7 +46,8 @@ will show you the main functionalities. To start, clone the git repository::
   
 The first time you start Abrupt, it will generate a CA certificate. This is 
 useful to avoid the exception creation whenever you reach a HTTPS site with the
-proxy enabled. You can install this certificate in your browser.
+proxy enabled. You can install this certificate in your browser. However, no 
+check is performed by Abrupt on the server side regarding ssl.
 
 Proxy
 -----
@@ -89,6 +93,11 @@ all the completed requests and associated responses in a RequestSet object::
   
   In [4]: requests[0]
   Out[4]: <GET www.phrack.org />
+
+Not all the requests are shown. By default, a filter silently forward all the 
+image files (.png, .jpg, .jpeg, .ico, .gif). To see them, you can use::
+
+  In [1]: p(filter=None)
 
 Some other functions exists : *w*, just display the requests, doesn't provided
 any interaction. *p1* and *w1*, working as *p* and *w* but only intercept one 

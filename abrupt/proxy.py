@@ -13,6 +13,7 @@ import random
 from abrupt.conf import CONF_DIR
 from abrupt.http import Request, Response, RequestSet
 from abrupt.color import *
+from abrupt.utils import re_filter_images
 
 class ProxyHTTPRequestHandler(BaseHTTPServer.BaseHTTPRequestHandler):
 
@@ -56,7 +57,7 @@ class ProxyHTTPRequestHandler(BaseHTTPServer.BaseHTTPRequestHandler):
       r = Request(self.rfile)
       if r.method == "CONNECT":
         r = self.bypass_ssl(r)
-      if not self.server.filter.search(r.url):
+      if not self.server.filter or not self.server.filter.search(r.url):
         if self.server.prompt:
           e = raw_input(repr(r) + " ? ")
           while True:
@@ -96,7 +97,7 @@ class ProxyHTTPServer(BaseHTTPServer.HTTPServer):
     else:
       print warning(str(exc_value))
 
-def intercept(port=8080, prompt=True, nb=-1, filter=None):
+def intercept(port=8080, prompt=True, nb=-1, filter=re_filter_images):
   """Intercept all HTTP(S) requests on port. Return a RequestSet of all the 
   answered requests.
   
@@ -108,8 +109,6 @@ def intercept(port=8080, prompt=True, nb=-1, filter=None):
   See also: p(), w(), p1(), w1()
   """
   e_nb = 0
-  if not filter:
-    filter = re.compile(r'\.(png|jpg|jpeg|ico|gif)$')
   try:
     print "Running on port", port
     print "Ctrl-C to interrupt the proxy..."
