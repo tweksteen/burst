@@ -1,8 +1,10 @@
-   _   _                  _
-  /_\ | |__ _ _ _  _ _ __| |_ 
- / _ \| '_ \ '_| || | '_ \  _|
-/_/ \_\_.__/_|  \_,_| .__/\__|
-                 0.1|_|
+::
+
+     _   _                  _
+    /_\ | |__ _ _ _  _ _ __| |_ 
+   / _ \| '_ \ '_| || | '_ \  _|
+  /_/ \_\_.__/_|  \_,_| .__/\__|
+                   0.1|_|
 
 Abrupt is a web app penetration framework. You can use it as a stand-alone 
 application or use the provided library to quickly forge your own tool.
@@ -206,12 +208,3 @@ Sequence Analyser
 TBA
 
 
-CheatSheet
-==========
-
-* (p)roxy   - run a proxy, default on port 8080
-* (w)atch   - run a passive proxy
-* (i)nject  - inject a Request
-* (f)uzz    - inject all params with default payload
-* (e)ncode  - urlencode a string
-* (d)ecode  - urldecode a string
