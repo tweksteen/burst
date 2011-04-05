@@ -7,7 +7,7 @@ setup(
     version = '0.1',
     packages = ['abrupt'],
     scripts = ['bin/abrupt'],
-    package_data = {'abrupt': ['cert/*', 'payloads/*']},
+    package_data = {'abrupt': [ 'payloads/*',]},
     description = 'Abrupt: interactive HTTP(S) tool',
     url = "https://github.com/securusglobal/abrupt",
     author = u'Thiébaud Weksteen',
