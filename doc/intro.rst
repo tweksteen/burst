@@ -38,7 +38,7 @@ Quickstart
 To have a quick view of the power of Abrupt, we have made this quickstart which
 will show you the main functionalities. To start, clone the git repository::
 
-  $ git clone ssh://opium/home/tweek/abrupt.git
+  $ git clone git://github.com/SecurusGlobal/Abrupt.git abrupt
   $ cd abrupt
   $ python bin/abrupt
 
