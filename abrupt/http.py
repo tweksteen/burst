@@ -135,6 +135,23 @@ class Request():
     if c:
       return c[arg].value      
 
+def r(url):
+  p_url = urlparse.urlparse(url) 
+  host = p_url.hostname
+  if not p_url.path:
+    raise Exception("No path provided")
+  return Request("""GET %s HTTP/1.1
+Host: %s
+User-Agent: Mozilla/5.0 (Windows; U; Windows NT 5.1; en-US; rv:7.7.7) Gecko/20121212 Firefox/8.0
+Accept: text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8
+Accept-Language: en-us,en;q=0.5
+Accept-Encoding: gzip, deflate
+Accept-Charset: ISO-8859-1,utf-8;q=0.7,*;q=0.7
+Keep-Alive: 115
+Connection: keep-alive
+
+""" % (url,host))
+
 class Response():
   
   def __init__(self, fd):
