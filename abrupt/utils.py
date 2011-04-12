@@ -1,4 +1,5 @@
 import re
+import sys
 import string 
 from collections import OrderedDict
 
@@ -18,10 +19,10 @@ def make_table(requests, fields):
   fields_names = zip(*fields)[0]
   for field_name, field_function in fields:
     fields_len[field_name] = len(field_name)
-  for request in requests:
+  for i, request in enumerate(requests):
     request_field = []
     for field_name, field_function in fields:
-      v = field_function(request)
+      v = field_function(request, i)
       request_field.append(v)
       if len(remove_color(v)) > fields_len[field_name]: 
         fields_len[field_name] = len(remove_color(v))
@@ -32,7 +33,10 @@ def make_table(requests, fields):
                               for i, c in enumerate(r)])
     output += "\n"
   return output
- 
+
+def clear_line():
+  print "\r",
+  sys.stdout.flush() 
 
 def test():
   from color import color_status

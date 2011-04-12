@@ -94,6 +94,21 @@ def _inject_post(r, pre_func=e, default_payload=None, **kwds):
       rs.append(r_new)
   return rs
 
+def _inject_offset(r, offset, pre_func=e, default_payload=None, **kwds):
+  rs = []
+  orig = str(r)
+  pds = _get_payload("", kwds, default_payload)
+  if isinstance(offset, (list,tuple)): 
+    off_b, off_e = offset
+  else:
+    off_b = off_e = offset, offset + 1
+  for p in pds:
+    r_new = Request(orig[:off_b] + pre_func(p) + orig[off_e:], 
+            hostname=r.hostname, port=r.port, use_ssl=r.use_ssl)
+    r_new.payload = "@" + str(offset) + "=" + p
+    rs.append(r_new)
+  return rs
+  
 def i(r, **kwds):
   rqs = RequestSet(_inject_query(r, **kwds))
   if r.method in ("POST", "PUT"):
@@ -103,6 +118,9 @@ def i(r, **kwds):
   if not rqs:
     raise NoInjectionPointFound()
   return rqs 
+
+def i_at(r, offset, payload="default"):
+  return RequestSet(_inject_offset(r, offset, default_payload=payload))
 
 def f(r, **kwds):
   return i(r, default_payload="default", **kwds)

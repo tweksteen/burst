@@ -75,6 +75,8 @@ class ProxyHTTPRequestHandler(BaseHTTPServer.BaseHTTPRequestHandler):
             e = raw_input("(v)iew, (e)dit, (f)orward, (d)rop, (c)ontinue [f]? ") 
         else:
           print repr(r)
+        if self.server.verbose:
+          print r
         r()
         print repr(r.response)
         self.wfile.write(r.response.raw())
@@ -97,7 +99,7 @@ class ProxyHTTPServer(BaseHTTPServer.HTTPServer):
     else:
       print warning(str(exc_value))
 
-def intercept(port=8080, prompt=True, nb=-1, filter=re_filter_images):
+def intercept(port=8080, prompt=True, nb=-1, filter=re_filter_images, verbose=False):
   """Intercept all HTTP(S) requests on port. Return a RequestSet of all the 
   answered requests.
   
@@ -117,6 +119,7 @@ def intercept(port=8080, prompt=True, nb=-1, filter=re_filter_images):
     httpd.filter = filter
     httpd.reqs = []
     httpd.prompt = prompt
+    httpd.verbose = verbose
     while e_nb != nb:
       httpd.handle_request() 
       e_nb += 1

@@ -22,9 +22,13 @@ def save(obj, name):
   print "Saved in", p
 
 
-def load(name):
-  p = os.path.join(CONF_DIR, "save", name)
-  f = open(p, "r")
-  obj = pickle.load(f)
-  f.close()
-  return obj
+def load(name=None):
+  if name:
+    p = os.path.join(CONF_DIR, "save", name)
+    f = open(p, "r")
+    obj = pickle.load(f)
+    f.close()
+    return obj
+  else:
+    p = os.path.join(CONF_DIR, "save")
+    print os.listdir(p)

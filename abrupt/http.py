@@ -7,6 +7,7 @@ import tempfile
 import webbrowser
 import subprocess
 import Cookie
+import traceback
 from collections import defaultdict 
 from StringIO import StringIO
 
@@ -16,6 +17,11 @@ from abrupt.utils import *
 
 class HTTPConnection(httplib.HTTPConnection):
 
+  def _clear(self):
+    self.__state = httplib._CS_IDLE
+
+class HTTPSConnection(httplib.HTTPSConnection):
+  
   def _clear(self):
     self.__state = httplib._CS_IDLE
 
@@ -167,6 +173,12 @@ class Response():
         b.load(v)
     return b
 
+  @property
+  def closed(self):
+    if ("Connection", "close") in self.headers:
+      return True
+    return False
+
   def raw(self):
     s = StringIO()
     s.write("%s %s %s\r\n" % (self.http_version, self.status, self.reason))
@@ -244,27 +256,29 @@ class RequestSet():
     
   def __str__(self):
     columns =  ([
-      ("Method", lambda r: info(r.method)),
-      ("Path", lambda r: r.path[:40] + "..." if len(r.path)>40 else r.path),
-      ("Status", lambda r: color_status(r.response.status)
+      ("Method", lambda r, i: info(r.method)),
+      ("Path", lambda r, i:  r.path[:27] + "..." if len(r.path)>30 else r.path),
+      ("Status", lambda r, i: color_status(r.response.status)
                  if r.response else "-"),
-      ("Length", lambda r: str(len(r.response.content)) 
+      ("Length", lambda r, i: str(len(r.response.content)) 
                  if (r.response and r.response.content) else "-")
       ])
     if any([hasattr(x, "payload") for x in self.reqs]):
-      columns.insert(2, ("Payload", lambda r: getattr(r,"payload","-")))
+      columns.insert(2, ("Payload", lambda r, i: getattr(r,"payload","-")[:30]))
     if len(set([r.hostname for r in self.reqs])) > 1:
-      columns.insert(1, ("Host", lambda r: r.hostname)) 
+      columns.insert(1, ("Host", lambda r, i: r.hostname)) 
+    if len(self.reqs) > 5:
+      columns.insert(0, ("Id", lambda r,i: str(i)))
     return make_table(self.reqs, columns)
 
   def _init_connection(self):
     if self.use_ssl:
-      conn = httplib.HTTPSConnection(self.hostname + ":" + str(self.port))
+      conn = HTTPSConnection(self.hostname + ":" + str(self.port))
     else:
       conn = HTTPConnection(self.hostname + ":" + str(self.port))
     return conn
 
-  def run(self):
+  def run(self, verbose=False):
     if not self.reqs:
       raise Exception("No request to proceed")
     hostnames = set([r.hostname for r in self.reqs])
@@ -276,19 +290,26 @@ class RequestSet():
     self.port = ports.pop()
     self.use_ssl = use_ssls.pop()
     conn = self._init_connection()
-    for r in self.reqs:
+    print "Running %s requests..." % len(self.reqs),
+    clear_line()
+    for i, r in enumerate(self.reqs):
+      if not verbose:
+        print "Running %s requests...%d%%" % (len(self.reqs), i*100/len(self.reqs)),
+        clear_line()
       next = False
       while not next:
         try:
-          print repr(r)
+          if verbose: print repr(r)
           r(conn=conn)
           conn._clear()
-          print repr(r.response)
+          if verbose: print repr(r.response)
+          if r.response.closed: 
+            conn = self._init_connection()
           next = True
         except httplib.HTTPException:
-          traceback.print_exc()
           conn = self._init_connection()
           next = False
+    print "Running %s requests...done." % len(self.reqs)
     conn.close()
 
 
