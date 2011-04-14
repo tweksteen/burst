@@ -28,6 +28,9 @@ class HTTPSConnection(httplib.HTTPSConnection):
 class Request():
 
   def __init__(self, fd, hostname=None, port=80, use_ssl=False):
+    """Create a request. fd should be either a socket descriptor
+       or a string. In both case, it should contain a full request.
+       To generate a request from a URL, see c()"""
     if isinstance(fd, basestring): fd = StringIO(fd)
     self.method, url, self.http_version = read_banner(fd)
     if self.method == "CONNECT":
@@ -135,7 +138,8 @@ class Request():
     if c:
       return c[arg].value      
 
-def r(url):
+def c(url):
+  """Create a request on the fly, based on a URL"""
   p_url = urlparse.urlparse(url) 
   host = p_url.hostname
   if not p_url.path:
