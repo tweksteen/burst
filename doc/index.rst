@@ -7,11 +7,11 @@ application or use the provided library to quickly forge your own tool.
 Description
 ===========
 
-Abrupt integrate all the tools you may need during a penetration testing on a 
-web application like a proxy, a request repeater or a fuzzer. This tool is
-largely inspired by the best python tools: scapy for the interactive prompt,
-django model's query for extracting and filtering request, etc. If you are a 
-python adept, welcome home! 
+Abrupt integrates all the tools you may need during a penetration testing on a
+web application such as a proxy, a request repeater or a fuzzer. This tool is
+largely inspired by the best python tools: scapy for the usability, django's 
+models query for extracting and filtering requests, etc. If you are a python 
+adept, welcome home! 
 
 Of course, Abrupt is open source. Released under the BSD license. For more
 information, see COPYING.
@@ -25,7 +25,7 @@ default, Abrupt is compatible with HTTPS. For an easier use, we recommend to
 have openssl installed and the openssl command available in the path.
 
 Abrupt adopt the UNIX philosophy, so set you EDITOR and BROWSER environment
-variables buddy.
+variables.
 
 Quickstart
 ==========
@@ -118,7 +118,7 @@ httplib::
   Host: www.phrack.org
   Proxy-Connection: keep-alive
 
-Request objects have numerous attributes: hostname, port, headers, path, 
+:class:Request objects have numerous attributes: hostname, port, headers, path, 
 query, url, content. You can create a new request based on another with::
 
   In [7]: new_r = r.edit()
@@ -130,7 +130,7 @@ And execute the new request::
   In [9]: new_r.response
   Out[9]: <200 Gzip 5419>
   
-Response objects have the attributes: status, reason, headers, content, 
+:class:Response objects have the attributes: status, reason, headers, content, 
 readable_content. You can use the *preview* method to open a static dump of
 the response in your favorite $BROWSER.
 
@@ -175,7 +175,7 @@ In this case, a RequestSet of 5 requests has been generated. *i* lookup for
 arguments in the query string, the cookie and the post data. You should give 
 the name and the list of payloads name as arguments. The list of payloads can
 be found in the payloads/ directory. You can also get the keys of the payloads
-global variables.Before being injected, each payload is pass through the
+global variable. Before being injected, each payload is pass through the
 *pre_func* function which is, by default, *e*. 
 
 Once the requests have been generated, you can send them::
@@ -194,7 +194,7 @@ Once the requests have been generated, you can send them::
   /issues.html issue=-1                               200    2390   
   /issues.html issue=2-1                              200    1948 
 
-If you want to inject all the undefined parameter with a default value, 
+If you want to inject all the undefined parameters with a default value, 
 *default_value* can be set. A shortcut for *i(default_value="default")* is *f*. 
 
 Reference
@@ -205,8 +205,8 @@ Reference
 
   http
   proxy
+  injection
   cheatsheet
-
 
 Indices and tables
 ==================

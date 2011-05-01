@@ -1,31 +1,35 @@
-import HTMLParser
-from urlparse import urlparse
+import urlparse
+from BeautifulSoup import BeautifulSoup
 
-class AHTMLParser(HTMLParser.HTMLParser):
+from abrupt.http import RequestSet
+
+def get_links(content):
+  soup = BeautifulSoup(content)  
+  links = [ x["href"] for x in  soup.findAll('a')]
+  return links
   
-  def __init__(self):
-    HTMLParser.HTMLParser.__init__(self)
-    self.links = []
-    self.comments = []
+def spider(requests):
+  new_reqs = []
+  for r in requests:
+    if not r.response: continue
+    if not r.response.readable_content: continue
+    links = get_links(r.response.readable_content)
+    for l in links:
+      url_p = urlparse.urlparse(l)
+      if url_p.scheme == 'http':
+        new_reqs.append(c(l))
+      elif url_p.scheme == 'javascript': 
+        continue
+      elif url_p.scheme == '':
+        if url_p.path:
+          nr = r.copy()
+          n_path = urlparse.urljoin(r.url, l)
+          nr.url = urlparse.urlunparse(urlparse.urlparse(r.url)[:2] + urlparse.urlparse(n_path)[2:])
+          new_reqs.append(nr)
+      else:
+        raise Exception("Miam!?:" + l)
+  return RequestSet(new_reqs)
 
-  def handle_starttag(self, tag, attrs):
-    dattrs = dict(attrs)
-    if tag == "a":
-      if "href" in dattrs:
-        self.links.append(dattrs["href"])
+def s(r):
+  return spider([r,]) 
 
-  def handle_comment(self, data):
-    self.comments.append(data)
-
-def get_links(content, hostname=None):
-  c = AHTMLParser()
-  c.feed(content)
-  if not hostname:
-    return c.links
-  return [l for l in c.links if urlparse(l).hostname == hostname]
-
-def get_comments(content):
-  c = AHTMLParser()
-  c.feed(content)
-  return c.comments
- 

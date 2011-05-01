@@ -39,6 +39,7 @@ class Request():
       p_url = urlparse.urlparse(url)
       self.url = urlparse.urlunparse(("","") + p_url[2:])
       self.hostname = p_url.hostname or hostname
+      if not self.hostname: raise Exception("No hostname")
       self.port = int(p_url.port) if p_url.port else port
       self.use_ssl = use_ssl
       self.set_headers(read_headers(fd))
@@ -143,7 +144,7 @@ def c(url):
   p_url = urlparse.urlparse(url) 
   host = p_url.hostname
   if not p_url.path:
-    raise Exception("No path provided")
+    url += "/"
   return Request("""GET %s HTTP/1.1
 Host: %s
 User-Agent: Mozilla/5.0 (Windows; U; Windows NT 5.1; en-US; rv:7.7.7) Gecko/20121212 Firefox/8.0

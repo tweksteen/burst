@@ -43,8 +43,8 @@ abrupt.http - HTTP base classes
 
   .. attribute:: query 
     
-    The query. For instance, "issue=32". This attribute is read-only. To modify
-    the query, use :attr:`url`.
+    The query. For instance, "issue=32&debug=false". This attribute is 
+    read-only. To modify the query, use :attr:`url`.
 
   .. attribute:: cookies
 
@@ -73,7 +73,9 @@ abrupt.http - HTTP base classes
 
   .. method:: edit()
 
-    start your favorite $EDITOR to edit the request, the new request is returned
+    start your favorite $EDITOR to edit the request, the new request is 
+    returned. If the environment variable $EDITOR has not been set, 'vim'
+    will be used.
 
   .. method:: extract(field)
 
@@ -90,11 +92,69 @@ abrupt.http - HTTP base classes
 
   .. attribute:: status
 
+    The status of the response. For instance, "404" or "200".
+
   .. attribute:: reason
 
+    The reason. For instance, "Not Found"
+
   .. attribute:: http_version
+  
+    The version. For instance, "HTTP/1.1"
+
+  .. attribute:: headers 
+
+     List of couple containing the headers.
+
+  .. attribute:: content
+  
+     The content returned by the server. It could be compressed or chunked.
+  
+  .. attribute:: readable_content
+
+     Decoded content, as displayed by your browser. 
+
+  .. attribute:: cookies
+
+     A python cookie, see http://docs.python.org/library/cookie.html. This 
+     attribute is read-only, based on the :attr:`headers`
+
+  .. method:: raw()
+
+     Return the full response including headers and content.
+
+  .. method:: preview()
+
+     Start your browser on a static dump of the response.
+
+  .. method:: extract(field)
+
+     extract information on the request. See RequestSet.extract
 
 
+.. class:: RequestSet([reqs=None])
 
+  RequestSet is just an easy way to group request. It basically behave like a
+  list. You can access element at a specific index with the `[]` operator.
+  The main methods are:
 
+  .. method:: filter(**kwds)
+    
+    Filter the RequestSet according to some conditions and return a new 
+    RequestSet containing only the request matching all the conditions. For 
+    instance, to filter by hostname, you can use `rs.filter(hostname='phrack.org')`.
+    
+  .. method:: extract(arg)
+    
+    Base on the same idea as filter, it returns a specific attribute for all the
+    request. For instance, `rs.filter("hostname")` or `rs.filter("response__length")`
+
+  .. method:: run()
+  
+    Make all the requests contained in the RequestSet only if they are all using
+    the same host and port. An exception is raised if it is not the case.
+
+  .. method:: save(name)
+
+    Save the request set. Use load(name) to load it. 
   
