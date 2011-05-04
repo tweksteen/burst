@@ -43,7 +43,7 @@ class Request():
       self.port = int(p_url.port) if p_url.port else port
       self.use_ssl = use_ssl
       self.set_headers(read_headers(fd))
-      self.content = read_content(fd, self.headers)
+      self.content = read_content(fd, self.headers, method=self.method)
       self.response = None
       
   @property
@@ -226,6 +226,8 @@ class Response():
     os.unlink(fname)
 
   def extract(self, arg):
+    if arg == "length":
+      return len(self.readable_content)
     if hasattr(self, arg):
       return getattr(self, arg)
     c = self.cookies
@@ -350,7 +352,7 @@ def read_headers(fp):
       break
   return headers
 
-def read_content(fp, headers, status=None):
+def read_content(fp, headers, status=None, method=None):
   if status == "304": 
     return None
   elif ("Transfer-Encoding", "chunked") in headers:
@@ -359,7 +361,7 @@ def read_content(fp, headers, status=None):
     length_str = zip(*headers)[1][zip(*headers)[0].index("Content-Length")]
     length = int(length_str)
     return _read_content(fp, length).getvalue()
-  elif status == "200": # No indication on what we should read, so just read
+  elif status == "200" or method =="POST": # No indication on what we should read, so just read
     return fp.read()
   return None
 

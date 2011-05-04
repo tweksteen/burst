@@ -1,3 +1,4 @@
+import re
 import urllib
 import urlparse
 import httplib
@@ -103,8 +104,12 @@ def _inject_offset(r, offset, pre_func=e, default_payload=None, **kwds):
   else:
     off_b = off_e = offset, offset + 1
   for p in pds:
-    r_new = Request(orig[:off_b] + pre_func(p) + orig[off_e:], 
+    ct = orig[:off_b] + pre_func(p) + orig[off_e:]
+    ct = re.sub("Content-Length:.*\n", "", ct)
+    print ct 
+    r_new = Request(ct, 
             hostname=r.hostname, port=r.port, use_ssl=r.use_ssl)
+    r_new._update_content_length()
     r_new.payload = "@" + str(offset) + "=" + p
     rs.append(r_new)
   return rs
