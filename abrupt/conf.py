@@ -15,6 +15,9 @@ def check_config_dir():
   return True
 
 def save(obj, name):
+  """Save an object in your user directory.
+  See also: load
+  """
   p = os.path.join(CONF_DIR, "save", name)
   f = open(p, "w")
   pickle.dump(obj, f, pickle.HIGHEST_PROTOCOL)
@@ -23,6 +26,9 @@ def save(obj, name):
 
 
 def load(name=None):
+  """Load an object saved with save(). If name is
+  empty, display the possible files.
+  """
   if name:
     p = os.path.join(CONF_DIR, "save", name)
     f = open(p, "r")

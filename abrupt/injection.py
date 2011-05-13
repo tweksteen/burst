@@ -62,7 +62,7 @@ def _inject_query(r, pre_func=e, default_payload=None, **kwds):
 
 def _inject_cookie(r, pre_func=e, default_payload=None, **kwds):
   rs = []
-  b = r.cookies()
+  b = r.cookies
   n_headers = [(x,v) for x,v in r.headers if x != "Cookie"]
   for i_pt in b:
     nb = Cookie.SimpleCookie()
@@ -77,7 +77,6 @@ def _inject_cookie(r, pre_func=e, default_payload=None, **kwds):
       r_new.payload = i_pt + "=" + p
       rs.append(r_new)
   return rs
-  
 
 def _inject_post(r, pre_func=e, default_payload=None, **kwds):
   rs = []
@@ -102,11 +101,10 @@ def _inject_offset(r, offset, pre_func=e, default_payload=None, **kwds):
   if isinstance(offset, (list,tuple)): 
     off_b, off_e = offset
   else:
-    off_b = off_e = offset, offset + 1
+    off_b = off_e = offset
   for p in pds:
     ct = orig[:off_b] + pre_func(p) + orig[off_e:]
     ct = re.sub("Content-Length:.*\n", "", ct)
-    print ct 
     r_new = Request(ct, 
             hostname=r.hostname, port=r.port, use_ssl=r.use_ssl)
     r_new._update_content_length()
@@ -124,8 +122,8 @@ def i(r, **kwds):
     raise NoInjectionPointFound()
   return rqs 
 
-def i_at(r, offset, payload="default"):
-  return RequestSet(_inject_offset(r, offset, default_payload=payload))
+def i_at(r, offset, payload="default", **kwds):
+  return RequestSet(_inject_offset(r, offset, default_payload=payload, **kwds))
 
 def f(r, **kwds):
   return i(r, default_payload="default", **kwds)

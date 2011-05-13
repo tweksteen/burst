@@ -321,6 +321,7 @@ class RequestSet():
         print "Running %s requests...%d%%" % (len(self.reqs), i*100/len(self.reqs)),
         clear_line()
       next = False
+      if r.response: next = True
       while not next:
         try:
           if verbose: print repr(r)
