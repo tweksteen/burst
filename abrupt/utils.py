@@ -1,7 +1,6 @@
 import re
 import sys
 import string 
-from collections import OrderedDict
 
 re_space = re.compile(r'[ \t]+')
 re_ansi_color = re.compile(r"(\x1b\[[;\d]*[A-Za-z])|\x01|\x02").sub

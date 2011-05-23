@@ -147,7 +147,7 @@ abrupt.http - HTTP base classes
   .. method:: extract(arg)
     
     Base on the same idea as filter, it returns a specific attribute for all the
-    request. For instance, `rs.filter("hostname")` or `rs.filter("response__length")`
+    request. For instance, `rs.extract("hostname")`
 
   .. method:: run()
   

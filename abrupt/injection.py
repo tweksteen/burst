@@ -8,7 +8,7 @@ import glob
 import os.path
 import Cookie
 
-from abrupt.http import RequestSet
+from abrupt.http import Request, RequestSet
 from abrupt.color import *
 
 payloads = {}

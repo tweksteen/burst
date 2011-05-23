@@ -49,7 +49,7 @@ check is performed by Abrupt on the server side regarding ssl.
 Proxy
 -----
 
-To start, let's grab some HTTP request. To do so, use the *p* function. It 
+To start, let's grab some HTTP request. To do so, use the :func:`p` function. It 
 starts a new proxy server on port 8080. This server will catch every HTTP(S)
 request and prompt the user for directions::
 
@@ -118,7 +118,7 @@ httplib::
   Host: www.phrack.org
   Proxy-Connection: keep-alive
 
-:class:Request objects have numerous attributes: hostname, port, headers, path, 
+:class:`Request` objects have numerous attributes: hostname, port, headers, path, 
 query, url, content. You can create a new request based on another with::
 
   In [7]: new_r = r.edit()
@@ -130,14 +130,14 @@ And execute the new request::
   In [9]: new_r.response
   Out[9]: <200 Gzip 5419>
   
-:class:Response objects have the attributes: status, reason, headers, content, 
+:class:`Response` objects have the attributes: status, reason, headers, content, 
 readable_content. You can use the *preview* method to open a static dump of
 the response in your favorite $BROWSER.
 
 RequestSet
 ----------
 
-A RequestSet is just a set of requests. Usually, you'll have one from a proxy 
+A :class:`RequestSet` is just a set of requests. Usually, you'll have one from a proxy 
 method. You can add more requests from another capture session::
 
   In [10]: w()
@@ -161,7 +161,7 @@ Injection
 ---------
 
 From one request, it is possible to generate a batch of request where one or 
-many parameters change using the *i* function ::
+many parameters change using the :func:`i` function ::
 
   In [14]: r
   Out[14]: <GET phrack.org /issues.html>
@@ -176,7 +176,7 @@ arguments in the query string, the cookie and the post data. You should give
 the name and the list of payloads name as arguments. The list of payloads can
 be found in the payloads/ directory. You can also get the keys of the payloads
 global variable. Before being injected, each payload is pass through the
-*pre_func* function which is, by default, *e*. 
+*pre_func* function which is, by default, :func:`e`. 
 
 Once the requests have been generated, you can send them::
 

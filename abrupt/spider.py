@@ -1,9 +1,14 @@
 import urlparse
-from BeautifulSoup import BeautifulSoup
-
 from abrupt.http import RequestSet
 
+try:
+  from BeautifulSoup import BeautifulSoup
+  has_soup=True
+except ImportError:
+  has_soup=False
+
 def get_links(content):
+  if not has_soup: raise Exception("To use the spider, you need BeautifulSoup")
   soup = BeautifulSoup(content)  
   links = [ x["href"] for x in  soup.findAll('a')]
   return links
