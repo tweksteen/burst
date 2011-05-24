@@ -137,7 +137,21 @@ class Request():
         return post[arg][0]
     c = self.cookies
     if c:
-      return c[arg].value      
+      if arg in c:
+        return c[arg].value      
+  
+  def filter(self, **kwds):
+    check_response = {}
+    for kw in kwds:
+      if kw.startswith("response__"):
+        check_response[kw.replace("response__", "")] = kwds[kw]
+      if hasattr(self, kw):
+        if getattr(self, kw) != kwds[kw]:
+          return False
+    if check_response:
+      if not self.response or not self.response.filter(**check_response): 
+        return False
+    return True
 
 def c(url):
   """Create a request on the fly, based on a URL"""
@@ -233,7 +247,15 @@ class Response():
     c = self.cookies
     if arg in c:
       return c[arg].value
-    
+  
+  def filter(self, **kwds):
+    for kw in kwds:
+      if not hasattr(self, kw): 
+        return False
+      if getattr(self, kw) != kwds[kw]:
+        return False
+    return True
+  
 class RequestSet():
   
   def __init__(self, reqs=None):
@@ -259,10 +281,7 @@ class RequestSet():
     abrupt.conf.save(self, name)
     
   def filter(self, **kwds):
-    reqs = self.reqs
-    for k in kwds:
-      reqs = [r for r in reqs if getattr(r, k) == kwds[k]]
-    return RequestSet(reqs)
+    return RequestSet([ r for r in self.reqs if r.filter(**kwds)])
 
   def extract(self, arg):
     return [ r.extract(arg) for r in self.reqs]

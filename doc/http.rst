@@ -5,7 +5,7 @@ abrupt.http - HTTP base classes
 
   The Request class is the base of Abrupt. To create an instance, you have 
   two options: either use a socket or a string representing the whole request 
-  into the constructor or use the :fun:c function. 
+  into the constructor or use the :func:`c` function. 
   Once created, the Request object have the following attributes:
 
   .. attribute:: method 
@@ -83,12 +83,14 @@ abrupt.http - HTTP base classes
 
 .. function:: c(url)
 
-  Create a Request based on a URL. For instance `c("http://www.phrack.org")`
+  Create a Request based on a URL. For instance `c("http://www.phrack.org")`.
+  Some headers are automatically added to the request (User-Agent, Accept, 
+  Accept-Encoding, Accept-Language, Accept-Charset, Keep-Alive, Connection).
 
 .. class:: Response(fd)
     
   You will never use directly the constructor of Response, instead reference
-  a response object as a request results.
+  a response object as a request result.
 
   .. attribute:: status
 
@@ -149,7 +151,7 @@ abrupt.http - HTTP base classes
     Base on the same idea as filter, it returns a specific attribute for all the
     request. For instance, `rs.extract("hostname")`
 
-  .. method:: run()
+  .. method:: __call__()
   
     Make all the requests contained in the RequestSet only if they are all using
     the same host and port. An exception is raised if it is not the case.

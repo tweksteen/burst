@@ -14,14 +14,17 @@ generate a :class:`RequestSet` from a Request using a list of payloads):
 
   Then, for each payload contained in `payloads[payload_name]`, it
   will generate a request, based on `request`
-  payload_name should be a key of the payloads dictionnary.
+  payload_name should be a key of the :attr:`payloads` dictionnary.
 
 .. function:: i_at(request, offset, payload=payload_name, [pre_func=e])
 
-  This function inject the request at a specific offset or between
-  the offset position. If offset is an integer, the payload will be inserted
-  at this position. If offset is a range (e.g., (23,29)) this range will
-  be erased with the payload. 
+  This function inject the request at a specific offset, between
+  two offset position or instead a token. 
+  If *offset* is an integer, the payload will be inserted
+  at this position. If *offset* is a range (e.g., (23,29)) this range will
+  be erased with the payload. If *offset* is a string, it will be replaced
+  by the payloads. In the latter scenario, if the string is not found or
+  if more than one occurrence exists, an exception will be raised.
 
 Once the RequestSet has been generated, you can execute it. The payloads
 are available in a global dictionnary:

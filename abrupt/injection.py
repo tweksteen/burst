@@ -19,6 +19,7 @@ for f_name in glob.glob(os.path.join(os.path.dirname(__file__), "payloads/*")):
 
 class PayloadNotFound(Exception): pass
 class NoInjectionPointFound(Exception): pass
+class NonUniqueInjectionPoint(Exception): pass
 
 def e(s):
   return urllib.quote_plus(s)  
@@ -100,13 +101,18 @@ def _inject_offset(r, offset, pre_func=e, default_payload=None, **kwds):
   pds = _get_payload("", kwds, default_payload)
   if isinstance(offset, (list,tuple)): 
     off_b, off_e = offset
+  elif isinstance(offset, basestring):
+    ct = str(r).count(offset)
+    if ct > 1: raise NonUniqueInjectionPoint("The pattern is not unique in the request")
+    elif ct < 1: raise NoInjectionPointFound("Could not find the pattern")
+    idx = str(r).find(offset)
+    off_b, off_e = idx, idx+len(offset)
   else:
     off_b = off_e = offset
   for p in pds:
     ct = orig[:off_b] + pre_func(p) + orig[off_e:]
     ct = re.sub("Content-Length:.*\n", "", ct)
-    r_new = Request(ct, 
-            hostname=r.hostname, port=r.port, use_ssl=r.use_ssl)
+    r_new = Request(ct, hostname=r.hostname, port=r.port, use_ssl=r.use_ssl)
     r_new._update_content_length()
     r_new.payload = "@" + str(offset) + "=" + p
     rs.append(r_new)
