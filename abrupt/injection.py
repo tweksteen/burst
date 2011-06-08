@@ -30,7 +30,7 @@ def ee(s):
 def d(s):
   return urllib.unquote_plus(s)
 
-def _get_payload(name, kwds, default_payload):
+def _get_payload(name, kwds):
   pds = []
   try:
     if name in kwds:
@@ -38,19 +38,17 @@ def _get_payload(name, kwds, default_payload):
         pds = kwds[name]
       else:
         pds = payloads[kwds[name]]
-    elif default_payload:
-      pds = payloads[default_payload]
     return pds
   except KeyError:
     raise PayloadNotFound("Possible values are: " +", ".join(payloads.keys()))
 
-def _inject_query(r, pre_func=e, default_payload=None, **kwds):
+def _inject_query(r, pre_func=e, **kwds):
   rs = []
   parsed_url = urlparse.urlparse(r.url)
   i_pts = urlparse.parse_qs(r.query, True)
   for i_pt in i_pts:
     nq = i_pts.copy()
-    pds = _get_payload(i_pt, kwds, default_payload)
+    pds = _get_payload(i_pt, kwds)
     for p in pds:
       nq[i_pt] = [pre_func(p),]
       s = list(parsed_url)
@@ -61,30 +59,29 @@ def _inject_query(r, pre_func=e, default_payload=None, **kwds):
       rs.append(r_new)
   return rs
 
-def _inject_cookie(r, pre_func=e, default_payload=None, **kwds):
+def _inject_cookie(r, pre_func=e, **kwds):
   rs = []
   b = r.cookies
   n_headers = [(x,v) for x,v in r.headers if x != "Cookie"]
   for i_pt in b:
     nb = Cookie.SimpleCookie()
     nb.load(b.output(header=""))
-    pds = _get_payload(i_pt, kwds, default_payload)
+    pds = _get_payload(i_pt, kwds)
     for p in pds:
       nb[i_pt] = pre_func(p)
       r_new = r.copy()
       nbs =  nb.output(header="", sep=";").strip()
-      print n_headers
       r_new.headers = n_headers + [("Cookie", nbs),]
       r_new.payload = i_pt + "=" + p
       rs.append(r_new)
   return rs
 
-def _inject_post(r, pre_func=e, default_payload=None, **kwds):
+def _inject_post(r, pre_func=e, **kwds):
   rs = []
   i_pts = urlparse.parse_qs(r.content, True)
   for i_pt in i_pts:
     nc = i_pts.copy()
-    pds = _get_payload(i_pt, kwds, default_payload)
+    pds = _get_payload(i_pt, kwds)
     for p in pds:
       nc[i_pt] = [pre_func(p),]
       n_content = urllib.urlencode(nc, True)
@@ -95,10 +92,10 @@ def _inject_post(r, pre_func=e, default_payload=None, **kwds):
       rs.append(r_new)
   return rs
 
-def _inject_offset(r, offset, pre_func=e, default_payload=None, **kwds):
+def _inject_offset(r, offset, payload, pre_func=e):
   rs = []
   orig = str(r)
-  pds = _get_payload("", kwds, default_payload)
+  pds = _get_payload("offset", {"offset":payload})
   if isinstance(offset, (list,tuple)): 
     off_b, off_e = offset
   elif isinstance(offset, basestring):
@@ -119,6 +116,21 @@ def _inject_offset(r, offset, pre_func=e, default_payload=None, **kwds):
   return rs
   
 def i(r, **kwds):
+  """ Inject a request.
+  For each keyword, this function will try to find the key in the request
+  at the following locations:
+
+    * URL parameters
+    * Cookies
+    * Content for a POST or PUT request
+
+  Then, each value will be injected at the parameter location and a set
+  of request returned. The values could be either a list of payload
+  (e.g., id=[1,2,3]) or a key of the global dictionnary :data:`payloads`
+  (e.g., name="default").
+
+  See also: payloads, i_at
+  """
   rqs = RequestSet(_inject_query(r, **kwds))
   if r.method in ("POST", "PUT"):
     rqs += RequestSet(_inject_post(r, **kwds))
@@ -128,10 +140,17 @@ def i(r, **kwds):
     raise NoInjectionPointFound()
   return rqs 
 
-def i_at(r, offset, payload="default", **kwds):
-  return RequestSet(_inject_offset(r, offset, default_payload=payload, **kwds))
+def i_at(r, offset, payload, **kwds):
+  """Surgically inject a request.
 
-def f(r, **kwds):
-  return i(r, default_payload="default", **kwds)
-  
+  This function inject the request at a specific offset, between two offset 
+  position or instead a token. If *offset* is an integer, the payload will 
+  be inserted at this position. If *offset* is a range (e.g., (23,29)) this 
+  range will be erased with the payload. If *offset* is a string, it will be 
+  replaced by the payloads. In the latter scenario, if the string is not 
+  found or if more than one occurrence exists, an exception will be raised.
+
+  See also: payloads, i
+  """
+  return RequestSet(_inject_offset(r, offset, payload, **kwds))
 

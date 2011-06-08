@@ -5,6 +5,5 @@ CheatSheet
 * (w)atch   - run a passive proxy
 * (c)reate  - create a request based on a URL
 * (i)nject  - inject a Request
-* (f)uzz    - inject all params with default payload
 * (e)ncode  - urlencode a string
 * (d)ecode  - urldecode a string

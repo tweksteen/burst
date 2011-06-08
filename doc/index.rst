@@ -1,24 +1,18 @@
 Welcome to Abrupt's documentation!
 ==================================
 
-Abrupt is a web app penetration framework. You can use it as a stand-alone 
-application or use the provided library to quickly forge your own tool.
-
-Description
-===========
-
 Abrupt integrates all the tools you may need during a penetration testing on a
 web application such as a proxy, a request repeater or a fuzzer. This tool is
 largely inspired by the best python tools: scapy for the usability, django's 
 models query for extracting and filtering requests, etc. If you are a python 
-adept, welcome home! 
+adept, welcome home! You can use Abrupt as a stand-alone application or if 
+something is missing, use the provided library to quickly forge your own tool.
 
 Of course, Abrupt is open source. Released under the BSD license. For more
 information, see COPYING.
 
 Requirements
-============
-
+------------
 Abrupt is based on python>=2.6. It is not python3 compatible for now. Also to
 have a real experience with it, we highly recommend you to install IPython. By
 default, Abrupt is compatible with HTTPS. For an easier use, we recommend to
@@ -35,7 +29,8 @@ will show you the main functionalities. To start, clone the git repository::
 
   $ git clone git://github.com/SecurusGlobal/Abrupt.git abrupt
   $ cd abrupt
-  $ python bin/abrupt
+  $ sudo python setup.py install
+  $ abrupt
 
   Generating SSL certificate...
   CA certificate : /home/tweksteen/.abrupt/ca.pem
@@ -118,8 +113,9 @@ httplib::
   Host: www.phrack.org
   Proxy-Connection: keep-alive
 
-:class:`Request` objects have numerous attributes: hostname, port, headers, path, 
-query, url, content. You can create a new request based on another with::
+:class:`Request` objects have numerous attributes: hostname, port, headers, 
+path, query, url, content. You can edit the request through your EDITOR 
+(default is vim) to create a new request::
 
   In [7]: new_r = r.edit()
   
@@ -132,7 +128,7 @@ And execute the new request::
   
 :class:`Response` objects have the attributes: status, reason, headers, content, 
 readable_content. You can use the *preview* method to open a static dump of
-the response in your favorite $BROWSER.
+the response in your favorite BROWSER.
 
 RequestSet
 ----------
@@ -174,7 +170,7 @@ many parameters change using the :func:`i` function ::
 In this case, a RequestSet of 5 requests has been generated. *i* lookup for
 arguments in the query string, the cookie and the post data. You should give 
 the name and the list of payloads name as arguments. The list of payloads can
-be found in the payloads/ directory. You can also get the keys of the payloads
+be found in the payloads/ directory. You can also get the keys of the :data:`payloads`
 global variable. Before being injected, each payload is pass through the
 *pre_func* function which is, by default, :func:`e`. 
 
@@ -193,9 +189,6 @@ Once the requests have been generated, you can send them::
   /issues.html issue=%253E%253Cscript%253Ealert%25... 200    2390   
   /issues.html issue=-1                               200    2390   
   /issues.html issue=2-1                              200    1948 
-
-If you want to inject all the undefined parameters with a default value, 
-*default_value* can be set. A shortcut for *i(default_value="default")* is *f*. 
 
 Reference
 =========

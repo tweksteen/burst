@@ -1,26 +1,24 @@
-import re
 import sys
-import socket
-import BaseHTTPServer
-import traceback
-import ssl
-import functools
+import shlex
 import os.path
 import subprocess
-import shlex
 import random
+import socket
+import BaseHTTPServer
+import ssl
+import httplib
 
 from abrupt.conf import CONF_DIR
-from abrupt.http import Request, Response, RequestSet
+from abrupt.http import Request, Response, RequestSet, HTTPConnection, HTTPSConnection
 from abrupt.color import *
 from abrupt.utils import re_filter_images
 
 class ProxyHTTPRequestHandler(BaseHTTPServer.BaseHTTPRequestHandler):
 
-  def generate_serial(self):
+  def _generate_serial(self):
     return hex(random.getrandbits(64))[:-1]
 
-  def generate_ssl_cert(self, domain):
+  def _generate_ssl_cert(self, domain):
     domain_cert = os.path.join(CONF_DIR, "certs/", domain + ".pem")
     if not os.path.exists(domain_cert):
       gen_req_cmd = "openssl req -new -out %(conf_dir)sreq.pem -key %(conf_dir)skey.pem -subj '/O=Abrupt/CN=%(domain)s'" % {'conf_dir': CONF_DIR, 'domain':domain} 
@@ -28,14 +26,14 @@ class ProxyHTTPRequestHandler(BaseHTTPServer.BaseHTTPRequestHandler):
       ss, se = p_req.communicate()
       if p_req.returncode:
         raise Exception("Error while creating the certificate request:" + se)
-      sign_req_cmd = "openssl x509 -req -in %(conf_dir)sreq.pem -CA %(conf_dir)sca.pem -CAkey %(conf_dir)skey.pem -out %(domain_cert)s -set_serial %(serial)s" % {'conf_dir':CONF_DIR, 'domain_cert': domain_cert, 'serial':self.generate_serial()}
+      sign_req_cmd = "openssl x509 -req -in %(conf_dir)sreq.pem -CA %(conf_dir)sca.pem -CAkey %(conf_dir)skey.pem -out %(domain_cert)s -set_serial %(serial)s" % {'conf_dir':CONF_DIR, 'domain_cert': domain_cert, 'serial':self._generate_serial()}
       p_sign = subprocess.Popen(shlex.split(sign_req_cmd), stdout=subprocess.PIPE, stderr=subprocess.PIPE)
       ss, se = p_sign.communicate()
       if p_sign.returncode:
         raise Exception("Error while signing the certificate:" + se)
     return domain_cert
 
-  def bypass_ssl(self, r):
+  def _bypass_ssl(self, r):
     """
     SSL bypass, behave like the requested server and provide a certificate.
     """
@@ -44,11 +42,46 @@ class ProxyHTTPRequestHandler(BaseHTTPServer.BaseHTTPRequestHandler):
       l = self.rfile.readline()
     self.wfile.write("HTTP/1.1 200 Connection established\r\n\r\n") # yes, sure
     self.ssl_sock = ssl.wrap_socket(self.request, server_side=True,
-                                    certfile=self.generate_ssl_cert(r.hostname), keyfile=os.path.join(CONF_DIR, "key.pem"))
+                                    certfile=self._generate_ssl_cert(r.hostname), keyfile=os.path.join(CONF_DIR, "key.pem"))
     self.rfile = self.ssl_sock.makefile('rb', self.rbufsize)
     self.wfile = self.ssl_sock.makefile('wb', self.wbufsize)
     return Request(self.rfile, hostname=r.hostname, port=r.port, use_ssl=True)
  
+  def _init_connection(self, r):
+    """
+    Init the connection with the remote server
+    """
+    if r.use_ssl:
+      conn = HTTPSConnection(r.hostname + ":" + str(r.port))
+    else:
+      conn = HTTPConnection(r.hostname + ":" + str(r.port))
+    return conn
+
+  def _do_connection(self, r):
+    """
+    Do the request to the remote server. Equivalent to r().
+    Just reuse the socket if we can.
+    """
+    if not self.server.prev or \
+       self.server.prev["hostname"] != r.hostname or \
+       self.server.prev["port"] != r.port or \
+       self.server.prev["use_ssl"] != r.use_ssl:
+      self.server.conn = self._init_connection(r)
+    else: 
+      self.server.conn._clear()
+    done = False
+    while not done:
+      try:
+        r(conn=self.server.conn)
+        if not r.response.closed:
+          self.server.prev = {"hostname":r.hostname, "port":r.port, "use_ssl":r.use_ssl}
+        else:
+          self.server.conn.close()
+        done = True
+      except httplib.HTTPException, e:
+        print e
+        self.server.conn = self._init_connection(r)
+
   def handle_one_request(self):
     """
     Accept a request, enable the user to modify, drop or forward it.
@@ -56,7 +89,7 @@ class ProxyHTTPRequestHandler(BaseHTTPServer.BaseHTTPRequestHandler):
     try:
       r = Request(self.rfile)
       if r.method == "CONNECT":
-        r = self.bypass_ssl(r)
+        r = self._bypass_ssl(r)
       if not self.server.filter or not self.server.filter.search(r.url):
         if self.server.prompt:
           e = raw_input(repr(r) + " ? ")
@@ -77,17 +110,16 @@ class ProxyHTTPRequestHandler(BaseHTTPServer.BaseHTTPRequestHandler):
           print repr(r)
         if self.server.verbose:
           print r
-        r()
+        self._do_connection(r)
         print repr(r.response)
         self.wfile.write(r.response.raw())
-        self.server.reqs.append(r)  
-      else: 
-        r()
+        self.server.reqs.append(r)
+      else:
+        self._do_connection(r)
         self.wfile.write(r.response.raw())
-
+    
     except (ssl.SSLError, socket.timeout), e:
       print warning(str(e))
-      self.close_connection = 1
       return
    
 class ProxyHTTPServer(BaseHTTPServer.HTTPServer):
@@ -120,6 +152,7 @@ def intercept(port=8080, prompt=True, nb=-1, filter=re_filter_images, verbose=Fa
     httpd.reqs = []
     httpd.prompt = prompt
     httpd.verbose = verbose
+    httpd.prev = None
     while e_nb != nb:
       httpd.handle_request() 
       e_nb += 1

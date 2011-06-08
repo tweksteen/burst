@@ -4,19 +4,42 @@ abrupt.injection - Request generator
 The injection module provides two functions to "inject" a request (i.e.,
 generate a :class:`RequestSet` from a Request using a list of payloads):
 
-.. function:: i(request, param=payload_name, [pre_func=e])
+.. function:: i(request, **kwds, [pre_func=e])
   
-  This function will try to find the value `param` at the following locations:
+  For each keyword, this function will try to find the key in the request
+  at the following locations:
 
     * URL parameters
     * Cookies
     * Content for a POST or PUT request
 
-  Then, for each payload contained in `payloads[payload_name]`, it
-  will generate a request, based on `request`
-  payload_name should be a key of the :attr:`payloads` dictionnary.
+  Then, each value will be injected at the parameter location and a set
+  of request returned. The values could be either a list of payload
+  (e.g., id=[1,2,3]) or a key of the global dictionnary :data:`payloads`
+  (e.g., name="default").
 
-.. function:: i_at(request, offset, payload=payload_name, [pre_func=e])
+  Some examples::
+
+    In [1]: print r
+    GET /issues.html?issue=59&id=5 HTTP/1.1
+    Host: www.phrack.com
+    Cookie: PHPSESSID=4592a21fc9fd6b1e0afcc931eb74b28a
+
+    In [2]: i(r, id="default")  
+    Out[2]: {unknown:9 | www.phrack.com}
+
+    In [3]: i(r, PHPSESSID=["1234","0000","31337-abcd"])
+    Out[3]: {unknown:2 | www.phrack.com}    
+
+    In [4]: i(r, issue="sqli")
+    Out[4]: {unknown:106 | www.phrack.com}    
+
+i(r, issue="sqli")
+
+  The *pre_func* parameter is a function to apply to each payload before
+  being injected. By default, it urlencode the payload.
+  
+.. function:: i_at(request, offset, payload, [pre_func=e])
 
   This function inject the request at a specific offset, between
   two offset position or instead a token. 
@@ -34,6 +57,12 @@ are available in a global dictionnary:
   Dictionnary containing all the payloads. Each value is a list of
   string. When started, Abrupt load all the files under the directory
   "payloads" and create the corresponding key.
+
+  By default, it contains:
+    * default, a minimal list of standard payload, targetting classic web
+      app vulnerabilities.
+    * full, a larger list of standard payload.
+    * sqli, targetting SQL injection. 
 
 Some handy functions are also defined:
 

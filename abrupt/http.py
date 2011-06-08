@@ -7,7 +7,6 @@ import tempfile
 import webbrowser
 import subprocess
 import Cookie
-import traceback
 from collections import defaultdict 
 from StringIO import StringIO
 
@@ -215,6 +214,10 @@ class Response():
       return True
     return False
 
+  @property
+  def length(self):
+    return len(self.readable_content)
+
   def raw(self):
     s = StringIO()
     s.write("%s %s %s\r\n" % (self.http_version, self.status, self.reason))
@@ -240,8 +243,6 @@ class Response():
     os.unlink(fname)
 
   def extract(self, arg):
-    if arg == "length":
-      return len(self.readable_content)
     if hasattr(self, arg):
       return getattr(self, arg)
     c = self.cookies
@@ -296,7 +297,7 @@ class RequestSet():
     status_flat = [ color_status(x) + ":" + str(nb) for x, nb in status.items()]
     hostnames = set([r.hostname for r in self.reqs])
     return "{" + " ".join(status_flat) + " | " + ", ".join(hostnames) + "}"
-    
+     
   def __str__(self):
     columns =  ([
       ("Method", lambda r, i: info(r.method)),
