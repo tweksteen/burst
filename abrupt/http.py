@@ -31,7 +31,10 @@ class Request():
        or a string. In both case, it should contain a full request.
        To generate a request from a URL, see c()"""
     if isinstance(fd, basestring): fd = StringIO(fd)
-    self.method, url, self.http_version = read_banner(fd)
+    try:
+      self.method, url, self.http_version = read_banner(fd) 
+    except:
+      raise httplib.NotConnected()
     if self.method == "CONNECT":
       self.hostname, self.port = url.split(":", 1)
     else:
@@ -363,7 +366,7 @@ class RequestSet():
 
 def read_banner(fp):
   return re_space.split(fp.readline().strip(), maxsplit=2)
- 
+
 def read_headers(fp):
   headers = ""
   while True:

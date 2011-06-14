@@ -3,12 +3,15 @@ import os.path
 import pickle
 
 CONF_DIR = os.path.expanduser("~/.abrupt/")
+CERT_DIR = os.path.join(CONF_DIR, "certs")
 
 def check_config_dir():
   if not os.path.exists(CONF_DIR):
     os.mkdir(CONF_DIR, 0700)
-    if not os.path.exists(os.path.join(CONF_DIR, "certs")):
-      os.mkdir(os.path.join(CONF_DIR, "certs"), 0700)
+    if not os.path.exists(CERT_DIR):
+      os.mkdir(CERT_DIR, 0700)
+      if not os.path.exists(os.path.join(CERT_DIR, "sites")):
+        os.mkdir(os.path.join(CERT_DIR, "sites"), 0700)
     if not os.path.exists(os.path.join(CONF_DIR, "save")):
       os.mkdir(os.path.join(CONF_DIR, "save"), 0700)
     return False

@@ -1,37 +1,16 @@
 import sys
-import shlex
-import os.path
-import subprocess
-import random
 import socket
 import BaseHTTPServer
 import ssl
 import httplib
 
-from abrupt.conf import CONF_DIR
+from abrupt.conf import CERT_DIR
 from abrupt.http import Request, Response, RequestSet, HTTPConnection, HTTPSConnection
 from abrupt.color import *
+from abrupt.cert import generate_ssl_cert, get_key_file
 from abrupt.utils import re_filter_images
 
 class ProxyHTTPRequestHandler(BaseHTTPServer.BaseHTTPRequestHandler):
-
-  def _generate_serial(self):
-    return hex(random.getrandbits(64))[:-1]
-
-  def _generate_ssl_cert(self, domain):
-    domain_cert = os.path.join(CONF_DIR, "certs/", domain + ".pem")
-    if not os.path.exists(domain_cert):
-      gen_req_cmd = "openssl req -new -out %(conf_dir)sreq.pem -key %(conf_dir)skey.pem -subj '/O=Abrupt/CN=%(domain)s'" % {'conf_dir': CONF_DIR, 'domain':domain} 
-      p_req = subprocess.Popen(shlex.split(gen_req_cmd), stdout=subprocess.PIPE, stderr=subprocess.PIPE)
-      ss, se = p_req.communicate()
-      if p_req.returncode:
-        raise Exception("Error while creating the certificate request:" + se)
-      sign_req_cmd = "openssl x509 -req -in %(conf_dir)sreq.pem -CA %(conf_dir)sca.pem -CAkey %(conf_dir)skey.pem -out %(domain_cert)s -set_serial %(serial)s" % {'conf_dir':CONF_DIR, 'domain_cert': domain_cert, 'serial':self._generate_serial()}
-      p_sign = subprocess.Popen(shlex.split(sign_req_cmd), stdout=subprocess.PIPE, stderr=subprocess.PIPE)
-      ss, se = p_sign.communicate()
-      if p_sign.returncode:
-        raise Exception("Error while signing the certificate:" + se)
-    return domain_cert
 
   def _bypass_ssl(self, r):
     """
@@ -42,7 +21,8 @@ class ProxyHTTPRequestHandler(BaseHTTPServer.BaseHTTPRequestHandler):
       l = self.rfile.readline()
     self.wfile.write("HTTP/1.1 200 Connection established\r\n\r\n") # yes, sure
     self.ssl_sock = ssl.wrap_socket(self.request, server_side=True,
-                                    certfile=self._generate_ssl_cert(r.hostname), keyfile=os.path.join(CONF_DIR, "key.pem"))
+                                    certfile=generate_ssl_cert(r.hostname), 
+                                    keyfile=get_key_file())
     self.rfile = self.ssl_sock.makefile('rb', self.rbufsize)
     self.wfile = self.ssl_sock.makefile('wb', self.wbufsize)
     return Request(self.rfile, hostname=r.hostname, port=r.port, use_ssl=True)
@@ -78,8 +58,7 @@ class ProxyHTTPRequestHandler(BaseHTTPServer.BaseHTTPRequestHandler):
         else:
           self.server.conn.close()
         done = True
-      except httplib.HTTPException, e:
-        print e
+      except (httplib.HTTPException, socket.error), e:
         self.server.conn = self._init_connection(r)
 
   def handle_one_request(self):
@@ -112,6 +91,8 @@ class ProxyHTTPRequestHandler(BaseHTTPServer.BaseHTTPRequestHandler):
           print r
         self._do_connection(r)
         print repr(r.response)
+        if self.server.verbose:
+          print r.response
         self.wfile.write(r.response.raw())
         self.server.reqs.append(r)
       else:
@@ -161,20 +142,6 @@ def intercept(port=8080, prompt=True, nb=-1, filter=re_filter_images, verbose=Fa
     print "%d request intercepted" % e_nb
     return RequestSet(httpd.reqs)
 
-def generate_ca_cert():
-  gen_key_cmd = "openssl genrsa -out %skey.pem 2048" % CONF_DIR
-  gen_ca_cert_cmd = "openssl req -new -x509 -extensions v3_ca -days 3653 " + \
-                    "-subj '/O=Abrupt/CN=Abrupt Proxy' " + \
-                    "-out %(conf_dir)sca.pem -key %(conf_dir)skey.pem" % {'conf_dir': CONF_DIR}
-  p_key = subprocess.Popen(shlex.split(gen_key_cmd), stdout=subprocess.PIPE, stderr=subprocess.PIPE)
-  ss, se = p_key.communicate()
-  if p_key.returncode:
-    raise Exception("Error while creating the key:" + se)
-  p_cert = subprocess.Popen(shlex.split(gen_ca_cert_cmd), stdout=subprocess.PIPE, stderr=subprocess.PIPE)
-  ss, se = p_cert.communicate()
-  if p_cert.returncode:
-    raise Exception("Error while creating the certificate:" + se)
-  print "CA certificate : " + CONF_DIR + "ca.pem"
 
 def p(**kwds):
   """Run a proxy. 
