@@ -7,3 +7,5 @@ CheatSheet
 * (i)nject  - inject a Request
 * (e)ncode  - urlencode a string
 * (d)ecode  - urldecode a string
+* (ss) switch session - change the current session
+* (lss) list sessions - list the existing sessions

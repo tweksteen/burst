@@ -13,10 +13,9 @@ information, see COPYING.
 
 Requirements
 ------------
-Abrupt is based on python>=2.6. It is not python3 compatible for now. Also to
-have a real experience with it, we highly recommend you to install IPython. By
-default, Abrupt is compatible with HTTPS. For an easier use, we recommend to
-have openssl installed and the openssl command available in the path.
+Abrupt requires python>=2.6. It is compatible with HTTPS. For an easier 
+use, we recommend to have openssl installed and the openssl command 
+available in the path.
 
 Abrupt adopt the UNIX philosophy, so set you EDITOR and BROWSER environment
 variables.

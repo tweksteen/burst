@@ -9,8 +9,8 @@ except ImportError:
 
 def get_links(content):
   if not has_soup: raise Exception("To use the spider, you need BeautifulSoup")
-  soup = BeautifulSoup(content)  
-  links = [ x["href"] for x in  soup.findAll('a')]
+  soup = BeautifulSoup(content) 
+  links = [ x["href"] for x in soup.findAll('a') if x.has_key('href')]
   return links
   
 def spider(requests):
@@ -19,6 +19,7 @@ def spider(requests):
     if not r.response: continue
     if not r.response.readable_content: continue
     links = get_links(r.response.readable_content)
+    print links
     for l in links:
       url_p = urlparse.urlparse(l)
       if url_p.scheme == 'http':

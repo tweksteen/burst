@@ -4,6 +4,7 @@ import pickle
 
 CONF_DIR = os.path.expanduser("~/.abrupt/")
 CERT_DIR = os.path.join(CONF_DIR, "certs")
+SESSION_DIR = os.path.join(CONF_DIR, "sessions")
 
 def check_config_dir():
   if not os.path.exists(CONF_DIR):
@@ -12,32 +13,8 @@ def check_config_dir():
       os.mkdir(CERT_DIR, 0700)
       if not os.path.exists(os.path.join(CERT_DIR, "sites")):
         os.mkdir(os.path.join(CERT_DIR, "sites"), 0700)
-    if not os.path.exists(os.path.join(CONF_DIR, "save")):
-      os.mkdir(os.path.join(CONF_DIR, "save"), 0700)
+    if not os.path.exists(SESSION_DIR):
+      os.mkdir(SESSION_DIR, 0700)
     return False
   return True
 
-def save(obj, name):
-  """Save an object in your user directory.
-  See also: load
-  """
-  p = os.path.join(CONF_DIR, "save", name)
-  f = open(p, "w")
-  pickle.dump(obj, f, pickle.HIGHEST_PROTOCOL)
-  f.close()
-  print "Saved in", p
-
-
-def load(name=None):
-  """Load an object saved with save(). If name is
-  empty, display the possible files.
-  """
-  if name:
-    p = os.path.join(CONF_DIR, "save", name)
-    f = open(p, "r")
-    obj = pickle.load(f)
-    f.close()
-    return obj
-  else:
-    p = os.path.join(CONF_DIR, "save")
-    print os.listdir(p)

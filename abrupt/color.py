@@ -1,5 +1,4 @@
 
-  
 style_normal = "\033[0m"
 style_great_success = "\033[1;32m"
 style_success = "\033[32m"
