@@ -10,6 +10,7 @@ import Cookie
 
 from abrupt.http import Request, RequestSet
 from abrupt.color import *
+from abrupt.utils import e, d
 
 payloads = {}
 for f_name in glob.glob(os.path.join(os.path.dirname(__file__), "payloads/*")):
@@ -21,14 +22,6 @@ class PayloadNotFound(Exception): pass
 class NoInjectionPointFound(Exception): pass
 class NonUniqueInjectionPoint(Exception): pass
 
-def e(s):
-  return urllib.quote_plus(s)  
-
-def ee(s):
-  return e(e(s))
-
-def d(s):
-  return urllib.unquote_plus(s)
 
 def _get_payload(name, kwds):
   pds = []
@@ -115,7 +108,7 @@ def _inject_offset(r, offset, payload, pre_func=e):
     rs.append(r_new)
   return rs
   
-def i(r, **kwds):
+def inject(r, **kwds):
   """ Inject a request.
   For each keyword, this function will try to find the key in the request
   at the following locations:
@@ -140,7 +133,9 @@ def i(r, **kwds):
     raise NoInjectionPointFound()
   return rqs 
 
-def i_at(r, offset, payload, **kwds):
+i = inject
+
+def inject_at(r, offset, payload, **kwds):
   """Surgically inject a request.
 
   This function inject the request at a specific offset, between two offset 
@@ -154,3 +149,4 @@ def i_at(r, offset, payload, **kwds):
   """
   return RequestSet(_inject_offset(r, offset, payload, **kwds))
 
+i_at = inject_at

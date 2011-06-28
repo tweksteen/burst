@@ -112,7 +112,7 @@ class ProxyHTTPServer(BaseHTTPServer.HTTPServer):
     else:
       print warning(str(exc_value))
 
-def intercept(port=8080, prompt=True, nb=-1, filter=re_filter_images, verbose=False):
+def proxy(port=8080, prompt=True, nb=-1, filter=re_filter_images, verbose=False):
   """Intercept all HTTP(S) requests on port. Return a RequestSet of all the 
   answered requests.
   
@@ -121,7 +121,7 @@ def intercept(port=8080, prompt=True, nb=-1, filter=re_filter_images, verbose=Fa
   nb     -- number of request to intercept (-1 for infinite)
   filter -- regular expression to filter ignored files. By default, it 
             ignores .png, .jp(e)g, .gif and .ico.
-  See also: p(), w(), p1(), w1()
+  See also: w(), p1(), w1()
   """
   e_nb = 0
   try:
@@ -142,23 +142,19 @@ def intercept(port=8080, prompt=True, nb=-1, filter=re_filter_images, verbose=Fa
     print "%d request intercepted" % e_nb
     return RequestSet(httpd.reqs)
 
-
-def p(**kwds):
-  """Run a proxy. 
-     See also: intercept(), w(), p1()"""
-  return intercept(**kwds)
+p = proxy
 
 def w(**kwds): 
   """Run a proxy without user interaction, all the requests are forwarded. 
-     See also intercept(), p(), w1()"""
-  return p(prompt=False, **kwds)
+     See also p(), w1()"""
+  return proxy(prompt=False, **kwds)
 
 def p1(**kwds):
   """Intercept one request and prompt for action.
-     See also: intercept(), p(), w1()"""
-  return p(nb=1, **kwds)[0]
+     See also: p(), w1()"""
+  return proxy(nb=1, **kwds)[0]
 
 def w1(**kwds):
   """Intercept one request and forward it.
-     See also: intercept(), p1(), w()"""
+     See also: p1(), w()"""
   return w(nb=1, **kwds)[0]

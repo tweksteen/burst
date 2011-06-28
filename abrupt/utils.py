@@ -1,10 +1,24 @@
 import re
 import sys
 import string 
+import urllib
 
 re_space = re.compile(r'[ \t]+')
 re_ansi_color = re.compile(r"(\x1b\[[;\d]*[A-Za-z])|\x01|\x02").sub
 re_filter_images = re.compile(r'\.(png|jpg|jpeg|ico|gif)$')
+
+def encode(s, **kwds):
+  return urllib.quote_plus(s, **kwds)  
+
+e = encode
+
+def ee(s):
+  return e(e(s))
+
+def decode(s):
+  return urllib.unquote_plus(s)
+
+d = decode
 
 def remove_color(s): 
   return  re_ansi_color("", s)
@@ -26,11 +40,11 @@ def make_table(requests, fields):
       if len(remove_color(v)) > fields_len[field_name]: 
         fields_len[field_name] = len(remove_color(v))
     data.append(request_field)
-  output = "".join([_ljust(n, fields_len[n] + 1) for n in fields_names]) + "\n"
+  output = u"".join([_ljust(n, fields_len[n] + 1) for n in fields_names]) + "\n"
   for r in data:
-    output += "".join([_ljust(c, fields_len[fields_names[i]] + 1) 
+    output += u"".join([_ljust(c, fields_len[fields_names[i]] + 1) 
                               for i, c in enumerate(r)])
-    output += "\n"
+    output += u"\n"
   return output
 
 def clear_line():

@@ -3,6 +3,8 @@ import atexit
 import cPickle
 import datetime
 import glob
+import types
+import __builtin__
 
 from abrupt.conf import SESSION_DIR
 from abrupt.color import *
@@ -24,6 +26,7 @@ def load_session():
     f = open(fn, "rb")
     v = cPickle.load(f)
     session_dict.update(v)
+    __builtin__.__dict__.update(session_dict)
   else:
     os.mkdir(d, 0700)
 
@@ -33,7 +36,10 @@ def store_session(force=False):
   d = os.path.join(SESSION_DIR, session_name)
   to_save = session_dict.copy()
   if to_save.has_key("__builtins__"):
-    del(to_save["__builtins__"])
+    del to_save["__builtins__"]
+  for k in to_save.keys():
+    if type(to_save[k]) in (types.TypeType, types.ClassType, types.ModuleType):
+      del to_save[k]
   if not os.path.exists(d):
     os.mkdir(d, 0700)
   n = datetime.datetime.now().strftime("%Y.%m.%d_%H.%M.p")
@@ -60,23 +66,27 @@ use save(force=True)""")
     # Save a particular object?
     pass
 
-def ss(name="default"):
+def switch_session(name="default"):
   """ Switch session.
   The current session will be saved (if not default)
   and the new will be loaded if it exists or created.
+  If the current session is saved, its context will
+  not appear in the new one.
 
   See also: save, lss.
   """
   global session_name
-  print "TODO: check if we should clear the current session"
   if name == session_name: return
   if session_name != "default":
     store_session()
   session_name = name
-  clear_session()
+  if session_name !="default":
+    clear_session()
   load_session()
  
-def lss():
+ss = switch_session
+
+def list_sessions():
   """ List sessions.
   List the existing sessions.
   
@@ -85,8 +95,5 @@ def lss():
   print "Existing sessions: " + ", ".join([ s for s in os.listdir(SESSION_DIR) 
                       if os.path.isdir(os.path.join(SESSION_DIR, s)) ])
 
-def sd():
-  """ Delete a session.
-  Remove a session and any associated backup
-  """
-  pass
+lss = list_sessions
+

@@ -42,8 +42,12 @@ class Request():
       self.url = urlparse.urlunparse(("","") + p_url[2:])
       self.hostname = p_url.hostname or hostname
       if not self.hostname: raise Exception("No hostname")
-      self.port = int(p_url.port) if p_url.port else port
-      self.use_ssl = use_ssl
+      if p_url.scheme == 'https':
+        self.use_ssl = True
+        self.port = int(p_url.port) if p_url.port else 443
+      else:
+        self.port = int(p_url.port) if p_url.port else port
+        self.use_ssl = use_ssl
       self.set_headers(read_headers(fd))
       self.content = read_content(fd, self.headers, method=self.method)
       self.response = None
@@ -102,6 +106,17 @@ class Request():
       s.write(self.content)
     return s.getvalue()
 
+  def __eq__(self, r):
+    if self.hostname != r.hostname or \
+       self.port != r.port or \
+       self.use_ssl != r.use_ssl or \
+       self.url != r.url or \
+       self.headers != r.headers:
+      return False
+    if (self.content or r.content) and self.content != r.content:
+      return False 
+    return True
+      
   def __call__(self, conn=None):
     if not conn:
       if self.use_ssl:
@@ -155,7 +170,15 @@ class Request():
         return False
     return True
 
-def c(url):
+  def follow(self):
+    if not self.response or not self.response.status in ('301', '302'):
+      return
+    else:
+      for h, v in self.response.headers:
+        if h == "Location":
+          return c(v)
+
+def create(url):
   """Create a request on the fly, based on a URL"""
   p_url = urlparse.urlparse(url) 
   host = p_url.hostname
@@ -163,15 +186,15 @@ def c(url):
     url += "/"
   return Request("""GET %s HTTP/1.1
 Host: %s
-User-Agent: Mozilla/5.0 (Windows; U; Windows NT 5.1; en-US; rv:7.7.7) Gecko/20121212 Firefox/8.0
+User-Agent: Mozilla/5.0 (Windows; U; MSIE 9.0; Windows NT 0.9; en-US)
 Accept: text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8
-Accept-Language: en-us,en;q=0.5
+Accept-Language: en;q=0.5,fr;q=0.2
 Accept-Encoding: gzip, deflate
 Accept-Charset: ISO-8859-1,utf-8;q=0.7,*;q=0.7
-Keep-Alive: 115
-Connection: keep-alive
 
 """ % (url,host))
+
+c = create
 
 class Response():
   
@@ -220,6 +243,12 @@ class Response():
   @property
   def length(self):
     return len(self.readable_content)
+
+  @property
+  def content_type(self):
+    for h,v in self.headers:
+      if h == "Content-Type":
+        return v
 
   def raw(self):
     s = StringIO()
@@ -281,9 +310,9 @@ class RequestSet():
   def __bool__(self):
     return bool(self.reqs)
 
-  def save(self, name):
-    abrupt.conf.save(self, name)
-    
+  def pop(self):
+    return self.reqs.pop()  
+
   def filter(self, **kwds):
     return RequestSet([ r for r in self.reqs if r.filter(**kwds)])
 
@@ -305,6 +334,7 @@ class RequestSet():
     columns =  ([
       ("Method", lambda r, i: info(r.method)),
       ("Path", lambda r, i:  r.path[:27] + "..." if len(r.path)>30 else r.path),
+      ("Query", lambda r,i: r.query[:27] + "..." if len(r.query)>30 else r.query),
       ("Status", lambda r, i: color_status(r.response.status)
                  if r.response else "-"),
       ("Length", lambda r, i: str(len(r.response.content)) 
