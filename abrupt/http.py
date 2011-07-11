@@ -1,5 +1,6 @@
 import os
 import copy
+import zlib
 import gzip
 import httplib
 import urlparse
@@ -124,7 +125,7 @@ class Request():
       else:
         conn = httplib.HTTPConnection(self.hostname + ":" + str(self.port))
     conn.request(self.method, self.url, self.content, dict(self.headers))
-    self.response = Response(conn.sock.makefile('rb',0))
+    self.response = Response(conn.sock.makefile('rb',0), self)
 
   def edit(self):
     fd, fname = tempfile.mkstemp()
@@ -176,7 +177,16 @@ class Request():
     else:
       for h, v in self.response.headers:
         if h == "Location":
-          return c(v)
+          url_p = urlparse.urlparse(v)
+          if url_p.scheme in ('http', 'https'):
+            return c(v)
+          elif not url_p.scheme and url_p.path:
+            nr = self.copy()
+            n_path = urlparse.urljoin(self.url, v)
+            nr.url = urlparse.urlunparse(urlparse.urlparse(self.url)[:2] + urlparse.urlparse(n_path)[2:])
+            return nr
+          else:
+            raise Exception("Unknown redirection, please add some code in abrupt/http.py:186")  
 
 def create(url):
   """Create a request on the fly, based on a URL"""
@@ -189,7 +199,7 @@ Host: %s
 User-Agent: Mozilla/5.0 (Windows; U; MSIE 9.0; Windows NT 0.9; en-US)
 Accept: text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8
 Accept-Language: en;q=0.5,fr;q=0.2
-Accept-Encoding: gzip, deflate
+Accept-Encoding: gzip, deflate 
 Accept-Charset: ISO-8859-1,utf-8;q=0.7,*;q=0.7
 
 """ % (url,host))
@@ -198,21 +208,23 @@ c = create
 
 class Response():
   
-  def __init__(self, fd):
+  def __init__(self, fd, request):
     self.http_version, self.status, self.reason = read_banner(fd)
     self.set_headers(read_headers(fd))
-    self.content = read_content(fd, self.headers, self.status)
-    if self.content:
-      self.readable_content = _clear_content(self.headers, self.content)
+    if request.method == "HEAD": 
+      self.content = ""
     else:
-      self.readable_content = ""
+      self.content = read_content(fd, self.headers, self.status)
+      if self.content:
+        self.readable_content = _clear_content(self.headers, self.content)
+      else:
+        self.readable_content = ""
 
   def __repr__(self):
     flags = []
-    headers_keys = zip(*self.headers)
-    if headers_keys:
-      if "Transfer-Encoding" in headers_keys[0]: flags.append("Chunked")
-      if "Content-Encoding" in headers_keys[0]: flags.append("Gzip")
+    if ("Transfer-Encoding", "Chunked") in self.headers: flags.append("Chunked")
+    if ("Content-Encoding", "gzip") in self.headers: flags.append("Gzip")
+    if ("Content-Encoding", "deflate") in self.headers: flags.append("Zip")
     if self.content: flags.append(str(len(self.content)))
     return "<" + color_status(self.status) + " " + " ".join(flags)  + ">"
 
@@ -225,6 +237,13 @@ class Response():
     if self.content:
       s.write(self.readable_content)
     return s.getvalue()
+
+  def view(self):
+    fd, fname = tempfile.mkstemp()
+    with os.fdopen(fd, 'w') as f:
+      f.write(str(self))
+    editor = os.environ['EDITOR'] if 'EDITOR' in os.environ else "/usr/bin/vim"
+    ret = subprocess.call(editor + " " + fname, shell=True)
 
   @property
   def cookies(self):
@@ -272,7 +291,7 @@ class Response():
     with os.fdopen(fd, 'w') as f:
       f.write(self.readable_content)
     webbrowser.open_new_tab(fname)
-    os.unlink(fname)
+    #os.unlink(fname)
 
   def extract(self, arg):
     if hasattr(self, arg):
@@ -458,4 +477,7 @@ def _clear_content(headers, content):
     cs = StringIO(readable_content)
     gzipper = gzip.GzipFile(fileobj=cs)
     return gzipper.read()
+  if ("Content-Encoding", "deflate") in headers:
+    unzipped = StringIO(zlib.decompress(readable_content, -zlib.MAX_WBITS))
+    return unzipped.read()
   return readable_content

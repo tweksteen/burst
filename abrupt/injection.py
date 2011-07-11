@@ -4,6 +4,7 @@ import urlparse
 import httplib
 import traceback
 import functools
+import collections
 import glob
 import os.path
 import Cookie
@@ -22,6 +23,16 @@ class PayloadNotFound(Exception): pass
 class NoInjectionPointFound(Exception): pass
 class NonUniqueInjectionPoint(Exception): pass
 
+def _urlencode(query):
+  l = [] 
+  for k, v in query.items():
+    if isinstance(v, collections.Iterable):
+      for elt in v:
+        l.append(str(k) + '=' + str(elt))
+    else:
+      l.append(str(k) + '=' + str(v))
+  return '&'.join(l)
+    
 
 def _get_payload(name, kwds):
   pds = []
@@ -45,7 +56,7 @@ def _inject_query(r, pre_func=e, **kwds):
     for p in pds:
       nq[i_pt] = [pre_func(p),]
       s = list(parsed_url)
-      s[4] = urllib.urlencode(nq, True)
+      s[4] = _urlencode(nq) 
       r_new = r.copy()
       r_new.url = urlparse.urlunparse(s)
       r_new.payload = i_pt + "=" + p
@@ -77,7 +88,7 @@ def _inject_post(r, pre_func=e, **kwds):
     pds = _get_payload(i_pt, kwds)
     for p in pds:
       nc[i_pt] = [pre_func(p),]
-      n_content = urllib.urlencode(nc, True)
+      n_content = _urlencode(nc)
       r_new = r.copy()
       r_new.content = n_content
       r_new.payload = i_pt + "=" + p
@@ -85,7 +96,7 @@ def _inject_post(r, pre_func=e, **kwds):
       rs.append(r_new)
   return rs
 
-def _inject_offset(r, offset, payload, pre_func=e):
+def _inject_offset(r, offset, payload, pre_func=e, choice=None):
   rs = []
   orig = str(r)
   pds = _get_payload("offset", {"offset":payload})
@@ -93,9 +104,20 @@ def _inject_offset(r, offset, payload, pre_func=e):
     off_b, off_e = offset
   elif isinstance(offset, basestring):
     ct = str(r).count(offset)
-    if ct > 1: raise NonUniqueInjectionPoint("The pattern is not unique in the request")
-    elif ct < 1: raise NoInjectionPointFound("Could not find the pattern")
-    idx = str(r).find(offset)
+    if ct > 1:
+      if not choice or choice > ct:
+        raise NonUniqueInjectionPoint("The pattern is not unique in the request, use choice<=" + str(ct))
+      else:
+        c_off = 0
+        for i in range(choice):
+          idx = str(r)[c_off:].find(offset)
+          print "Idx", idx
+          c_off += idx + 1 
+        idx = c_off - 1 
+    elif ct < 1: 
+      raise NoInjectionPointFound("Could not find the pattern")
+    else:
+      idx = str(r).find(offset)
     off_b, off_e = idx, idx+len(offset)
   else:
     off_b = off_e = offset
@@ -107,6 +129,17 @@ def _inject_offset(r, offset, payload, pre_func=e):
     r_new.payload = "@" + str(offset) + "=" + p
     rs.append(r_new)
   return rs
+
+def _inject_one(r, **kwds):
+  rqs = RequestSet(_inject_query(r, **kwds))
+  if r.method in ("POST", "PUT"):
+    rqs += RequestSet(_inject_post(r, **kwds))
+  if "Cookie" in zip(*r.headers)[0]:
+    rqs += RequestSet(_inject_cookie(r, **kwds))
+  if not rqs:
+    raise NoInjectionPointFound()
+  return rqs 
+  
   
 def inject(r, **kwds):
   """ Inject a request.
@@ -124,14 +157,10 @@ def inject(r, **kwds):
 
   See also: payloads, i_at
   """
-  rqs = RequestSet(_inject_query(r, **kwds))
-  if r.method in ("POST", "PUT"):
-    rqs += RequestSet(_inject_post(r, **kwds))
-  if "Cookie" in zip(*r.headers)[0]:
-    rqs += RequestSet(_inject_cookie(r, **kwds))
-  if not rqs:
-    raise NoInjectionPointFound()
-  return rqs 
+  if isinstance(r, Request):
+    return _inject_one(r, **kwds)
+  elif isinstance(r, RequestSet):
+    return reduce(lambda x,y: x+y, [ _inject_one(ro, **kwds) for ro in r ])
 
 i = inject
 

@@ -38,7 +38,7 @@ def store_session(force=False):
   if to_save.has_key("__builtins__"):
     del to_save["__builtins__"]
   for k in to_save.keys():
-    if type(to_save[k]) in (types.TypeType, types.ClassType, types.ModuleType):
+    if type(to_save[k]) in (types.TypeType, types.ClassType, types.ModuleType,types.NoneType):
       del to_save[k]
   if not os.path.exists(d):
     os.mkdir(d, 0700)
@@ -79,9 +79,8 @@ def switch_session(name="default"):
   if name == session_name: return
   if session_name != "default":
     store_session()
-  session_name = name
-  if session_name !="default":
     clear_session()
+  session_name = name
   load_session()
  
 ss = switch_session

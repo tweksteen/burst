@@ -26,7 +26,7 @@ def _get_links(r):
     base = base_tag[0]["href"]
   else:
     base = r.url
-  links = [ x["href"] for x in soup.findAll('a') if x.has_key('href')]
+  links = [ x["href"] for x in soup.findAll(['a', 'area']) if x.has_key('href')]
   for l in links:
     try:
       l.encode('ascii')
@@ -35,16 +35,15 @@ def _get_links(r):
     url_p = urlparse.urlparse(l)
     if url_p.scheme in ('http', 'https'):
       new_reqs.append(c(l))
-    elif url_p.scheme in ('javascript', 'mailto'): 
+    elif url_p.scheme in ('javascript', 'mailto', '#'): 
       continue
-    elif url_p.scheme == '':
-      if url_p.path:
-        nr = r.copy()
-        n_path = urlparse.urljoin(base, l)
-        nr.url = urlparse.urlunparse(urlparse.urlparse(r.url)[:2] + urlparse.urlparse(n_path)[2:])
-        new_reqs.append(nr)
+    elif url_p.scheme == '' and url_p.path:
+      nr = r.copy()
+      n_path = urlparse.urljoin(base, l)
+      nr.url = urlparse.urlunparse(urlparse.urlparse(r.url)[:2] + urlparse.urlparse(n_path)[2:])
+      new_reqs.append(nr)
     else:
-      if url_p.scheme not in ("ftp", "irc", "xmpp"):
+      if url_p.scheme not in ("ftp", "irc", "xmpp", "mms"):
         print "UNKNOWN PROTOCOL Miam!?:" + l, url_p.scheme
   return RequestSet(new_reqs)
 

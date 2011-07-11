@@ -56,12 +56,11 @@ http://securusglobal.github.com/Abrupt/.
 
 Here are the basic functions of Abrupt, type 'help(function)' for a 
 complete description of these functions:
-  * p: Start a HTTP proxy on port 8080. The successful requests 
-       will be returned.
-  * i: Inject a request (see also i_at).
-  * c: Create a HTTP request based on a URL.
+  * proxy: Start a HTTP proxy on port 8080.
+  * inject: Inject or fuzz a request.
+  * create: Create a HTTP request based on a URL.
 
-Abrupt have few classes which worth having a look at:
+Abrupt have few classes which worth having a look at, typing 'help(class)':
   * Request 
   * Response 
   * RequestSet
@@ -129,9 +128,11 @@ def interact():
         return matches
 
       def attr_matches(self, text):
-        m = re.match(r"(\w+(\.\w+)*)\.(\w*)", text)
-        if not m: return
-        expr, attr = m.group(1, 3)
+        m = re.match(r"([\w\[\]]+(\.[\w\[\]]+)*)\.(\w*)", text)
+        if m: 
+          expr, attr = m.group(1, 3)
+        else:
+          return
         try:
           thisobject = eval(expr)
         except:
@@ -146,6 +147,7 @@ def interact():
             matches.append("%s.%s" % (expr, word))
         return matches
 
+    readline.set_completer_delims(" \t\n`~!@#$%^&*()-=+{}\\|;:'\",<>/?")
     readline.set_completer(AbruptCompleter().complete)
     readline.parse_and_bind("tab: complete")
     _load_history() 
