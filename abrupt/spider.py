@@ -2,7 +2,7 @@ import re
 import urlparse
 from collections import deque
 
-from abrupt.http import RequestSet, c
+from abrupt.http import RequestSet, create
 from abrupt.utils import e, clear_line
 from abrupt.color import *
 
@@ -70,11 +70,12 @@ def spider(r_init, max=-1, post_func=None, hosts=None):
       print str(len(checked)) + "/" + str(len(q)),
       clear_line()
       r()
-      if re.match(r'text/html', r.response.content_type):
-        to_add += _follow_redirect(r)
-        to_add += _get_links(r)
-      else:
-        print "\nIgnoring", r.response.content_type
+      if r.response.content_type:
+        if re.match(r'text/html', r.response.content_type):
+          to_add += _follow_redirect(r)
+          to_add += _get_links(r)
+        else:
+          print "\nIgnoring", r.response.content_type
       checked.append(r)
       if post_func: 
         post_func(r)

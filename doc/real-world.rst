@@ -1,6 +1,55 @@
 Real World Examples
 ===================
 
+CSRF Protected Form
+-------------------
+
+One of the form you encounter has a CSRF protection. Though one of the
+POST parameter is an upper case, and you'd like to enumerate the one that
+have an impact on the application. Here is the POST request::
+  
+  POST /myapp/test.jsp HTTP/1.1
+  Host: localhost
+  User-Agent: Mozilla/5.0 (X11; Linux i686; rv:2.0.1) Gecko/20100101 Firefox/4.0.1
+  Cookie: JSESSIONID=8AE12FEEDAA25F11F8AD4843AA60EF4A; 
+  Content-Type: application/x-www-form-urlencoded
+
+  my-app.nonce=4cc0b2a7-4982-4b7c-b696-d1378a56933e&memberRole=S&button=Submit
+
+The enumeration goes in two steps, get a valid nonce by requesting the form
+and then valid the form with a different letter for "memberRole". Here is
+the script::
+
+  from abrupt.all import *
+  import re
+  import string
+
+  ss('my_session') 
+
+  for u in list(string.uppercase):
+    r_get()
+    nonce = re.search(r"value=\'(.+)\'", r_get.response.readable_content).groups()[0]
+    n = i_at(r_post, "4cc0b2a7-4982-4b7c-b696-d1378a56933e", [nonce,])
+    its = i(n, memberRole=[u,])
+    its()
+    print its
+
+So why Abrupt kick ass:
+
+* 11 lines of code.
+* Previously captured request are replayed (r_get and r_post variables are created
+  with ``ss('my_session')`` which load a session).
+* Execute requests easily: ``r_get()`` or ``its()``
+* Extraction of the content of the page: ``r_get.response.readable_content``
+* Injection of two manner:
+ 
+  * Inject through a parameter name: ``i(n, memberRole=[u,])``
+  * Replace a content, in case the parameter name break the python syntax: ``i_at(r_post, "4cc0b2a7-4982-4b7c-b696-d1378a56933e", [nonce,])``
+
+The last argument of both injection is a list which contains the payloads, in both case,
+the list only contains one value. For more informations, see :func:`i` and :func:`i_at`.
+
+
 Blind SQL Injection
 -------------------
 After couple hours spend on a web application testing, you finally find a SQLi

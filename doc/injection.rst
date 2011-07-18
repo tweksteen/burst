@@ -29,12 +29,11 @@ generate a :class:`RequestSet` from a Request using a list of payloads):
     Out[2]: {unknown:9 | www.phrack.com}
 
     In [3]: i(r, PHPSESSID=["1234","0000","31337-abcd"])
-    Out[3]: {unknown:2 | www.phrack.com}    
+    Out[3]: {unknown:3 | www.phrack.com}    
 
     In [4]: i(r, issue="sqli")
     Out[4]: {unknown:106 | www.phrack.com}    
 
-i(r, issue="sqli")
 
   The *pre_func* parameter is a function to apply to each payload before
   being injected. By default, it urlencode the payload.

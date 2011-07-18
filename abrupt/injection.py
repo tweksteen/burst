@@ -11,7 +11,7 @@ import Cookie
 
 from abrupt.http import Request, RequestSet
 from abrupt.color import *
-from abrupt.utils import e, d
+from abrupt.utils import encode
 
 payloads = {}
 for f_name in glob.glob(os.path.join(os.path.dirname(__file__), "payloads/*")):
@@ -46,9 +46,10 @@ def _get_payload(name, kwds):
   except KeyError:
     raise PayloadNotFound("Possible values are: " +", ".join(payloads.keys()))
 
-def _inject_query(r, pre_func=e, **kwds):
+def _inject_query(r, pre_func=encode, **kwds):
   rs = []
   parsed_url = urlparse.urlparse(r.url)
+  if not pre_func: pre_func = lambda x:x
   i_pts = urlparse.parse_qs(r.query, True)
   for i_pt in i_pts:
     nq = i_pts.copy()
@@ -63,9 +64,10 @@ def _inject_query(r, pre_func=e, **kwds):
       rs.append(r_new)
   return rs
 
-def _inject_cookie(r, pre_func=e, **kwds):
+def _inject_cookie(r, pre_func=encode, **kwds):
   rs = []
   b = r.cookies
+  if not pre_func: pre_func = lambda x:x
   n_headers = [(x,v) for x,v in r.headers if x != "Cookie"]
   for i_pt in b:
     nb = Cookie.SimpleCookie()
@@ -80,9 +82,10 @@ def _inject_cookie(r, pre_func=e, **kwds):
       rs.append(r_new)
   return rs
 
-def _inject_post(r, pre_func=e, **kwds):
+def _inject_post(r, pre_func=encode, **kwds):
   rs = []
   i_pts = urlparse.parse_qs(r.content, True)
+  if not pre_func: pre_func = lambda x:x
   for i_pt in i_pts:
     nc = i_pts.copy()
     pds = _get_payload(i_pt, kwds)
@@ -96,10 +99,11 @@ def _inject_post(r, pre_func=e, **kwds):
       rs.append(r_new)
   return rs
 
-def _inject_offset(r, offset, payload, pre_func=e, choice=None):
+def _inject_offset(r, offset, payload, pre_func=encode, choice=None):
   rs = []
   orig = str(r)
   pds = _get_payload("offset", {"offset":payload})
+  if not pre_func: pre_func = lambda x:x
   if isinstance(offset, (list,tuple)): 
     off_b, off_e = offset
   elif isinstance(offset, basestring):
@@ -111,7 +115,6 @@ def _inject_offset(r, offset, payload, pre_func=e, choice=None):
         c_off = 0
         for i in range(choice):
           idx = str(r)[c_off:].find(offset)
-          print "Idx", idx
           c_off += idx + 1 
         idx = c_off - 1 
     elif ct < 1: 

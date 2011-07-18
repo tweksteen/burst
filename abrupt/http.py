@@ -137,6 +137,36 @@ class Request():
     r_new = Request(f, self.hostname, self.port, self.use_ssl)
     return r_new
 
+  def play(self, options='-o2 -c "set autoread" -c "autocmd CursorMoved * checktime" -c "autocmd CursorHold * checktime"'):
+    editor = os.environ['EDITOR'] if 'EDITOR' in os.environ else "/usr/bin/vim"
+    fdreq, freqname = tempfile.mkstemp()
+    fdrep, frepname = tempfile.mkstemp()
+    with os.fdopen(fdreq, 'w') as f:
+      f.write(str(self))
+    if self.response:
+      with os.fdopen(fdrep, 'w') as f:
+        f.write(str(self.response))
+    ret = subprocess.Popen(editor + " " + freqname + " " + frepname + " " + options, shell=True, )
+    last_access = os.stat(freqname).st_mtime
+    r_new = None
+    while ret.poll() != 0:
+      if os.stat(freqname).st_mtime != last_access:
+        freq = open(freqname, 'r')
+        try:  
+          r_new = Request(freq, self.hostname, self.port, self.use_ssl)
+          freq.close()
+          r_new()
+          if r_new.response:
+            frep = open(frepname, 'w')
+            frep.write(str(r_new.response))
+        except Exception, e:
+          frep = open(frepname, 'w')
+          frep.write("Error:\n")
+          frep.write(str(e))
+        frep.close()
+        last_access = os.stat(freqname).st_mtime
+    return r_new
+
   def extract(self, arg):
     if arg.startswith("response__"):
       if self.response: 
@@ -170,6 +200,14 @@ class Request():
       if not self.response or not self.response.filter(**check_response): 
         return False
     return True
+
+  def i(self, **kwds):
+    from abrupt.injection import inject
+    return inject(self, **kwds)
+  
+  def i_at(self, offset, payload, **kwds):
+    from abrupt.injection import inject_at
+    return inject_at(self, offset, payload, **kwds)
 
   def follow(self):
     if not self.response or not self.response.status in ('301', '302'):

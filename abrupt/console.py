@@ -47,6 +47,14 @@ class ColorPrompt():
       prompt = '\001%s\002 ' % warning('\002'+session_name+'\001') + prompt
     return prompt
 
+class AbruptInteractiveConsole(code.InteractiveConsole):
+  re_print_alias = re.compile(r'^p\s(.*)')
+  def push(self, line):
+    if self.re_print_alias.match(line):
+      line = self.re_print_alias.sub(r'print \1', line)
+    code.InteractiveConsole.push(self, line)
+    
+
 def help(obj=None):
   if not obj:
     print """Welcome to Abrupt! 
@@ -57,8 +65,8 @@ http://securusglobal.github.com/Abrupt/.
 Here are the basic functions of Abrupt, type 'help(function)' for a 
 complete description of these functions:
   * proxy: Start a HTTP proxy on port 8080.
-  * inject: Inject or fuzz a request.
   * create: Create a HTTP request based on a URL.
+  * inject: Inject or fuzz a request.
 
 Abrupt have few classes which worth having a look at, typing 'help(class)':
   * Request 
@@ -68,8 +76,7 @@ Abrupt have few classes which worth having a look at, typing 'help(class)':
 Please, report any bug or comment to tw@securusglobal.com
 """
   else:
-    pydoc.help(obj) 
-  
+    pydoc.help(obj)   
  
 def interact():
   abrupt_builtins = __import__("all", globals(), locals(), ".").__dict__
@@ -155,5 +162,6 @@ def interact():
   # And run the interpreter!
   sys.ps1 = ColorPrompt()
   atexit.register(abrupt.session.store_session)
-  code.interact(banner = banner, local=abrupt.session.session_dict)
+  aci = AbruptInteractiveConsole(abrupt.session.session_dict)
+  aci.interact(banner)
 

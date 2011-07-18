@@ -1,39 +1,20 @@
-Welcome to Abrupt's documentation!
-==================================
 
-Abrupt integrates all the tools you may need during a penetration testing on a
-web application such as a proxy, a request repeater or a fuzzer. This tool is
-largely inspired by the best python tools: scapy for the usability, django's 
-models query for extracting and filtering requests, etc. If you are a python 
-adept, welcome home! You can use Abrupt as a stand-alone application or if 
-something is missing, use the provided library to quickly forge your own tool.
 
-Of course, Abrupt is open source. Released under the BSD license. For more
-information, see COPYING.
-
-Requirements
-------------
-Abrupt requires python>=2.6. It is compatible with HTTPS. For an easier 
-use, we recommend to have openssl installed and the openssl command 
-available in the path.
-
-Abrupt adopt the UNIX philosophy, so set you EDITOR and BROWSER environment
-variables.
+Web Application Penetration Framework. 
+BSD Licensed. Based on Python>=2.6.
 
 Quickstart
 ==========
-
-To have a quick view of the power of Abrupt, we have made this quickstart which
-will show you the main functionalities. To start, clone the git repository::
+::
 
   $ git clone git://github.com/SecurusGlobal/Abrupt.git abrupt
   $ cd abrupt
   $ sudo python setup.py install
   $ abrupt
-
   Generating SSL certificate...
   CA certificate : /home/tweksteen/.abrupt/ca.pem
-  In [1]: 
+  Abrupt v0.1
+  >>>
   
 The first time you start Abrupt, it will generate a CA certificate. This is 
 useful to avoid the exception creation whenever you reach a HTTPS site with the
@@ -43,11 +24,12 @@ check is performed by Abrupt on the server side regarding ssl.
 Proxy
 -----
 
-To start, let's grab some HTTP request. To do so, use the :func:`p` function. It 
+To start, let's grab some HTTP requests. To do so, use the proxy or :func:`p` function. It 
 starts a new proxy server on port 8080. This server will catch every HTTP(S)
 request and prompt the user for directions::
 
-  In [1]: p()
+  >>> p()
+  Running on port 8080
   Ctrl-C to interrupt the proxy...
 
 You can now configure your browser to use http://localhost:8080 as your proxy.
@@ -70,25 +52,22 @@ you can see the response status and length::
   <200 Gzip 5419>
 
 Once you're done with your requests, use Ctrl-C to exit. This function return
-all the completed requests and associated responses in a RequestSet object::
+all the completed requests and associated responses in a :class:`RequestSet` object::
 
-  KeyboardInterrupt
   1 request intercepted
-  Out[1]: {200:1 | phrack.org}
+  {200:1 | www.phrack.org}
+  >>> requests = _
+  >>> print requests
+  Method Path Query Status Length 
+  GET    /          200    5419   
 
-  In [2]: requests = _
-
-  In [3]: print requests
-  Path Query Status Length 
-  /    -     200    5419
-  
-  In [4]: requests[0]
-  Out[4]: <GET www.phrack.org />
+  >>> requests[0]
+  <GET www.phrack.org />
 
 Not all the requests are shown. By default, a filter silently forward all the 
 image files (.png, .jpg, .jpeg, .ico, .gif). To see them, you can use::
 
-  In [1]: p(filter=None)
+  >>> p(filter=None)
 
 Some other functions exists : *w*, just display the requests, doesn't provided
 any interaction. *p1* and *w1*, working as *p* and *w* but only intercept one 
@@ -100,8 +79,8 @@ Request and Response
 Abrupt have its own representation of HTTP request and response based on 
 httplib::
   
-  In [5]: r = requests[0]
-  In [6]: print r
+  >>> r = requests[0]
+  >>> print r
   GET / HTTP/1.1
   Accept-Language: en-us,en;q=0.5
   Accept-Encoding: gzip,deflate
@@ -116,18 +95,18 @@ httplib::
 path, query, url, content. You can edit the request through your EDITOR 
 (default is vim) to create a new request::
 
-  In [7]: new_r = r.edit()
+  >>> new_r = r.edit()
   
 And execute the new request::
 
-  In [8]: new_r()
-
-  In [9]: new_r.response
-  Out[9]: <200 Gzip 5419>
+  >>> new_r()
+  >>> new_r.response
+  <200 Gzip 5419>
   
 :class:`Response` objects have the attributes: status, reason, headers, content, 
 readable_content. You can use the *preview* method to open a static dump of
-the response in your favorite BROWSER.
+the response in your favorite BROWSER and the *view* method to view the source
+in your favorite EDITOR.
 
 RequestSet
 ----------
@@ -135,38 +114,37 @@ RequestSet
 A :class:`RequestSet` is just a set of requests. Usually, you'll have one from a proxy 
 method. You can add more requests from another capture session::
 
-  In [10]: w()
+  >>> w()
   Ctrl-C to interrupt the proxy...
   <GET www.cryptome.org />
   <200 49380>
   1 request intercepted
 
-  In [11]: requests += _
-  
-  In [12]: requests
-  Out[12]: {200:2 | phrack.org, www.cryptome.org}
+  >>> requests += _
+  >>> requests
+  {200:2 | phrack.org, www.cryptome.org}
   
 
 You can filter the request by any request attributes::
 
-  In [13]: requests.filter(hostname="phrack.org")
-  Out[13]: {200:1 | phrack.org}
+  >>> requests.filter(hostname="phrack.org")
+  {200:1 | phrack.org}
 
 Injection
 ---------
 
 From one request, it is possible to generate a batch of request where one or 
-many parameters change using the :func:`i` function ::
+many parameters change using the injection or :func:`i` function ::
 
-  In [14]: r
-  Out[14]: <GET phrack.org /issues.html>
+  >>> r
+  <GET phrack.org /issues.html>
 
-  In [15]: batch = i(r, issue="default")
+  >>> batch = i(r, issue="default")
   
-  In [16]: r
-  Out[16]: {unknown:5 | phrack.org}
+  >>> batch
+  {unknown:9 | phrack.org}
 
-In this case, a RequestSet of 5 requests has been generated. *i* lookup for
+In this case, a RequestSet of 9 requests has been generated. *i* lookup for
 arguments in the query string, the cookie and the post data. You should give 
 the name and the list of payloads name as arguments. The list of payloads can
 be found in the payloads/ directory. You can also get the keys of the :data:`payloads`
@@ -175,19 +153,23 @@ global variable. Before being injected, each payload is pass through the
 
 Once the requests have been generated, you can send them::
 
-  In [17]: batch()
-  ...
+  >>> batch()
+  Running 9 requests...done.
   
-  In [18]: batch
-  Out[18]: {200:5 | phrack.org}
+  >>> batch
+  {200:9 | phrack.org}
 
-  In [19]: print batch
-  Path         Query                                  Status Length 
-  /issues.html issue=%2527                            200    2390   
-  /issues.html issue=%2527%2B--                       200    2390   
-  /issues.html issue=%253E%253Cscript%253Ealert%25... 200    2390   
-  /issues.html issue=-1                               200    2390   
-  /issues.html issue=2-1                              200    1948 
+  >>> print batch
+  Id Method Path         Query                          Status Length 
+  0  GET    /issues.html issue=%27                      200    2390   
+  1  GET    /issues.html issue=abrupt_xss__             200    2390   
+  2  GET    /issues.html issue=%3C%2Fabrupt%3E          200    2390   
+  3  GET    /issues.html issue=%29%29%29%29%29%29%29... 200    2390   
+  4  GET    /issues.html issue=..%2F..%2F..%2F..%2F.... 200    2390   
+  5  GET    /issues.html issue=..%5C..%5C..%5C..%5C.... 200    2390   
+  6  GET    /issues.html issue=%7C%7C+ping+-i+60+127... 200    2390   
+  7  GET    /issues.html issue=%3Bid                    200    2390   
+  8  GET    /issues.html issue=%3Becho+123456           200    2390
 
 Reference
 =========
