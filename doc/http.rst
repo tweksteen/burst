@@ -73,9 +73,16 @@ abrupt.http - HTTP base classes
 
   .. method:: edit()
 
-    start your favorite $EDITOR to edit the request, the new request is 
-    returned. If the environment variable $EDITOR has not been set, 'vim'
+    start your favorite EDITOR to edit the request, the new request is 
+    returned. If the environment variable EDITOR has not been set, 'vim'
     will be used.
+
+  .. method:: play(options)
+
+    start your EDITOR with two windows. Each time the request file is saved,
+    the request is made to the server and the response updated. By default,
+    options is set up for Vim. When the editor terminates, the last valid 
+    request made is returned.
 
   .. method:: extract(field)
 

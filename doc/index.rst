@@ -102,6 +102,11 @@ And execute the new request::
   >>> new_r()
   >>> new_r.response
   <200 Gzip 5419>
+
+For more fun, try the :meth:`Request.play`. It will start your editor (which should 
+be Vim) and display the request and the response in two different windows.
+Every time you save the request file, the request is made to the server and
+the response displayed. 
   
 :class:`Response` objects have the attributes: status, reason, headers, content, 
 readable_content. You can use the *preview* method to open a static dump of

@@ -7,6 +7,7 @@ import urlparse
 import tempfile
 import webbrowser
 import subprocess
+import datetime
 import Cookie
 from collections import defaultdict 
 from StringIO import StringIO
@@ -74,7 +75,7 @@ class Request():
     for l in headers.splitlines():
       if l:
         t, v = [q.strip() for q in l.split(":", 1)]
-        self.headers.append((t, v))
+        self.headers.append((t.title(), v))
 
   def _update_content_length(self):
     l = str(len(self.content)) if self.content else "0"
@@ -125,7 +126,10 @@ class Request():
       else:
         conn = httplib.HTTPConnection(self.hostname + ":" + str(self.port))
     conn.request(self.method, self.url, self.content, dict(self.headers))
+    n1 = datetime.datetime.now() 
     self.response = Response(conn.sock.makefile('rb',0), self)
+    n2 = datetime.datetime.now()
+    self.response.time = n2 - n1
 
   def edit(self):
     fd, fname = tempfile.mkstemp()
@@ -293,7 +297,7 @@ class Response():
 
   @property
   def closed(self):
-    if ("Connection", "close") in self.headers:
+    if ("Connection", "close") in self.headers or self.http_version == "HTTP/1.0":
       return True
     return False
 
@@ -322,7 +326,7 @@ class Response():
     for l in headers.splitlines():
       if l:
         t, v = [q.strip() for q in l.split(":", 1)]
-        self.headers.append((t, v))
+        self.headers.append((t.title(), v))
 
   def preview(self):
     fd, fname = tempfile.mkstemp()
@@ -399,6 +403,8 @@ class RequestSet():
       ])
     if any([hasattr(x, "payload") for x in self.reqs]):
       columns.insert(2, ("Payload", lambda r, i: getattr(r,"payload","-")[:30]))
+      columns.append(("Time", lambda r,i: "%.4f" % (r.response.time.total_seconds()) 
+                              if r.response else "-"))
     if len(set([r.hostname for r in self.reqs])) > 1:
       columns.insert(1, ("Host", lambda r, i: r.hostname)) 
     if len(self.reqs) > 5:
