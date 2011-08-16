@@ -2,7 +2,8 @@ import os
 import copy
 import zlib
 import gzip
-import httplib
+import ssl
+import socket
 import urlparse
 import tempfile
 import webbrowser
@@ -16,15 +17,9 @@ import abrupt.conf
 from abrupt.color import *
 from abrupt.utils import *
 
-class HTTPConnection(httplib.HTTPConnection):
-
-  def _clear(self):
-    self.__state = httplib._CS_IDLE
-
-class HTTPSConnection(httplib.HTTPSConnection):
-  
-  def _clear(self):
-    self.__state = httplib._CS_IDLE
+class NotConnected(Exception): pass
+class BadStatusLine(Exception): pass
+class ProxyError(Exception): pass
 
 class Request():
 
@@ -35,8 +30,8 @@ class Request():
     if isinstance(fd, basestring): fd = StringIO(fd)
     try:
       self.method, url, self.http_version = read_banner(fd) 
-    except:
-      raise httplib.NotConnected()
+    except ValueError:
+      raise NotConnected()
     if self.method == "CONNECT":
       self.hostname, self.port = url.split(":", 1)
     else:
@@ -120,14 +115,13 @@ class Request():
     return True
       
   def __call__(self, conn=None):
-    if not conn:
-      if self.use_ssl:
-        conn = httplib.HTTPSConnection(self.hostname + ":" + str(self.port))
-      else:
-        conn = httplib.HTTPConnection(self.hostname + ":" + str(self.port))
-    conn.request(self.method, self.url, self.content, dict(self.headers))
+    if conn:
+      sock = conn
+    else:
+      sock = connect(self.hostname, self.port, self.use_ssl)
+    res_sock = _send_request(sock, self)
     n1 = datetime.datetime.now() 
-    self.response = Response(conn.sock.makefile('rb',0), self)
+    self.response = Response(res_sock.makefile('rb',0), self)
     n2 = datetime.datetime.now()
     self.response.time = n2 - n1
 
@@ -251,7 +245,10 @@ c = create
 class Response():
   
   def __init__(self, fd, request):
-    self.http_version, self.status, self.reason = read_banner(fd)
+    try:
+      self.http_version, self.status, self.reason = read_banner(fd)
+    except ValueError: 
+      raise BadStatusLine()
     self.set_headers(read_headers(fd))
     if request.method == "HEAD": 
       self.content = ""
@@ -357,7 +354,7 @@ class RequestSet():
     self.hostname = None
   
   def __call__(self):
-    self.run()
+    self._run()
 
   def __getitem__(self, i):
     return self.reqs[i]
@@ -412,13 +409,9 @@ class RequestSet():
     return make_table(self.reqs, columns)
 
   def _init_connection(self):
-    if self.use_ssl:
-      conn = HTTPSConnection(self.hostname + ":" + str(self.port))
-    else:
-      conn = HTTPConnection(self.hostname + ":" + str(self.port))
-    return conn
+    return connect(self.hostname, self.port, self.use_ssl)
 
-  def run(self, verbose=False):
+  def _run(self, verbose=False):
     if not self.reqs:
       raise Exception("No request to proceed")
     hostnames = set([r.hostname for r in self.reqs])
@@ -442,12 +435,11 @@ class RequestSet():
         try:
           if verbose: print repr(r)
           r(conn=conn)
-          conn._clear()
           if verbose: print repr(r.response)
           if r.response.closed: 
             conn = self._init_connection()
           next = True
-        except httplib.HTTPException:
+        except socket.error, e: 
           conn = self._init_connection()
           next = False
     print "Running %s requests...done." % len(self.reqs)
@@ -458,7 +450,8 @@ class RequestSet():
 # mostly inspired by httplib
 
 def read_banner(fp):
-  return re_space.split(fp.readline().strip(), maxsplit=2)
+  banner = re_space.split(fp.readline().strip(), maxsplit=2)
+  return banner
 
 def read_headers(fp):
   headers = ""
@@ -478,7 +471,7 @@ def read_content(fp, headers, status=None, method=None):
     length_str = zip(*headers)[1][zip(*headers)[0].index("Content-Length")]
     length = int(length_str)
     return _read_content(fp, length).getvalue()
-  elif status == "200" or method =="POST": # No indication on what we should read, so just read
+  elif status == "200" or method == "POST": # No indication on what we should read, so just read
     return fp.read()
   return None
 
@@ -525,3 +518,43 @@ def _clear_content(headers, content):
     unzipped = StringIO(zlib.decompress(readable_content, -zlib.MAX_WBITS))
     return unzipped.read()
   return readable_content
+
+def connect(hostname, port, use_ssl):
+  if conf.proxy:
+    p_url = urlparse.urlparse(conf.proxy)
+    hostname = p_url.hostname
+    port = p_url.port
+    use_ssl = True if p_url.scheme[-1] == 's' else False
+  sock = socket.create_connection((hostname, port))
+  if use_ssl:
+    sock = ssl.wrap_socket(sock)
+  return sock
+
+def _send_request(sock, request):
+  if conf.proxy: 
+    if request.use_ssl:
+      f = sock.makefile("rwb", 0)
+      f.write("CONNECT %s:%s HTTP/1.1\r\n\r\n" % (request.hostname, request.port))
+      try:
+        v, s, m = read_banner(f)
+      except ValueError:
+        raise BadStatusLine()
+      if s != "200":
+        raise ProxyError("Bad status " + s + " " + m)
+      _ = read_headers(f)
+      res_sock = ssl.wrap_socket(sock)
+      buf = ["%s %s %s" % (request.method, request.url, request.http_version), ]
+    else:
+      p_url = urlparse.urlparse(request.url)
+      url =  urlparse.urlunparse(("http", request.hostname+":"+str(request.port)) + p_url[2:])
+      buf = ["%s %s %s" % (request.method, url, request.http_version), ]
+      res_sock = sock
+  else: 
+    buf = ["%s %s %s" % (request.method, request.url, request.http_version), ]
+    res_sock = sock
+  buf += [ "%s: %s" % (h, v) for h, v in request.headers] + ["", ""]
+  data = "\r\n".join(buf) 
+  if request.content:
+    data += request.content 
+  res_sock.sendall(data)
+  return res_sock

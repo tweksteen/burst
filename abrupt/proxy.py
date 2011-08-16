@@ -2,15 +2,16 @@ import sys
 import socket
 import BaseHTTPServer
 import ssl
-import httplib
 
 from abrupt.conf import CERT_DIR
-from abrupt.http import Request, Response, RequestSet, HTTPConnection, HTTPSConnection
+from abrupt.http import Request, Response, RequestSet, connect, BadStatusLine
 from abrupt.color import *
 from abrupt.cert import generate_ssl_cert, get_key_file
 from abrupt.utils import re_filter_images
 
 class ProxyHTTPRequestHandler(BaseHTTPServer.BaseHTTPRequestHandler):
+
+  protocol_version = "HTTP/1.1"
 
   def _bypass_ssl(self, r):
     """
@@ -31,11 +32,7 @@ class ProxyHTTPRequestHandler(BaseHTTPServer.BaseHTTPRequestHandler):
     """
     Init the connection with the remote server
     """
-    if r.use_ssl:
-      conn = HTTPSConnection(r.hostname + ":" + str(r.port))
-    else:
-      conn = HTTPConnection(r.hostname + ":" + str(r.port))
-    return conn
+    return connect(r.hostname, r.port, r.use_ssl)
 
   def _do_connection(self, r):
     """
@@ -47,8 +44,6 @@ class ProxyHTTPRequestHandler(BaseHTTPServer.BaseHTTPRequestHandler):
        self.server.prev["port"] != r.port or \
        self.server.prev["use_ssl"] != r.use_ssl:
       self.server.conn = self._init_connection(r)
-    else: 
-      self.server.conn._clear()
     done = False
     while not done:
       try:
@@ -57,18 +52,22 @@ class ProxyHTTPRequestHandler(BaseHTTPServer.BaseHTTPRequestHandler):
           self.server.prev = {"hostname":r.hostname, "port":r.port, "use_ssl":r.use_ssl}
         else:
           self.server.conn.close()
+          self.close_connection = 1
         done = True
-      except (httplib.HTTPException, socket.error), e:
+      except (socket.error, BadStatusLine), e:
         self.server.conn = self._init_connection(r)
 
   def handle_one_request(self):
     """
     Accept a request, enable the user to modify, drop or forward it.
     """
+    if self.server.persistent:
+      self.close_connection = 0
     try:
       r = Request(self.rfile)
       if r.method == "CONNECT":
         r = self._bypass_ssl(r)
+        self.close_connection = 1
       if not self.server.filter or not self.server.filter.search(r.url):
         if self.server.prompt:
           e = raw_input(repr(r) + " ? ")
@@ -98,9 +97,10 @@ class ProxyHTTPRequestHandler(BaseHTTPServer.BaseHTTPRequestHandler):
       else:
         self._do_connection(r)
         self.wfile.write(r.response.raw())
-    
+
     except (ssl.SSLError, socket.timeout), e:
-      print warning(str(e))
+      self.close_connection = 1
+      print warning(str(type(e)) + ":" + str(e))
       return
    
 class ProxyHTTPServer(BaseHTTPServer.HTTPServer):
@@ -110,9 +110,9 @@ class ProxyHTTPServer(BaseHTTPServer.HTTPServer):
     if exc_type == KeyboardInterrupt:    
       raise KeyboardInterrupt()
     else:
-      print warning(str(exc_value))
+      print warning(str(exc_type) + ":" + str(exc_value))
 
-def proxy(port=8080, prompt=True, nb=-1, filter=re_filter_images, verbose=False):
+def proxy(port=8080, prompt=True, nb=-1, filter=re_filter_images, persistent=False, verbose=False):
   """Intercept all HTTP(S) requests on port. Return a RequestSet of all the 
   answered requests.
   
@@ -133,6 +133,7 @@ def proxy(port=8080, prompt=True, nb=-1, filter=re_filter_images, verbose=False)
     httpd.reqs = []
     httpd.prompt = prompt
     httpd.verbose = verbose
+    httpd.persistent = persistent
     httpd.prev = None
     while e_nb != nb:
       httpd.handle_request() 

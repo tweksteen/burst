@@ -18,3 +18,13 @@ def check_config_dir():
     return False
   return True
 
+class Configuration():
+  def __init__(self):
+    if "http_proxy" in os.environ:
+      self.proxy = os.environ["http_proxy"]
+      print "Using", self.proxy, "as proxy" 
+    else:
+      self.proxy = None
+    self.autosave = True
+
+conf = Configuration()
