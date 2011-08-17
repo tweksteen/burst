@@ -7,9 +7,7 @@ Quickstart
 ==========
 ::
 
-  $ git clone git://github.com/SecurusGlobal/Abrupt.git abrupt
-  $ cd abrupt
-  $ sudo python setup.py install
+  $ sudo pip install abrupt
   $ abrupt
   Generating SSL certificate...
   CA certificate : /home/tweksteen/.abrupt/ca.pem
@@ -76,8 +74,7 @@ request.
 Request and Response
 --------------------
 
-Abrupt have its own representation of HTTP request and response based on 
-httplib::
+Abrupt have its own representation of HTTP request and response::
   
   >>> r = requests[0]
   >>> print r
@@ -103,10 +100,7 @@ And execute the new request::
   >>> new_r.response
   <200 Gzip 5419>
 
-For more fun, try the :meth:`Request.play`. It will start your editor (which should 
-be Vim) and display the request and the response in two different windows.
-Every time you save the request file, the request is made to the server and
-the response displayed. 
+For more fun, try the :meth:`Request.play`! 
   
 :class:`Response` objects have the attributes: status, reason, headers, content, 
 readable_content. You can use the *preview* method to open a static dump of
@@ -185,6 +179,8 @@ Reference
   http
   proxy
   injection
+  history
+  configuration
   real-world
   cheatsheet
 
