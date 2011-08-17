@@ -17,6 +17,7 @@ import abrupt.conf
 from abrupt.color import *
 from abrupt.utils import *
 
+class UnableToConnect(Exception): pass
 class NotConnected(Exception): pass
 class BadStatusLine(Exception): pass
 class ProxyError(Exception): pass
@@ -119,6 +120,8 @@ class Request():
       sock = conn
     else:
       sock = connect(self.hostname, self.port, self.use_ssl)
+    if conf.history:
+      history.append(self)
     res_sock = _send_request(sock, self)
     n1 = datetime.datetime.now() 
     self.response = Response(res_sock.makefile('rb',0), self)
@@ -368,6 +371,9 @@ class RequestSet():
   def __bool__(self):
     return bool(self.reqs)
 
+  def append(self, r):
+    self.reqs.append(r)
+
   def pop(self):
     return self.reqs.pop()  
 
@@ -525,7 +531,12 @@ def connect(hostname, port, use_ssl):
     hostname = p_url.hostname
     port = p_url.port
     use_ssl = True if p_url.scheme[-1] == 's' else False
-  sock = socket.create_connection((hostname, port))
+  try:
+    sock = socket.create_connection((hostname, port))
+  except socket.error:
+    if conf.proxy:
+      raise ProxyError("Unable to connect to the proxy")
+    raise UnableToConnect()
   if use_ssl:
     sock = ssl.wrap_socket(sock)
   return sock

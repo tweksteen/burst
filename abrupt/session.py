@@ -6,7 +6,7 @@ import glob
 import types
 import __builtin__
 
-from abrupt.conf import SESSION_DIR
+from abrupt.conf import SESSION_DIR, conf
 from abrupt.color import *
 
 session_name = "default"
@@ -32,13 +32,15 @@ def load_session():
 
 def store_session(force=False):
   if session_name == "default" and not force:
-    return 
+    return
+  if not conf.autosave and not force: 
+    return
   d = os.path.join(SESSION_DIR, session_name)
   to_save = session_dict.copy()
   if to_save.has_key("__builtins__"):
     del to_save["__builtins__"]
   for k in to_save.keys():
-    if type(to_save[k]) in (types.TypeType, types.ClassType, types.ModuleType,types.NoneType):
+    if type(to_save[k]) in (types.TypeType, types.ClassType, types.ModuleType, types.NoneType):
       del to_save[k]
   if not os.path.exists(d):
     os.mkdir(d, 0700)
@@ -56,15 +58,15 @@ def save(obj=None, force=False):
 
   See also: ss, lss.
   """
-  if not force and session_name == "default":
-    print error("""It is a bad idea to save your data in the default session, you should 
-create another session with ss('my_session'). If you are sure, 
-use save(force=True)""")
-  if not obj:
-    store_session(force=force)
+  if session_name == "default":
+    if not force:
+      print error("""It is a bad idea to save your data in the default session, 
+you should create another session with ss('my_session'). 
+If you are sure, use save(force=True)""")
+    else:
+      store_session(force=force)
   else:
-    # Save a particular object?
-    pass
+    store_session(force=True)
 
 def switch_session(name="default"):
   """ Switch session.
@@ -78,7 +80,8 @@ def switch_session(name="default"):
   global session_name
   if name == session_name: return
   if session_name != "default":
-    store_session()
+    if conf.autosave:
+      store_session()
     clear_session()
   session_name = name
   load_session()

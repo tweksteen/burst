@@ -123,6 +123,12 @@ def interact():
   if session_loading:
     abrupt.session.load_session()
 
+  # Load user configuration, if any
+  conf.load()
+
+  # Import config from the environment
+  conf.import_env()
+
   # Setup autocompletion if readline
   if has_readline:
     class AbruptCompleter(rlcompleter.Completer):

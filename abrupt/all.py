@@ -5,4 +5,4 @@ from abrupt.session import switch_session, ss, save, list_sessions, lss, session
 from abrupt.spider import spider, s
 from abrupt.utils import encode, e, decode, d
 from abrupt.conf import conf
-
+from abrupt.history import history

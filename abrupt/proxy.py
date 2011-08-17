@@ -4,7 +4,7 @@ import BaseHTTPServer
 import ssl
 
 from abrupt.conf import CERT_DIR
-from abrupt.http import Request, Response, RequestSet, connect, BadStatusLine
+from abrupt.http import Request, Response, RequestSet, connect, BadStatusLine, UnableToConnect
 from abrupt.color import *
 from abrupt.cert import generate_ssl_cert, get_key_file
 from abrupt.utils import re_filter_images
@@ -98,7 +98,7 @@ class ProxyHTTPRequestHandler(BaseHTTPServer.BaseHTTPRequestHandler):
         self._do_connection(r)
         self.wfile.write(r.response.raw())
 
-    except (ssl.SSLError, socket.timeout), e:
+    except (ssl.SSLError, socket.timeout, UnableToConnect), e:
       self.close_connection = 1
       print warning(str(type(e)) + ":" + str(e))
       return
