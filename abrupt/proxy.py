@@ -1,10 +1,11 @@
 import sys
+import traceback
 import socket
 import BaseHTTPServer
 import ssl
 
-from abrupt.conf import CERT_DIR
-from abrupt.http import Request, Response, RequestSet, connect, BadStatusLine, UnableToConnect
+from abrupt.http import Request, RequestSet, connect, BadStatusLine, UnableToConnect
+from abrupt.conf import conf
 from abrupt.color import *
 from abrupt.cert import generate_ssl_cert, get_key_file
 from abrupt.utils import re_filter_images
@@ -54,7 +55,7 @@ class ProxyHTTPRequestHandler(BaseHTTPServer.BaseHTTPRequestHandler):
           self.server.conn.close()
           self.close_connection = 1
         done = True
-      except (socket.error, BadStatusLine), e:
+      except (socket.error, BadStatusLine):
         self.server.conn = self._init_connection(r)
 
   def handle_one_request(self):
@@ -88,12 +89,12 @@ class ProxyHTTPRequestHandler(BaseHTTPServer.BaseHTTPRequestHandler):
           print repr(r)
         if self.server.verbose:
           print r
+        self.server.reqs.append(r)
         self._do_connection(r)
         print repr(r.response)
         if self.server.verbose:
           print r.response
         self.wfile.write(r.response.raw())
-        self.server.reqs.append(r)
       else:
         self._do_connection(r)
         self.wfile.write(r.response.raw())
@@ -107,12 +108,13 @@ class ProxyHTTPServer(BaseHTTPServer.HTTPServer):
   
   def handle_error(self, request, client_address):
     exc_type, exc_value, exc_traceback = sys.exc_info()
-    if exc_type == KeyboardInterrupt:    
+    if exc_type == KeyboardInterrupt:
       raise KeyboardInterrupt()
     else:
       print warning(str(exc_type) + ":" + str(exc_value))
+      traceback.print_tb(exc_traceback)
 
-def proxy(port=8080, prompt=True, nb=-1, filter=re_filter_images, persistent=False, verbose=False):
+def proxy(port=None, prompt=True, nb=-1, filter=re_filter_images, persistent=False, verbose=False):
   """Intercept all HTTP(S) requests on port. Return a RequestSet of all the 
   answered requests.
   
@@ -123,6 +125,7 @@ def proxy(port=8080, prompt=True, nb=-1, filter=re_filter_images, persistent=Fal
             ignores .png, .jp(e)g, .gif and .ico.
   See also: w(), p1(), w1()
   """
+  if not port: port = conf.port
   e_nb = 0
   try:
     print "Running on port", port

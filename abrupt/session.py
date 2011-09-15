@@ -1,34 +1,55 @@
 import os
-import atexit
 import cPickle
 import datetime
 import glob
 import types
 import __builtin__
 
-from abrupt.conf import SESSION_DIR, conf
+from abrupt.conf import conf, SESSION_DIR
+from abrupt.http import history
 from abrupt.color import *
 
 session_name = "default"
 session_dict = {}
+last_save = None
+
+def reset_last_save():
+  global last_save
+  last_save = datetime.datetime.now()
+
+def should_save():
+  return datetime.datetime.now() - last_save > datetime.timedelta(minutes=20)
 
 def clear_session():
+  for k in session_dict:
+    if k != "__builtins__" and k in __builtin__.__dict__:
+      del __builtin__.__dict__[k]
   session_dict.clear()
+  history.clear()
+  conf.__init__()
+  conf.load()
 
 def load_session():
+  global history
   d = os.path.join(SESSION_DIR, session_name)
   if os.path.exists(d):
     fs = sorted(glob.glob(d + "/*"))
-    if not fs:
-      return False
-    fn = fs[-1]
-    print "Loading", os.path.basename(fn)
-    f = open(fn, "rb")
-    v = cPickle.load(f)
-    session_dict.update(v)
-    __builtin__.__dict__.update(session_dict)
+    if fs:
+      fn = fs[-1]
+      print "Loading", os.path.basename(fn)
+      f = open(fn, "rb")
+      v = cPickle.load(f)
+      if "__history" in v:
+        history.extend(v["__history"])
+        del v["__history"]
+      if "__conf" in v:
+        conf.import_dict(v["__conf"])
+        del v["__conf"]
+      session_dict.update(v)
+      __builtin__.__dict__.update(session_dict)
   else:
     os.mkdir(d, 0700)
+  reset_last_save()
 
 def store_session(force=False):
   if session_name == "default" and not force:
@@ -37,6 +58,8 @@ def store_session(force=False):
     return
   d = os.path.join(SESSION_DIR, session_name)
   to_save = session_dict.copy()
+  to_save["__conf"] = conf
+  to_save["__history"] = history
   if to_save.has_key("__builtins__"):
     del to_save["__builtins__"]
   for k in to_save.keys():
@@ -48,23 +71,22 @@ def store_session(force=False):
   print "Saving session..."
   f = open(os.path.join(d, n), "wb")
   cPickle.dump(to_save, f, -1)
+  reset_last_save()
   f.close()
   
 def save(obj=None, force=False):
   """ Save the current session.
   By default, this function is automatically called when the session 
   is terminated (either by switching session (ss) or exiting Abrupt) 
-  except is the session is "default".
+  except is the session is "default" or if conf.autosave is False.
 
-  See also: ss, lss.
+  See also: ss, lss, conf.autosave.
   """
   if session_name == "default":
     if not force:
       print error("""It is a bad idea to save your data in the default session, 
 you should create another session with ss('my_session'). 
 If you are sure, use save(force=True)""")
-    else:
-      store_session(force=force)
   else:
     store_session(force=True)
 

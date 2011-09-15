@@ -1,6 +1,5 @@
 import re
 import sys
-import string 
 import urllib
 
 re_space = re.compile(r'[ \t]+')

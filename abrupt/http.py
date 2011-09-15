@@ -13,7 +13,7 @@ import Cookie
 from collections import defaultdict 
 from StringIO import StringIO
 
-import abrupt.conf
+from abrupt.conf import conf
 from abrupt.color import *
 from abrupt.utils import *
 
@@ -115,7 +115,7 @@ class Request():
       return False 
     return True
       
-  def __call__(self, conn=None):
+  def __call__(self, conn=None, post_call=None):
     if conn:
       sock = conn
     else:
@@ -127,27 +127,30 @@ class Request():
     self.response = Response(res_sock.makefile('rb',0), self)
     n2 = datetime.datetime.now()
     self.response.time = n2 - n1
+    if post_call: post_call(self)
 
   def edit(self):
-    fd, fname = tempfile.mkstemp()
+    fd, fname = tempfile.mkstemp(suffix=".http")
     with os.fdopen(fd, 'w') as f:
       f.write(str(self))
-    editor = os.environ['EDITOR'] if 'EDITOR' in os.environ else "/usr/bin/vim"
-    ret = subprocess.call(editor + " " + fname, shell=True)
-    f = open(fname, 'r')
-    r_new = Request(f, self.hostname, self.port, self.use_ssl)
-    return r_new
+    ret = subprocess.call(conf.editor + " " + fname, shell=True)
+    if not ret:
+      f = open(fname, 'r')
+      r_new = Request(f, self.hostname, self.port, self.use_ssl)
+      if r_new.method in ('POST', 'PUT'):
+        r_new._update_content_length()
+      os.remove(fname)
+      return r_new
 
   def play(self, options='-o2 -c "set autoread" -c "autocmd CursorMoved * checktime" -c "autocmd CursorHold * checktime"'):
-    editor = os.environ['EDITOR'] if 'EDITOR' in os.environ else "/usr/bin/vim"
-    fdreq, freqname = tempfile.mkstemp()
-    fdrep, frepname = tempfile.mkstemp()
+    fdreq, freqname = tempfile.mkstemp(suffix=".http")
+    fdrep, frepname = tempfile.mkstemp(suffix=".http")
     with os.fdopen(fdreq, 'w') as f:
       f.write(str(self))
     if self.response:
       with os.fdopen(fdrep, 'w') as f:
         f.write(str(self.response))
-    ret = subprocess.Popen(editor + " " + freqname + " " + frepname + " " + options, shell=True, )
+    ret = subprocess.Popen(conf.editor + " " + freqname + " " + frepname + " " + options, shell=True)
     last_access = os.stat(freqname).st_mtime
     r_new = None
     while ret.poll() != 0:
@@ -155,6 +158,8 @@ class Request():
         freq = open(freqname, 'r')
         try:  
           r_new = Request(freq, self.hostname, self.port, self.use_ssl)
+          if r_new.method in ('POST', 'PUT'):
+            r_new._update_content_length()
           freq.close()
           r_new()
           if r_new.response:
@@ -166,6 +171,8 @@ class Request():
           frep.write(str(e))
         frep.close()
         last_access = os.stat(freqname).st_mtime
+    os.remove(freqname)
+    os.remove(frepname)
     return r_new
 
   def extract(self, arg):
@@ -281,11 +288,11 @@ class Response():
     return s.getvalue()
 
   def view(self):
-    fd, fname = tempfile.mkstemp()
+    fd, fname = tempfile.mkstemp(suffix=".http")
     with os.fdopen(fd, 'w') as f:
       f.write(str(self))
-    editor = os.environ['EDITOR'] if 'EDITOR' in os.environ else "/usr/bin/vim"
-    ret = subprocess.call(editor + " " + fname, shell=True)
+    subprocess.call(conf.editor + " " + fname, shell=True)
+    os.remove(fname)
 
   @property
   def cookies(self):
@@ -333,7 +340,6 @@ class Response():
     with os.fdopen(fd, 'w') as f:
       f.write(self.readable_content)
     webbrowser.open_new_tab(fname)
-    #os.unlink(fname)
 
   def extract(self, arg):
     if hasattr(self, arg):
@@ -349,16 +355,26 @@ class Response():
       if getattr(self, kw) != kwds[kw]:
         return False
     return True
-  
+
+def compare(r1, r2):
+  fd1, f1name = tempfile.mkstemp(suffix=".http")
+  fd2, f2name = tempfile.mkstemp(suffix=".http")
+  with os.fdopen(fd1, 'w') as f:
+    f.write(str(r1))
+  with os.fdopen(fd2, 'w') as f:
+    f.write(str(r2))
+  subprocess.call(conf.diff_editor + " " + f1name + " " + f2name, shell=True)
+  os.remove(fname1)
+  os.remove(fname2)
+
+cmp = compare
+
 class RequestSet():
   
   def __init__(self, reqs=None):
     self.reqs = reqs if reqs else []
     self.hostname = None
   
-  def __call__(self):
-    self._run()
-
   def __getitem__(self, i):
     return self.reqs[i]
 
@@ -374,6 +390,9 @@ class RequestSet():
   def append(self, r):
     self.reqs.append(r)
 
+  def extend(self, rs):
+    self.reqs.extend(rs)
+
   def pop(self):
     return self.reqs.pop()  
 
@@ -382,6 +401,12 @@ class RequestSet():
 
   def extract(self, arg):
     return [ r.extract(arg) for r in self.reqs]
+
+  def cmp(self, i1, i2):
+    compare(self[i1], self[i2])
+
+  def cmp_response(self, i1, i2):
+    compare(self[i1].response, self[i2].response)
 
   def __repr__(self):
     status = defaultdict(int)
@@ -406,7 +431,7 @@ class RequestSet():
       ])
     if any([hasattr(x, "payload") for x in self.reqs]):
       columns.insert(2, ("Payload", lambda r, i: getattr(r,"payload","-")[:30]))
-      columns.append(("Time", lambda r,i: "%.4f" % (r.response.time.total_seconds()) 
+      columns.append(("Time", lambda r,i: "%.4f" % (r.response.time.seconds+r.response.time.microseconds/1.e6)
                               if r.response else "-"))
     if len(set([r.hostname for r in self.reqs])) > 1:
       columns.insert(1, ("Host", lambda r, i: r.hostname)) 
@@ -417,7 +442,7 @@ class RequestSet():
   def _init_connection(self):
     return connect(self.hostname, self.port, self.use_ssl)
 
-  def _run(self, verbose=False):
+  def __call__(self, post_call=None, force=False, verbose=False):
     if not self.reqs:
       raise Exception("No request to proceed")
     hostnames = set([r.hostname for r in self.reqs])
@@ -436,21 +461,40 @@ class RequestSet():
         print "Running %s requests...%d%%" % (len(self.reqs), i*100/len(self.reqs)),
         clear_line()
       next = False
-      if r.response: next = True
+      if r.response and not force:
+        next = True
       while not next:
         try:
           if verbose: print repr(r)
-          r(conn=conn)
+          r(conn=conn, post_call=post_call)
           if verbose: print repr(r.response)
           if r.response.closed: 
             conn = self._init_connection()
           next = True
-        except socket.error, e: 
+        except (socket.error, BadStatusLine):
           conn = self._init_connection()
           next = False
     print "Running %s requests...done." % len(self.reqs)
     conn.close()
 
+class History(RequestSet):
+
+  def _enabled(self):
+    if not conf.history:
+      raise Exception("History not enabled. Set conf.history = True")
+
+  def __repr__(self):
+    self._enabled()
+    return RequestSet.__repr__(self)
+
+  def __str__(self):
+    self._enabled()
+    return RequestSet.__str__(self)
+
+  def clear(self):
+    self.reqs = []
+
+history = History()
 
 # Following, internal function used by Request and Response
 # mostly inspired by httplib
@@ -538,7 +582,7 @@ def connect(hostname, port, use_ssl):
       raise ProxyError("Unable to connect to the proxy")
     raise UnableToConnect()
   if use_ssl:
-    sock = ssl.wrap_socket(sock)
+    sock = ssl.wrap_socket(sock, ssl_version=conf._ssl_version)
   return sock
 
 def _send_request(sock, request):
@@ -553,7 +597,7 @@ def _send_request(sock, request):
       if s != "200":
         raise ProxyError("Bad status " + s + " " + m)
       _ = read_headers(f)
-      res_sock = ssl.wrap_socket(sock)
+      res_sock = ssl.wrap_socket(sock, ssl_version=conf._ssl_version)
       buf = ["%s %s %s" % (request.method, request.url, request.http_version), ]
     else:
       p_url = urlparse.urlparse(request.url)

@@ -1,9 +1,5 @@
 import re
-import urllib
 import urlparse
-import httplib
-import traceback
-import functools
 import collections
 import glob
 import os.path
@@ -28,9 +24,9 @@ def _urlencode(query):
   for k, v in query.items():
     if isinstance(v, collections.Iterable):
       for elt in v:
-        l.append(str(k) + '=' + str(elt))
+        l.append(encode(str(k)) + '=' + encode(str(elt)))
     else:
-      l.append(str(k) + '=' + str(v))
+      l.append(encode(str(k)) + '=' + encode(str(v)))
   return '&'.join(l)
     
 
@@ -46,7 +42,7 @@ def _get_payload(name, kwds):
   except KeyError:
     raise PayloadNotFound("Possible values are: " +", ".join(payloads.keys()))
 
-def _inject_query(r, pre_func=encode, **kwds):
+def _inject_query(r, pre_func=None, **kwds):
   rs = []
   parsed_url = urlparse.urlparse(r.url)
   if not pre_func: pre_func = lambda x:x
@@ -82,7 +78,7 @@ def _inject_cookie(r, pre_func=encode, **kwds):
       rs.append(r_new)
   return rs
 
-def _inject_post(r, pre_func=encode, **kwds):
+def _inject_post(r, pre_func=None, **kwds):
   rs = []
   i_pts = urlparse.parse_qs(r.content, True)
   if not pre_func: pre_func = lambda x:x

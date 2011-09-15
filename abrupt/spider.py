@@ -2,7 +2,7 @@ import re
 import urlparse
 from collections import deque
 
-from abrupt.http import RequestSet, create
+from abrupt.http import RequestSet
 from abrupt.utils import e, clear_line
 from abrupt.color import *
 

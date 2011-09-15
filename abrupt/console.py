@@ -44,7 +44,10 @@ class ColorPrompt():
     session_name = abrupt.session.session_name
     prompt = '\001%s\002' % info('\002>>> \001')
     if session_name != "default":
-      prompt = '\001%s\002 ' % warning('\002'+session_name+'\001') + prompt
+      if abrupt.session.should_save():
+        prompt = '\001%s\002 ' % error('\002'+session_name+'\001') + prompt
+      else:
+        prompt = '\001%s\002 ' % warning('\002'+session_name+'\001') + prompt
     return prompt
 
 class AbruptInteractiveConsole(code.InteractiveConsole):
@@ -57,24 +60,23 @@ class AbruptInteractiveConsole(code.InteractiveConsole):
 
 def help(obj=None):
   if not obj:
-    print """Welcome to Abrupt! 
+    print """Welcome to Abrupt!
 
-If this is your first time using Abrupt, you should check the quickstart at
-http://securusglobal.github.com/Abrupt/. 
+If this is your first time using Abrupt, you should check the
+quickstart at http://securusglobal.github.com/Abrupt/.
 
-Here are the basic functions of Abrupt, type 'help(function)' for a 
-complete description of these functions:
+Here are the basic functions of Abrupt, type 'help(function)'
+for a complete description of these functions:
   * proxy: Start a HTTP proxy on port 8080.
   * create: Create a HTTP request based on a URL.
   * inject: Inject or fuzz a request.
 
 Abrupt have few classes which worth having a look at, typing 'help(class)':
-  * Request 
-  * Response 
+  * Request
+  * Response
   * RequestSet
 
-Please, report any bug or comment to tw@securusglobal.com
-"""
+Please, report any bug or comment to tw@securusglobal.com"""
   else:
     pydoc.help(obj)   
  
@@ -88,8 +90,7 @@ def interact():
   /_\ | |__ _ _ _  _ _ __| |_ 
  / _ \| '_ \ '_| || | '_ \  _|
 /_/ \_\_.__/_|  \_,_| .__/\__|
-                 """ + abrupt.__version__ + """|_|
-"""
+                 """ + abrupt.__version__ + """|_|"""
   
   session_loading = True
   # Parse arguments
@@ -103,7 +104,7 @@ def interact():
       elif opt == "-n":
         session_loading = False
       elif opt == "-b":
-        banner = "Abrupt " + abrupt.__version__
+        banner = "Abrupt %s" % abrupt.__version__
     if opts[1]: 
         _usage()
   except getopt.GetoptError:
@@ -113,21 +114,21 @@ def interact():
   if not abrupt.conf.check_config_dir():
     print "Generating SSL certificate..."
     abrupt.cert.generate_ca_cert()
-    banner += "Welcome to Abrupt, type help() for more information"
+    banner += "\nWelcome to Abrupt, type help() for more information"
   
   # Could we find the payloads?
-  if not len(abrupt.injection.payloads):
+  if not abrupt.injection.payloads:
     print warning("No payload found for the injection, check abrupt/payloads")
-
-  # Load the session
-  if session_loading:
-    abrupt.session.load_session()
 
   # Load user configuration, if any
   conf.load()
 
   # Import config from the environment
   conf.import_env()
+
+  # Load the session, session configuration takes precedence over global configuration
+  if session_loading:
+    abrupt.session.load_session()
 
   # Setup autocompletion if readline
   if has_readline:
