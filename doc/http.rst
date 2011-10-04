@@ -1,45 +1,48 @@
 abrupt.http - HTTP base classes
 ===============================
 
+.. module:: http
+
 .. class:: Request(fp, [hostname=None, port=80, use_ssl=False]) 
 
   The Request class is the base of Abrupt. To create an instance, you have 
   two options: either use a socket or a string representing the whole request 
-  into the constructor or use the :func:`c` function. 
-  Once created, the Request object have the following attributes:
+  into the constructor or use the :func:`~http.create` function. 
+  The two methods __repr__ and __str__ have been defined to provide
+  user friendly interaction inside the interpreter.
 
   .. attribute:: method 
     
-    Contains the HTTP method of the request. For instance, "GET"
+    Contains the HTTP method of the request. For instance, "GET".
 
   .. attribute:: url
     
-     A 6-tuple result, see http://docs.python.org/library/urlparse.html
+    A 6-tuple result, see http://docs.python.org/library/urlparse.html
 
   .. attribute:: http_version
 
-     The HTTP version. For instance, "HTTP/1.1"
+    The HTTP version. For instance, "HTTP/1.1".
 
   .. attribute:: hostname
 
-     The hostname of the server. For instance, "phrack.org"
+    The hostname of the server. For instance, "phrack.org".
 
   .. attribute:: port
 
-     The port used to connect to the server. By default "80".
+    The port used to connect to the server. By default, 80.
 
   .. attribute:: use_ssl
 
-     A boolean indicating if SSL is used. By default, False
+    A boolean indicating if SSL is used. By default, False.
 
   .. attribute:: headers 
 
-     List of couple containing the headers.
+    List of pairs containing the headers.
 
   .. attribute:: path
 
-     The path of the request. For instance, "/index.html". This attribute is 
-     defined as read-only. To modify the path, use the :attr:`url` attribute.
+    The path of the request. For instance, "/index.html". This attribute is 
+    defined as read-only. To modify the path, use the :attr:`url` attribute.
 
   .. attribute:: query 
     
@@ -48,56 +51,63 @@ abrupt.http - HTTP base classes
 
   .. attribute:: cookies
 
-     A python cookie, see http://docs.python.org/library/cookie.html. This 
-     attribute is read-only, based on the :attr:`headers`
+    A python cookie, see http://docs.python.org/library/cookie.html. This 
+    attribute is read-only, based on the :attr:`headers`.
 
   .. attribute:: response
 
-     The associated response, once the request has been made to the server.
-     For more information, see :class:`Response`
+    The associated response, once the request has been made to the server.
+    For more information, see :class:`~http.Response`.
 
-  The Request class define both __repr__ and __str__ for a different behavior
-  when called using the interpreter. The other methods available are:
-
-  .. method:: __call__()
+  .. method:: ()
     
-     make the request
+    Do the request. Includes connect to the server, send the request,
+    read the response, create the corresponding :class:`~http.Response` 
+    object and add itself to the :data:`~http.history`.
+
+  .. method:: follow()
+  
+    If the request's response is a HTTP redirection, calling this function
+    will return a request following the redirection. This function is still
+    considered as experimental, please code your own and share it.
 
   .. method:: _update_content_length()
 
-    in case you change the body of the request
+    In case you change the body of the request.
 
   .. method:: copy() 
 
-    create a new request based on the current, without the response
+    Create a new request based on the current, without the response.
 
   .. method:: edit()
 
-    start your favorite EDITOR to edit the request, the new request is 
-    returned. If the environment variable EDITOR has not been set, 'vim'
-    will be used.
+    Start your editor to edit the request, the new request is returned. 
+    See the configuration parameter :attr:`~conf.Configuration.editor`.
 
   .. method:: play(options)
 
-    start your EDITOR with two windows. Each time the request file is saved,
-    the request is made to the server and the response updated. By default,
-    options is set up for Vim. When the editor terminates, the last valid 
-    request made is returned.
+    Start your editor with two windows. Each time the request file is saved,
+    the request is made to the server and the response updated. When the 
+    editor terminates, the last valid request made is returned.
+    By default, `options` is set to configure ``vim``.
 
   .. method:: extract(field)
 
-     extract information on the request. See RequestSet.extract
+    Extract a particular field of the request. See 
+    :meth:`~http.RequestSet.extract`.
 
-.. function:: c(url)
+  .. method:: i()
 
-  Create a Request based on a URL. For instance `c("http://www.phrack.org")`.
-  Some headers are automatically added to the request (User-Agent, Accept, 
-  Accept-Encoding, Accept-Language, Accept-Charset, Keep-Alive, Connection).
+    Shortcut for :func:`~injection.inject`.
+
+  .. method:: i_at()
+
+    Shortcut for :func:`~injection.inject_at`.
 
 .. class:: Response(fd)
     
-  You will never use directly the constructor of Response, instead reference
-  a response object as a request result.
+  You will never use directly the constructor of Response, instead use
+  the Request attribute :attr:`~http.Request.response`.
 
   .. attribute:: status
 
@@ -105,65 +115,102 @@ abrupt.http - HTTP base classes
 
   .. attribute:: reason
 
-    The reason. For instance, "Not Found"
+    The reason. For instance, "Not Found".
 
   .. attribute:: http_version
   
-    The version. For instance, "HTTP/1.1"
+    The version. For instance, "HTTP/1.1".
 
   .. attribute:: headers 
 
-     List of couple containing the headers.
+    List of couple containing the headers.
 
+  .. attribute:: raw_content
+  
+    The content returned by the server. It could be compressed or chunked.
+  
   .. attribute:: content
-  
-     The content returned by the server. It could be compressed or chunked.
-  
-  .. attribute:: readable_content
 
-     Decoded content, as displayed by your browser. 
+    Decoded content, as displayed by your browser. 
 
   .. attribute:: cookies
 
-     A python cookie, see http://docs.python.org/library/cookie.html. This 
-     attribute is read-only, based on the :attr:`headers`
+    A python cookie, see http://docs.python.org/library/cookie.html. This 
+    attribute is read-only, based on the :attr:`headers`
 
   .. method:: raw()
 
-     Return the full response including headers and content.
+    Return the full response including headers and raw_content.
 
   .. method:: preview()
 
-     Start your browser on a static dump of the response.
+    Start your browser on a static dump of the response.
+
+  .. method:: view()
+    
+    Start your editor on the response.
 
   .. method:: extract(field)
 
-     extract information on the request. See RequestSet.extract
-
+    Extract information on the request. See :func:`~http.RequestSet.extract`
 
 .. class:: RequestSet([reqs=None])
 
-  RequestSet is just an easy way to group request. It basically behave like a
-  list. You can access element at a specific index with the `[]` operator.
-  The main methods are:
+  RequestSet is just an easy way to group some :class:`~http.Request`. It 
+  behave like a list. You can access element at a specific index 
+  with the `[]` operator. `append`, `extend`, `pop`, `+` will behave as   
+  expected. 
 
-  .. method:: filter(**kwds)
+  .. method:: filter(predicate)
     
-    Filter the RequestSet according to some conditions and return a new 
-    RequestSet containing only the request matching all the conditions. For 
-    instance, to filter by hostname, you can use `rs.filter(hostname='phrack.org')`.
+    Filter the RequestSet according to the supplied predicate. For 
+    instance, to filter by hostname, you can use 
+    ``rs.filter(lambda x: x.hostname == "phrack.org")``.
+    To filter the requests which response's content matches a 
+    regular expression:
+    ``rs.filter(lambda x: re.search(r'Error', x.response.content))``
     
-  .. method:: extract(arg)
+  .. method:: extract(arg, from_response=None)
     
-    Base on the same idea as filter, it returns a specific attribute for all the
-    request. For instance, `rs.extract("hostname")`
+    Returns a specific attribute for all the requests. For instance, 
+    ``rs.extract("hostname")``. It will look up the argument in the request's
+    attribute, URL paramaters, POST content, cookies, response attributes and
+    response cookies, in this order. If only the response should be looked
+    up, set `from_response` to `True`.
 
-  .. method:: __call__()
+  .. method:: ()
   
-    Make all the requests contained in the RequestSet only if they are all using
-    the same host and port. An exception is raised if it is not the case.
+    Make all the requests contained in the RequestSet only if they are 
+    all using the same host and port. An exception is raised if it is 
+    not the case.
 
-  .. method:: save(name)
+  .. method:: cmp(i1, i2)
+    
+    Start your :attr:`~conf.Configuration.diff_editor` with the two
+    requests at index `i1` and `i2`.
 
-    Save the request set. Use load(name) to load it. 
+  .. method:: cmp_response(i1, i2)
+
+    Start your :attr:`~conf.Configuration.diff_editor` with the two
+    responses of the requests at index `i1` and `i2`.
+
+.. function:: create(url)
   
+  aliased `c`
+
+  Create a :class:`~http.Request` based on a URL. For instance 
+  ``c("http://www.phrack.org")``. Some headers are automatically added 
+  to the request (User-Agent, Accept, Accept-Encoding, Accept-Language, 
+  Accept-Charset).
+
+.. function:: compare(r1, r2)
+
+  aliased `cmp`
+
+  Start your :attr:`~conf.Configuration.diff_editor` with the two requests
+  or responses side by side.
+
+.. data:: history
+
+  History is a :class:`RequestSet` which contains all the requests made through 
+  Abrupt. To turn it off, set :attr:`~conf.Configuration.history` to False.

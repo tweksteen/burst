@@ -15,6 +15,6 @@ Function
 
 Global
 ------
-* payloads
-* history
-* conf
+* :data:`~injection.payloads`
+* :data:`~http.history`
+* :data:`~conf.conf`

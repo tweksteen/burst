@@ -1,10 +1,14 @@
 abrupt.injection - Request generator
 ====================================
 
+.. module:: injection
+
 The injection module provides two functions to "inject" a request (i.e.,
 generate a :class:`RequestSet` from a Request using a list of payloads):
 
-.. function:: i(request, **kwds, [pre_func=e])
+.. function:: inject(request, **kwds, [pre_func=e])
+  
+  aliased `i`
   
   For each keyword, this function will try to find the key in the request
   at the following locations:
@@ -38,7 +42,9 @@ generate a :class:`RequestSet` from a Request using a list of payloads):
   The *pre_func* parameter is a function to apply to each payload before
   being injected. By default, it urlencode the payload.
   
-.. function:: i_at(request, offset, payload, [pre_func=e])
+.. function:: inject_at(request, offset, payload, [pre_func=e])
+  
+  aliased i_at
 
   This function inject the request at a specific offset, between
   two offset position or instead a token. 
