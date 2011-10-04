@@ -3,7 +3,6 @@ import os.path
 import ConfigParser
 import ssl
 
-import abrupt.session
 from abrupt.color import *
 
 CONF_DIR = os.path.expanduser("~/.abrupt/")
@@ -45,9 +44,9 @@ class Configuration(object):
     self.editor = "/usr/bin/vim"
     self.diff_editor = "/usr/bin/vimdiff"
     self._ssl_version = ssl.PROTOCOL_SSLv3
-    self._values = { "port": "getint", "proxy": "get", "autosave": "getboolean",
-                     "history": "getboolean", "editor": "get",
-                     "diff_editor": "get", "ssl_version": "get" }
+    self._values = { "port": "getint", "proxy": "get", "ssl_version": "get",
+                    "autosave": "getboolean", "history": "getboolean", 
+                    "editor": "get", "diff_editor": "get" }
 
   def _get_ssl_version(self):
     for k,v in self.ssl_map.items():
@@ -89,6 +88,7 @@ class Configuration(object):
           setattr(self, k, getattr(c, v).__call__("abrupt", k))
       
   def save(self, force=False):
+    import abrupt.session
     if abrupt.session.session_name != "default" and not force:
       print error("""The current configuration is automatically saved when
 your session is saved (see save() and conf.autosave).

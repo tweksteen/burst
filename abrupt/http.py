@@ -17,9 +17,15 @@ from abrupt.conf import conf
 from abrupt.color import *
 from abrupt.utils import *
 
-class UnableToConnect(Exception): pass
-class NotConnected(Exception): pass
-class BadStatusLine(Exception): pass
+class UnableToConnect(Exception):
+  def __str__(self):
+    return "Unable to connect to the server"
+class NotConnected(Exception): 
+  def __str__(self):
+    return "Unable to send the request to the server"
+class BadStatusLine(Exception): 
+  def __str__(self):
+    return "They host did not return a correct banner"
 class ProxyError(Exception): pass
 
 class Request():
@@ -175,39 +181,30 @@ class Request():
     os.remove(frepname)
     return r_new
 
-  def extract(self, arg):
-    if arg.startswith("response__"):
-      if self.response: 
-        return self.response.extract(arg.replace("response__", ""))
+  def extract(self, arg, from_response=None):
+    if from_response:
+      if self.response:
+        return self.response.extract(arg)
+      return None
     if hasattr(self, arg):
       return getattr(self, arg)
     if self.query:
       query = urlparse.parse_qs(self.query, True)
-      print query
       if arg in query:
         return query[arg][0]
     if self.content:
       post = urlparse.parse_qs(self.content, True)
-      print post
       if arg in post:
         return post[arg][0]
     c = self.cookies
     if c:
       if arg in c:
-        return c[arg].value      
+        return c[arg].value
+    if from_response is None and self.response:
+      return self.response.extract(arg)
   
-  def filter(self, **kwds):
-    check_response = {}
-    for kw in kwds:
-      if kw.startswith("response__"):
-        check_response[kw.replace("response__", "")] = kwds[kw]
-      if hasattr(self, kw):
-        if getattr(self, kw) != kwds[kw]:
-          return False
-    if check_response:
-      if not self.response or not self.response.filter(**check_response): 
-        return False
-    return True
+  def filter(self, predicate):
+    return bool(predicate(self))
 
   def i(self, **kwds):
     from abrupt.injection import inject
@@ -232,7 +229,7 @@ class Request():
             nr.url = urlparse.urlunparse(urlparse.urlparse(self.url)[:2] + urlparse.urlparse(n_path)[2:])
             return nr
           else:
-            raise Exception("Unknown redirection, please add some code in abrupt/http.py:186")  
+            raise Exception("Unknown redirection, please add some code in abrupt/http.py:Request.follow")  
 
 def create(url):
   """Create a request on the fly, based on a URL"""
@@ -261,20 +258,23 @@ class Response():
       raise BadStatusLine()
     self.set_headers(read_headers(fd))
     if request.method == "HEAD": 
-      self.content = ""
+      self.raw_content = self.content = ""
     else:
-      self.content = read_content(fd, self.headers, self.status)
-      if self.content:
-        self.readable_content = _clear_content(self.headers, self.content)
+      self.raw_content = read_content(fd, self.headers, self.status)
+      if self.raw_content:
+        self.content = _clear_content(self.headers, self.raw_content)
       else:
-        self.readable_content = ""
+        self.content = ""
 
   def __repr__(self):
     flags = []
+    if self.content: flags.append(str(len(self.content)))
     if ("Transfer-Encoding", "Chunked") in self.headers: flags.append("Chunked")
     if ("Content-Encoding", "gzip") in self.headers: flags.append("Gzip")
     if ("Content-Encoding", "deflate") in self.headers: flags.append("Zip")
-    if self.content: flags.append(str(len(self.content)))
+    for h, v in self.headers:
+      if h == "Set-Cookie":
+        flags.append("C:" + v)
     return "<" + color_status(self.status) + " " + " ".join(flags)  + ">"
 
   def __str__(self):
@@ -284,7 +284,7 @@ class Response():
       s.write("%s: %s\r\n" % (h, v))
     s.write("\r\n")
     if self.content:
-      s.write(self.readable_content)
+      s.write(self.content)
     return s.getvalue()
 
   def view(self):
@@ -303,6 +303,20 @@ class Response():
     return b
 
   @property
+  def is_javascript(self):
+    for k, v in self.headers:
+      if k == "Content-Type" and "javascript" in v:
+        return True
+    return False
+
+  @property 
+  def is_html(self):
+    for k, v in self.headers:
+      if k == "Content-Type" and "html" in v:
+        return True
+    return False
+
+  @property
   def closed(self):
     if ("Connection", "close") in self.headers or self.http_version == "HTTP/1.0":
       return True
@@ -310,7 +324,7 @@ class Response():
 
   @property
   def length(self):
-    return len(self.readable_content)
+    return len(self.content)
 
   @property
   def content_type(self):
@@ -324,8 +338,8 @@ class Response():
     for h, v in self.headers:
       s.write("%s: %s\r\n" % (h, v))
     s.write("\r\n")
-    if self.content:
-      s.write(self.content)
+    if self.raw_content:
+      s.write(self.raw_content)
     return s.getvalue()
     
   def set_headers(self, headers):
@@ -338,7 +352,7 @@ class Response():
   def preview(self):
     fd, fname = tempfile.mkstemp()
     with os.fdopen(fd, 'w') as f:
-      f.write(self.readable_content)
+      f.write(self.content)
     webbrowser.open_new_tab(fname)
 
   def extract(self, arg):
@@ -348,13 +362,8 @@ class Response():
     if arg in c:
       return c[arg].value
   
-  def filter(self, **kwds):
-    for kw in kwds:
-      if not hasattr(self, kw): 
-        return False
-      if getattr(self, kw) != kwds[kw]:
-        return False
-    return True
+  def filter(self, predicate):
+    return bool(predicate(self))
 
 def compare(r1, r2):
   fd1, f1name = tempfile.mkstemp(suffix=".http")
@@ -364,8 +373,8 @@ def compare(r1, r2):
   with os.fdopen(fd2, 'w') as f:
     f.write(str(r2))
   subprocess.call(conf.diff_editor + " " + f1name + " " + f2name, shell=True)
-  os.remove(fname1)
-  os.remove(fname2)
+  os.remove(f1name)
+  os.remove(f2name)
 
 cmp = compare
 
@@ -376,6 +385,8 @@ class RequestSet():
     self.hostname = None
   
   def __getitem__(self, i):
+    if isinstance(i, slice):
+      return RequestSet(self.reqs[i])
     return self.reqs[i]
 
   def __len__(self):
@@ -396,11 +407,11 @@ class RequestSet():
   def pop(self):
     return self.reqs.pop()  
 
-  def filter(self, **kwds):
-    return RequestSet([ r for r in self.reqs if r.filter(**kwds)])
+  def filter(self, predicate):
+    return RequestSet([ r for r in self.reqs if r.filter(predicate)])
 
-  def extract(self, arg):
-    return [ r.extract(arg) for r in self.reqs]
+  def extract(self, arg, from_response=None):
+    return [ r.extract(arg, from_response) for r in self.reqs ] 
 
   def cmp(self, i1, i2):
     compare(self[i1], self[i2])
@@ -422,12 +433,12 @@ class RequestSet():
   def __str__(self):
     columns =  ([
       ("Method", lambda r, i: info(r.method)),
-      ("Path", lambda r, i:  r.path[:27] + "..." if len(r.path)>30 else r.path),
+      ("Path", lambda r, i: "..." + r.path[-27:] if len(r.path)>30 else r.path),
       ("Query", lambda r,i: r.query[:27] + "..." if len(r.query)>30 else r.query),
       ("Status", lambda r, i: color_status(r.response.status)
-                 if r.response else "-"),
-      ("Length", lambda r, i: str(len(r.response.content)) 
-                 if (r.response and r.response.content) else "-")
+                              if r.response else "-"),
+      ("Length", lambda r, i: str(len(r.response.content)) if 
+                                 (r.response and r.response.content) else "-")
       ])
     if any([hasattr(x, "payload") for x in self.reqs]):
       columns.insert(2, ("Payload", lambda r, i: getattr(r,"payload","-")[:30]))
@@ -547,27 +558,27 @@ def _read_content(fp, length):
       break
   return buffer
 
-def _clear_content(headers, content):
+def _clear_content(headers, raw_content):
   if ("Transfer-Encoding", "chunked") in headers:
-    content_io = StringIO(content)
+    content_io = StringIO(raw_content)
     buffer = StringIO()
     while True:
       s = int(content_io.readline(), 16)
       if s == 0: 
-        readable_content = buffer.getvalue()
+        content = buffer.getvalue()
         break
       buffer.write(_read_content(content_io, s).getvalue())
       content_io.readline()
   else:
-    readable_content = content
+    content = raw_content
   if ("Content-Encoding", "gzip") in headers:
-    cs = StringIO(readable_content)
+    cs = StringIO(content)
     gzipper = gzip.GzipFile(fileobj=cs)
     return gzipper.read()
   if ("Content-Encoding", "deflate") in headers:
-    unzipped = StringIO(zlib.decompress(readable_content, -zlib.MAX_WBITS))
+    unzipped = StringIO(zlib.decompress(content, -zlib.MAX_WBITS))
     return unzipped.read()
-  return readable_content
+  return content
 
 def connect(hostname, port, use_ssl):
   if conf.proxy:

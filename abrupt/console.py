@@ -19,10 +19,10 @@ except ImportError:
   has_readline = False
 
 def _usage():
-  print """Usage: abrupt [-hbn] [-s session_name]
-    -h: print this help message
+  print """Usage: abrupt [-bhl] [-s session_name]
     -b: no graphical banner
-    -n: don't load the session last save
+    -h: print this help message
+    -l: list existing sessions
     -s: create or load the session"""
   sys.exit(0)
 
@@ -92,17 +92,17 @@ def interact():
 /_/ \_\_.__/_|  \_,_| .__/\__|
                  """ + abrupt.__version__ + """|_|"""
   
-  session_loading = True
   # Parse arguments
   try:
-    opts = getopt.getopt(sys.argv[1:], "hbs:n")
+    opts = getopt.getopt(sys.argv[1:], "hbs:l")
     for opt, param in opts[0]:
       if opt == "-h":
         _usage()
       elif opt == "-s":
         abrupt.session.session_name = param
-      elif opt == "-n":
-        session_loading = False
+      elif opt == "-l":
+        abrupt.session.list_sessions()
+        sys.exit(0)
       elif opt == "-b":
         banner = "Abrupt %s" % abrupt.__version__
     if opts[1]: 
@@ -126,9 +126,10 @@ def interact():
   # Import config from the environment
   conf.import_env()
 
-  # Load the session, session configuration takes precedence over global configuration
-  if session_loading:
-    abrupt.session.load_session()
+  # Load the session, session configuration takes precedence 
+  # over global configuration. There is no condition, by default, 
+  # load the "default" session.
+  abrupt.session.load_session()
 
   # Setup autocompletion if readline
   if has_readline:

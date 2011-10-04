@@ -4,7 +4,7 @@ import urllib
 
 re_space = re.compile(r'[ \t]+')
 re_ansi_color = re.compile(r"(\x1b\[[;\d]*[A-Za-z])|\x01|\x02").sub
-re_filter_images = re.compile(r'\.(png|jpg|jpeg|ico|gif)$')
+re_images_ext = re.compile(r'\.(png|jpg|jpeg|ico|gif)$')
 
 def encode(s, **kwds):
   return urllib.quote_plus(s, **kwds)  

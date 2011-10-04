@@ -178,3 +178,18 @@ def inject_at(r, offset, payload, **kwds):
   return RequestSet(_inject_offset(r, offset, payload, **kwds))
 
 i_at = inject_at
+
+def fuzz_headers(r, payload):
+  print "TODO: adapt payload for each header tested"
+  rs = []
+  for i, e in enumerate(r.headers):
+    k, v = e 
+    pds = _get_payload("header", {"header": payload})
+    for p in pds:
+      r_new = r.copy()
+      h_new = (k, p)
+      r_new.headers[i] = h_new
+      rs.append(r_new)
+  return RequestSet(rs)
+    
+f_h = fuzz_headers

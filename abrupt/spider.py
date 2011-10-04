@@ -20,7 +20,7 @@ def _follow_redirect(r):
 def _get_links(r):
   new_reqs = []
   if not has_soup: raise Exception("To use the spider, you need BeautifulSoup")
-  soup = BeautifulSoup(r.response.readable_content)
+  soup = BeautifulSoup(r.response.content)
   base_tag = soup.findAll('base')
   if base_tag and base_tag[0].has_key('href'):
     base = base_tag[0]["href"]

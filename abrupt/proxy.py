@@ -4,11 +4,12 @@ import socket
 import BaseHTTPServer
 import ssl
 
+from abrupt import alert
 from abrupt.http import Request, RequestSet, connect, BadStatusLine, UnableToConnect
 from abrupt.conf import conf
 from abrupt.color import *
 from abrupt.cert import generate_ssl_cert, get_key_file
-from abrupt.utils import re_filter_images
+from abrupt.utils import re_images_ext
 
 class ProxyHTTPRequestHandler(BaseHTTPServer.BaseHTTPRequestHandler):
 
@@ -69,39 +70,51 @@ class ProxyHTTPRequestHandler(BaseHTTPServer.BaseHTTPRequestHandler):
       if r.method == "CONNECT":
         r = self._bypass_ssl(r)
         self.close_connection = 1
-      if not self.server.filter or not self.server.filter.search(r.url):
-        if self.server.prompt:
-          e = raw_input(repr(r) + " ? ")
-          while True:
-            if e == "v":
-              print str(r)
-            if e == "e":
-              r = r.edit()
-            if e == "d":
-              return
-            if e == "" or e == "f":
-              break
-            if e == "c":
-              self.server.prompt = False
-              break
-            e = raw_input("(v)iew, (e)dit, (f)orward, (d)rop, (c)ontinue [f]? ") 
-        else:
-          print repr(r)
-        if self.server.verbose:
-          print r
-        self.server.reqs.append(r)
-        self._do_connection(r)
-        print repr(r.response)
-        if self.server.verbose:
-          print r.response
-        self.wfile.write(r.response.raw())
+      for rule, action in self.server.rules:
+        if bool(rule(r)):
+          pre_action = action
+          default = False
+          break
       else:
-        self._do_connection(r)
-        self.wfile.write(r.response.raw())
+        pre_action = self.server.default_action
+        default = True
+      if self.server.overrided_ask and pre_action == "a":
+        pre_action = self.server.overrided_ask
+      if pre_action == "a":
+        e = raw_input(repr(r) + " ? ")
+      else:
+        e = pre_action
+        if default or self.server.verbose:
+          print repr(r), e
+      while True:
+        if e == "v":
+          print str(r)
+        if e == "e":
+          r = r.edit()
+        if e == "d":
+          return
+        if e == "" or e == "f":
+          break
+        if e == "c":
+          self.server.overrided_ask = "f"
+          break
+        e = raw_input("(v)iew, (e)dit, (f)orward, (d)rop, (c)ontinue [f]? ")
+      if self.server.verbose == 2:
+        print r
+      self.server.reqs.append(r)
+      self._do_connection(r)
+      if default or self.server.verbose:
+        print repr(r.response)
+      for alert in self.server.alerter.parse(r):
+        print " |", alert
+      if self.server.verbose == 3:
+        print r.response
+      self.wfile.write(r.response.raw())
 
     except (ssl.SSLError, socket.timeout, UnableToConnect), e:
       self.close_connection = 1
-      print warning(str(type(e)) + ":" + str(e))
+      print warning(str(e))
+      self.wfile.write("Abrupt: " + str(e))
       return
    
 class ProxyHTTPServer(BaseHTTPServer.HTTPServer):
@@ -114,27 +127,40 @@ class ProxyHTTPServer(BaseHTTPServer.HTTPServer):
       print warning(str(exc_type) + ":" + str(exc_value))
       traceback.print_tb(exc_traceback)
 
-def proxy(port=None, prompt=True, nb=-1, filter=re_filter_images, persistent=False, verbose=False):
-  """Intercept all HTTP(S) requests on port. Return a RequestSet of all the 
+def proxy(port=None, nb=-1, rules=None, default_action="a", 
+          alerter=None, persistent=False, verbose=False):
+  """Intercept all HTTP(S) requests on port. Return a RequestSet of all the
   answered requests.
   
-  port   -- port to listen to
-  prompt -- if True, action will be asked to the user for each request
-  nb     -- number of request to intercept (-1 for infinite)
-  filter -- regular expression to filter ignored files. By default, it 
-            ignores .png, .jp(e)g, .gif and .ico.
-  See also: w(), p1(), w1()
+  port           -- port to listen to
+  nb             -- number of request to intercept (-1 for infinite)
+  alerter        -- alerter triggered on each response, by default alerter.Generic
+  rules          -- set of rules for automated actions over requests
+  default_action -- action to execute when no rules matches, by default "a"
+  persistent     -- keep the connection persistent with your client 
+  verbose        -- degree of verbosity:
+                    False -- Only display requests undergoing default_action
+                    1     -- Display all requests, including automated ones
+                    2     -- Display all requests with their full content
+                    3     -- Display all requests and responses with their 
+                             full content
+  See also: w()
   """
   if not port: port = conf.port
+  if not alerter: alerter = alert.Generic()
+  if not rules: 
+    rules = ((lambda x: re_images_ext.search(x.path), "f"),)
   e_nb = 0
   try:
     print "Running on port", port
     print "Ctrl-C to interrupt the proxy..."
     server_address = ('', port)
     httpd = ProxyHTTPServer(server_address, ProxyHTTPRequestHandler)
-    httpd.filter = filter
+    httpd.rules = rules
+    httpd.default_action = default_action
+    httpd.overrided_ask = None
+    httpd.alerter = alerter
     httpd.reqs = []
-    httpd.prompt = prompt
     httpd.verbose = verbose
     httpd.persistent = persistent
     httpd.prev = None
@@ -150,15 +176,6 @@ p = proxy
 
 def w(**kwds): 
   """Run a proxy without user interaction, all the requests are forwarded. 
-     See also p(), w1()"""
-  return proxy(prompt=False, **kwds)
+     See also p()"""
+  return proxy(default_action="f", **kwds)
 
-def p1(**kwds):
-  """Intercept one request and prompt for action.
-     See also: p(), w1()"""
-  return proxy(nb=1, **kwds)[0]
-
-def w1(**kwds):
-  """Intercept one request and forward it.
-     See also: p1(), w()"""
-  return w(nb=1, **kwds)[0]
