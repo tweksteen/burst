@@ -8,18 +8,22 @@ from abrupt.color import *
 CONF_DIR = os.path.expanduser("~/.abrupt/")
 CERT_DIR = os.path.join(CONF_DIR, "certs")
 SESSION_DIR = os.path.join(CONF_DIR, "sessions")
+ARCHIVE_DIR = os.path.join(CONF_DIR, "archives")
 
 def check_config_dir():
+  existed = True
   if not os.path.exists(CONF_DIR):
     os.mkdir(CONF_DIR, 0700)
-    if not os.path.exists(CERT_DIR):
-      os.mkdir(CERT_DIR, 0700)
-      if not os.path.exists(os.path.join(CERT_DIR, "sites")):
-        os.mkdir(os.path.join(CERT_DIR, "sites"), 0700)
-    if not os.path.exists(SESSION_DIR):
-      os.mkdir(SESSION_DIR, 0700)
-    return False
-  return True
+  if not os.path.exists(CERT_DIR):
+    os.mkdir(CERT_DIR, 0700)
+    existed = False
+  if not os.path.exists(os.path.join(CERT_DIR, "sites")):
+    os.mkdir(os.path.join(CERT_DIR, "sites"), 0700)
+  if not os.path.exists(SESSION_DIR):
+    os.mkdir(SESSION_DIR, 0700)
+  if not os.path.exists(ARCHIVE_DIR):
+    os.mkdir(ARCHIVE_DIR, 0700)
+  return existed
 
 class Configuration(object):
   """
@@ -39,14 +43,16 @@ class Configuration(object):
   def __init__(self):
     self.port = 8080
     self.proxy = None
+    self.timeout = 10
     self.autosave = True
     self.history = True
     self.editor = "/usr/bin/vim"
     self.diff_editor = "/usr/bin/vimdiff"
     self._ssl_version = ssl.PROTOCOL_SSLv3
-    self._values = { "port": "getint", "proxy": "get", "ssl_version": "get",
-                    "autosave": "getboolean", "history": "getboolean", 
-                    "editor": "get", "diff_editor": "get" }
+    self._values = { "port": "getint", "proxy": "get", "timeout": "getint",
+                     "ssl_version": "get", "autosave": "getboolean",
+                     "history": "getboolean", "editor": "get",
+                     "diff_editor": "get" }
 
   def _get_ssl_version(self):
     for k,v in self.ssl_map.items():

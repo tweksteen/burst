@@ -42,16 +42,17 @@ class ProxyHTTPRequestHandler(BaseHTTPServer.BaseHTTPRequestHandler):
     Just reuse the socket if we can.
     """
     if not self.server.prev or \
-       self.server.prev["hostname"] != r.hostname or \
-       self.server.prev["port"] != r.port or \
-       self.server.prev["use_ssl"] != r.use_ssl:
+           self.server.prev["hostname"] != r.hostname or \
+           self.server.prev["port"] != r.port or \
+           self.server.prev["use_ssl"] != r.use_ssl:
       self.server.conn = self._init_connection(r)
     done = False
     while not done:
       try:
         r(conn=self.server.conn)
         if not r.response.closed:
-          self.server.prev = {"hostname":r.hostname, "port":r.port, "use_ssl":r.use_ssl}
+          self.server.prev = {"hostname":r.hostname, "port":r.port,
+                              "use_ssl":r.use_ssl}
         else:
           self.server.conn.close()
           self.close_connection = 1
@@ -69,7 +70,6 @@ class ProxyHTTPRequestHandler(BaseHTTPServer.BaseHTTPRequestHandler):
       r = Request(self.rfile)
       if r.method == "CONNECT":
         r = self._bypass_ssl(r)
-        self.close_connection = 1
       for rule, action in self.server.rules:
         if bool(rule(r)):
           pre_action = action
@@ -81,7 +81,8 @@ class ProxyHTTPRequestHandler(BaseHTTPServer.BaseHTTPRequestHandler):
       if self.server.overrided_ask and pre_action == "a":
         pre_action = self.server.overrided_ask
       if pre_action == "a":
-        e = raw_input(repr(r) + " ? ")
+        print repr(r), "?",
+        e = raw_input()
       else:
         e = pre_action
         if default or self.server.verbose:
@@ -99,22 +100,22 @@ class ProxyHTTPRequestHandler(BaseHTTPServer.BaseHTTPRequestHandler):
           self.server.overrided_ask = "f"
           break
         e = raw_input("(v)iew, (e)dit, (f)orward, (d)rop, (c)ontinue [f]? ")
-      if self.server.verbose == 2:
+      if self.server.verbose >= 2:
         print r
       self.server.reqs.append(r)
       self._do_connection(r)
       if default or self.server.verbose:
         print repr(r.response)
-      for alert in self.server.alerter.parse(r):
-        print " |", alert
-      if self.server.verbose == 3:
+        for alert in self.server.alerter.parse(r):
+          print " |", alert
+      if self.server.verbose >= 3:
         print r.response
       self.wfile.write(r.response.raw())
 
     except (ssl.SSLError, socket.timeout, UnableToConnect), e:
       self.close_connection = 1
       print warning(str(e))
-      self.wfile.write("Abrupt: " + str(e))
+      #self.wfile.write("Abrupt: " + str(e))
       return
    
 class ProxyHTTPServer(BaseHTTPServer.HTTPServer):

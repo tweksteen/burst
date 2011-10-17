@@ -40,4 +40,4 @@ def generate_ca_cert():
   ss, se = p_cert.communicate()
   if p_cert.returncode:
     raise Exception("Error while creating the certificate:" + se)
-  print "CA certificate : " + CERT_DIR + "/ca.pem"
+  print "CA certificate: " + CERT_DIR + "/ca.pem"

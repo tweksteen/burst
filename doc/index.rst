@@ -1,7 +1,7 @@
 
 
 Web Application Penetration Framework. 
-BSD Licensed. Based on Python>=2.6.
+BSD Licensed. Based on Python 2.7.
 
 Quickstart
 ==========

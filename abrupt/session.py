@@ -3,10 +3,11 @@ import cPickle
 import datetime
 import glob
 import types
+import gzip
 import __builtin__
 
-from abrupt.conf import conf, SESSION_DIR
-from abrupt.http import history
+from abrupt.conf import conf, SESSION_DIR, ARCHIVE_DIR
+from abrupt.http import Request, RequestSet, history
 from abrupt.color import *
 
 session_name = "default"
@@ -89,6 +90,25 @@ you should create another session with ss('my_session').
 If you are sure, use save(force=True)""")
   else:
     store_session(force=True)
+
+def archive(name=None):
+  if not name:
+    name = session_name
+  to_archive = [ v for k,v in session_dict.items() if isinstance(v, Request)]
+  for rs in [ v for k,v in session_dict.items() if isinstance(v, RequestSet) ]:
+    to_archive.extend(rs)
+  to_archive.extend(history)
+  output = ""
+  for r in to_archive:
+    response = str(r.response) if r.response else ""
+    output += "\n".join((str(r), response))
+    output += "\n" + "="*80 + "\n"
+  f_name = name + "-" + datetime.datetime.now().strftime("%Y.%m.%d_%H.%M.txt.gz")
+  full_path = os.path.join(ARCHIVE_DIR, f_name)
+  f = gzip.open(full_path, "w")
+  f.write(output)
+  f.close()
+  print "Archived under", full_path
 
 def switch_session(name="default"):
   """ Switch session.

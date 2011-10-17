@@ -30,4 +30,14 @@ to red if no savepoint has been made for the last twenty minutes.
 
   List the existing sessions.
 
+.. function:: archive(name=None)
+
+  When calling the :func:`save` function, Abrupt uses the Python pickle format
+  to quickly store your session data (which includes requests, response or any
+  pickable python object you used). This format is appropriate for everyday
+  use but not for long term storage. In this purpose, the archive function
+  enables you to store all the requests made through Abrupt with their
+  associated responses in a compressed human-readable file. Upon call, an
+  archive will be create in ``~/.abrupt/archives``. If name is supplied,
+  it is used as prefix for the archive name.
 

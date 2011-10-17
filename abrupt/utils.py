@@ -1,10 +1,39 @@
 import re
 import sys
+import math
 import urllib
 
 re_space = re.compile(r'[ \t]+')
 re_ansi_color = re.compile(r"(\x1b\[[;\d]*[A-Za-z])|\x01|\x02").sub
 re_images_ext = re.compile(r'\.(png|jpg|jpeg|ico|gif)$')
+
+ellipsis = u"\u2026"
+
+def smart_rsplit(s, max_len, sep):
+  return smart_split(s, max_len, sep, reverse=True)
+
+def smart_split(s, max_len, sep, reverse=False):
+  i = 1
+  prev_len = len(s) + 1
+  while len(s) > max_len:
+    if prev_len == len(s):
+      break
+    prev_len = len(s)
+    if reverse:
+      s = s.rsplit(sep, i)[0]
+    else:
+      s = s.split(sep, i)[-1]
+  if reverse:
+    return s[-max_len:]
+  return s[:max_len]
+
+def stats(values):
+  avg = sum(values)/float(len(values))
+  variance = sum([x**2 for x in values])/float(len(values)) - avg**2
+  std = math.sqrt(variance)
+  bottom = avg - 3*std
+  top = avg + 3*std
+  return avg, bottom, top
 
 def encode(s, **kwds):
   return urllib.quote_plus(s, **kwds)  

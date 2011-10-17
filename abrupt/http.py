@@ -5,6 +5,7 @@ import gzip
 import ssl
 import socket
 import urlparse
+import operator
 import tempfile
 import webbrowser
 import subprocess
@@ -15,14 +16,16 @@ from StringIO import StringIO
 
 from abrupt.conf import conf
 from abrupt.color import *
-from abrupt.utils import *
+from abrupt.utils import make_table, clear_line, ellipsis, \
+                         re_space, smart_split, smart_rsplit, \
+                         stats
 
 class UnableToConnect(Exception):
   def __str__(self):
     return "Unable to connect to the server"
 class NotConnected(Exception): 
   def __str__(self):
-    return "Unable to send the request to the server"
+    return "Unable to read the request"
 class BadStatusLine(Exception): 
   def __str__(self):
     return "They host did not return a correct banner"
@@ -69,7 +72,10 @@ class Request():
     b = Cookie.SimpleCookie()
     for h, v in self.headers:
       if h == "Cookie":
-        b.load(v)
+        try:
+          b.load(v)
+        except Cookie.CookieError:
+          print "TODO: fix the default cookie library"
     return b
   
   def set_headers(self, headers):
@@ -128,9 +134,9 @@ class Request():
       sock = connect(self.hostname, self.port, self.use_ssl)
     if conf.history:
       history.append(self)
-    res_sock = _send_request(sock, self)
+    _send_request(sock, self)
     n1 = datetime.datetime.now() 
-    self.response = Response(res_sock.makefile('rb',0), self)
+    self.response = Response(sock.makefile('rb',0), self)
     n2 = datetime.datetime.now()
     self.response.time = n2 - n1
     if post_call: post_call(self)
@@ -299,7 +305,10 @@ class Response():
     b = Cookie.SimpleCookie()
     for h, v in self.headers:
       if h == "Set-Cookie":
-        b.load(v)
+        try:
+          b.load(v)
+        except Cookie.CookieError:
+          print "TODO: fix the default cookie library"
     return b
 
   @property
@@ -426,29 +435,61 @@ class RequestSet():
         status[r.response.status] += 1
       else:
         status["unknown"] += 1
-    status_flat = [ color_status(x) + ":" + str(nb) for x, nb in status.items()]
+    status_flat = [ color_status(x) + ":" + str(nb) for x, nb in sorted(status.items())]
     hostnames = set([r.hostname for r in self.reqs])
     return "{" + " ".join(status_flat) + " | " + ", ".join(hostnames) + "}"
-     
+
   def __str__(self):
-    columns =  ([
-      ("Method", lambda r, i: info(r.method)),
-      ("Path", lambda r, i: "..." + r.path[-27:] if len(r.path)>30 else r.path),
-      ("Query", lambda r,i: r.query[:27] + "..." if len(r.query)>30 else r.query),
-      ("Status", lambda r, i: color_status(r.response.status)
-                              if r.response else "-"),
-      ("Length", lambda r, i: str(len(r.response.content)) if 
-                                 (r.response and r.response.content) else "-")
-      ])
+    return unicode(self).encode('utf-8')
+
+  def __unicode__(self):
+    cols = [
+            ("Method", lambda r, i: info(r.method)),
+            ("Path",   lambda r, i: ellipsis + smart_split(r.path, 30, "/") if
+                                    len(r.path)>30 else r.path),
+            ("Query",  lambda r, i: smart_rsplit(r.query, 30, "&") + ellipsis if
+                                    len(r.query)>30 else r.query),
+            ("Status", lambda r, i: color_status(r.response.status) if
+                                    r.response else "-"),
+            ("Length", lambda r, i: str(len(r.response.content)) if
+                                    (r.response and r.response.content) else "-")
+    ]
     if any([hasattr(x, "payload") for x in self.reqs]):
-      columns.insert(2, ("Payload", lambda r, i: getattr(r,"payload","-")[:30]))
-      columns.append(("Time", lambda r,i: "%.4f" % (r.response.time.seconds+r.response.time.microseconds/1.e6)
-                              if r.response else "-"))
+      cols.insert(2, ("Payload", lambda r, i: getattr(r,"payload","-")[:30]))
+      cols.append(("Time", lambda r, i: "%.4f" % r.response.time.total_seconds() if
+                                        r.response else "-"))
     if len(set([r.hostname for r in self.reqs])) > 1:
-      columns.insert(1, ("Host", lambda r, i: r.hostname)) 
+      cols.insert(1, ("Host", lambda r, i: smart_rsplit(r.hostname, 20, ".") + ellipsis if
+                                           len(r.hostname)>20 else r.hostname))
     if len(self.reqs) > 5:
-      columns.insert(0, ("Id", lambda r,i: str(i)))
-    return make_table(self.reqs, columns)
+      cols.insert(0, ("Id", lambda r, i: str(i)))
+    return make_table(self.reqs, cols)
+
+  def summary(self):
+    lengths = [r.response.length for r in self.reqs if r.response]
+    avg, bottom, top = stats(lengths)
+    print "Length: %.2f %.2f %.2f" % (bottom, avg, top)
+    outsiders = [(i,r) for i,r in enumerate(self.reqs)
+                       if r.response and (r.response.length<bottom or r.response.length>top)]
+    if outsiders:
+      print  "\n".join([" |"+str(i)+ " " +error(str(r.response.length)) for i,r in outsiders])
+
+    print
+    times = [r.response.time.total_seconds() for r in self.reqs if r.response]
+    avg, bottom, top = stats(times)
+    print "Time: %.2f %.2f %.2f" % (bottom, avg, top)
+    outsiders = [(i,r) for i,r in enumerate(self.reqs)
+                        if r.response and (r.response.time.total_seconds()<bottom or
+                         r.response.time.total_seconds()>top) ]
+    if outsiders:
+      print "\n".join([" |"+str(i)+ " " +error(str(r.response.time)) for i,r in outsiders])
+
+
+  def by_length(self):
+    return RequestSet(sorted(self.reqs, key=operator.attrgetter("response.length")))
+
+  def by_status(self):
+    return RequestSet(sorted(self.reqs, key=operator.attrgetter("response.status")))
 
   def _init_connection(self):
     return connect(self.hostname, self.port, self.use_ssl)
@@ -526,7 +567,8 @@ def read_headers(fp):
 def read_content(fp, headers, status=None, method=None):
   if status == "304": 
     return None
-  elif ("Transfer-Encoding", "chunked") in headers:
+  elif ("Transfer-Encoding", "chunked") in headers or \
+       ("Transfer-Encoding", "Chunked") in headers:
     return _chunked_read_content(fp).getvalue()
   elif "Content-Length" in zip(*headers)[0]:
     length_str = zip(*headers)[1][zip(*headers)[0].index("Content-Length")]
@@ -559,7 +601,8 @@ def _read_content(fp, length):
   return buffer
 
 def _clear_content(headers, raw_content):
-  if ("Transfer-Encoding", "chunked") in headers:
+  if ("Transfer-Encoding", "chunked") in headers or \
+     ("Transfer-Encoding", "Chunked") in headers:
     content_io = StringIO(raw_content)
     buffer = StringIO()
     while True:
@@ -576,31 +619,42 @@ def _clear_content(headers, raw_content):
     gzipper = gzip.GzipFile(fileobj=cs)
     return gzipper.read()
   if ("Content-Encoding", "deflate") in headers:
-    unzipped = StringIO(zlib.decompress(content, -zlib.MAX_WBITS))
+    try:
+      unzipped = StringIO(zlib.decompress(content))
+    except zlib.error:
+      unzipped = StringIO(zlib.decompress(content, -zlib.MAX_WBITS))
     return unzipped.read()
   return content
 
 def connect(hostname, port, use_ssl):
   if conf.proxy:
     p_url = urlparse.urlparse(conf.proxy)
-    hostname = p_url.hostname
-    port = p_url.port
-    use_ssl = True if p_url.scheme[-1] == 's' else False
-  try:
-    sock = socket.create_connection((hostname, port))
-  except socket.error:
-    if conf.proxy:
+    p_hostname = p_url.hostname
+    p_port = p_url.port
+    p_use_ssl = True if p_url.scheme[-1] == 's' else False
+    try:
+      sock = socket.create_connection((p_hostname, p_port))
+    except socket.error:
       raise ProxyError("Unable to connect to the proxy")
-    raise UnableToConnect()
+    if p_use_ssl:
+      try:
+        sock = ssl.wrap_socket(sock, ssl_version=conf._ssl_version)
+      except socket.error:
+        raise ProxyError("Unable to use SSL with the proxy")
+  else:
+    try:
+      sock = socket.create_connection((hostname, port))
+    except socket.error:
+      raise UnableToConnect()
   if use_ssl:
-    sock = ssl.wrap_socket(sock, ssl_version=conf._ssl_version)
-  return sock
-
-def _send_request(sock, request):
-  if conf.proxy: 
-    if request.use_ssl:
+    if not conf.proxy:
+      try:
+        sock = ssl.wrap_socket(sock, ssl_version=conf._ssl_version)
+      except socket.error:
+        raise UnableToConnect("Unable to use SSL with the server")
+    else:
       f = sock.makefile("rwb", 0)
-      f.write("CONNECT %s:%s HTTP/1.1\r\n\r\n" % (request.hostname, request.port))
+      f.write("CONNECT %s:%s HTTP/1.1\r\n\r\n" % (hostname, port))
       try:
         v, s, m = read_banner(f)
       except ValueError:
@@ -608,19 +662,18 @@ def _send_request(sock, request):
       if s != "200":
         raise ProxyError("Bad status " + s + " " + m)
       _ = read_headers(f)
-      res_sock = ssl.wrap_socket(sock, ssl_version=conf._ssl_version)
-      buf = ["%s %s %s" % (request.method, request.url, request.http_version), ]
-    else:
-      p_url = urlparse.urlparse(request.url)
-      url =  urlparse.urlunparse(("http", request.hostname+":"+str(request.port)) + p_url[2:])
-      buf = ["%s %s %s" % (request.method, url, request.http_version), ]
-      res_sock = sock
-  else: 
+      sock = ssl.wrap_socket(sock, ssl_version=conf._ssl_version)
+  return sock
+
+def _send_request(sock, request):
+  if conf.proxy and not request.use_ssl:
+    p_url = urlparse.urlparse(request.url)
+    url =  urlparse.urlunparse(("http", request.hostname+":"+str(request.port)) + p_url[2:])
+    buf = ["%s %s %s" % (request.method, url, request.http_version), ]
+  else:
     buf = ["%s %s %s" % (request.method, request.url, request.http_version), ]
-    res_sock = sock
   buf += [ "%s: %s" % (h, v) for h, v in request.headers] + ["", ""]
   data = "\r\n".join(buf) 
   if request.content:
     data += request.content 
-  res_sock.sendall(data)
-  return res_sock
+  sock.sendall(data)
