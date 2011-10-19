@@ -37,6 +37,14 @@ abrupt.conf - Configuration
   SSL version to use when connecting to the server. Possible values 
   are: SSLv2, SSLv3, TLSv1 and SSLv23.
 
+  .. attribute:: term_width
+
+  Expected width of the terminal. Abrupt tries to optimise the output
+  whenever possible in regards to the current terminal width. The
+  default "auto" will try to get this information from the system. You
+  can set any arbritrary integer. The value 0 will consider the width
+  as unlimited.
+
   .. attribute:: editor
     
   Default editor to use when editing a request or viewing a response.

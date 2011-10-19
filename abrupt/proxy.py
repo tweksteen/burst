@@ -1,11 +1,13 @@
 import sys
 import traceback
 import socket
+import select
 import BaseHTTPServer
 import ssl
 
-from abrupt import alert
-from abrupt.http import Request, RequestSet, connect, BadStatusLine, UnableToConnect
+from abrupt import alert, console
+from abrupt.http import Request, RequestSet, connect, \
+                        BadStatusLine, UnableToConnect
 from abrupt.conf import conf
 from abrupt.color import *
 from abrupt.cert import generate_ssl_cert, get_key_file
@@ -81,12 +83,18 @@ class ProxyHTTPRequestHandler(BaseHTTPServer.BaseHTTPRequestHandler):
       if self.server.overrided_ask and pre_action == "a":
         pre_action = self.server.overrided_ask
       if pre_action == "a":
-        print repr(r), "?",
+        if console.term_width:
+          print r.repr(console.term_width), "?",
+        else:
+          print r.repr(), "?",
         e = raw_input()
       else:
         e = pre_action
         if default or self.server.verbose:
-          print repr(r), e
+          if console.term_width:
+            print r.repr(console.term_width), e
+          else:
+            print r.repr(), e
       while True:
         if e == "v":
           print str(r)
@@ -106,8 +114,8 @@ class ProxyHTTPRequestHandler(BaseHTTPServer.BaseHTTPRequestHandler):
       self._do_connection(r)
       if default or self.server.verbose:
         print repr(r.response)
-        for alert in self.server.alerter.parse(r):
-          print " |", alert
+        for al in self.server.alerter.parse(r):
+          print " |", al
       if self.server.verbose >= 3:
         print r.response
       self.wfile.write(r.response.raw())
@@ -166,7 +174,11 @@ def proxy(port=None, nb=-1, rules=None, default_action="a",
     httpd.persistent = persistent
     httpd.prev = None
     while e_nb != nb:
-      httpd.handle_request() 
+      try:
+        httpd.handle_request()
+      except select.error:
+        # select syscall got interrupted by window resizing
+        pass
       e_nb += 1
     return httpd.reqs
   except KeyboardInterrupt:

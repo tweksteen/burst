@@ -3,8 +3,8 @@
 Web Application Penetration Framework. 
 BSD Licensed. Based on Python 2.7.
 
-Quickstart
-==========
+Quick start
+===========
 ::
 
   $ sudo pip install abrupt
@@ -14,10 +14,16 @@ Quickstart
   Abrupt 0.2
   >>>
   
-The first time you start Abrupt, it will generate a CA certificate. This is 
-useful to avoid the exception creation whenever you reach a HTTPS site with the
-proxy enabled. You can install this certificate in your browser. However, no 
-check is performed by Abrupt on the server side regarding ssl.
+.. note:: The first time you start Abrupt, it will generate a CA certificate.
+  This is useful to avoid the exception creation whenever you reach a HTTPS
+  site with the proxy enabled. You can install this certificate in your
+  browser. Currently, no check is performed by Abrupt on the server side
+  regarding SSL.
+
+Abrupt will uses the following **optional** modules if they are installed:
+
+* libxml, required by the built-in spider. Also improve accuracy of anomaly
+  detection.
 
 Proxy
 -----
@@ -94,9 +100,9 @@ Abrupt have its own representation of HTTP request and response::
   Host: www.phrack.org
   Proxy-Connection: keep-alive
 
-:class:`~http.Request` objects have numerous attributes: hostname, port, headers, 
-path, query, url, content, etc. You can edit the request through your editor
-(default is vim) to create a new request::
+:class:`~http.Request` objects have numerous attributes: hostname, port,
+headers, path, query, url, content, etc. You can edit the request through your
+editor (default is vim) to create a new request::
 
   >>> new_r = r.edit()
   
@@ -166,7 +172,7 @@ In this case, a :class:`~http.RequestSet` of 9 requests has been generated.
 data. Then, it generates a new request where the value of this argument is 
 replaced by each value of the corresponding payload list. The possible values 
 for the payload list name are the keys of the :data:`~injection.payloads` 
-global dictionnary, and Abrupt comes with some default ones::
+global dictionary, and Abrupt comes with some default ones::
 
   >>> payloads.keys()
   ['digits', 'lowercase', 'full', 'default', 'uppercase', 'sqli', 'hexdigits', 'printable']

@@ -6,9 +6,9 @@ import code
 import atexit
 import getopt
 import pydoc
+import signal
 
 import abrupt
-import abrupt.session
 from abrupt.conf import CONF_DIR
 from abrupt.color import *
 
@@ -17,6 +17,16 @@ try:
   has_readline = True
 except ImportError:
   has_readline = False
+
+try:
+  import termios
+  import fcntl
+  import struct
+  has_termios = True
+except ImportError:
+  has_termios = False
+
+term_width = None
 
 def _usage():
   print """Usage: abrupt [-bhl] [-s session_name]
@@ -39,6 +49,27 @@ def _load_history():
     pass
   atexit.register(_save_history)
 
+def _get_term_width():
+  if has_termios:
+    for i in range(3):
+      try:
+        bin_size = fcntl.ioctl(i, termios.TIOCGWINSZ, '????')
+        _, width = struct.unpack('hh', bin_size)
+        return width
+      except:
+        pass
+  return 80
+
+def _update_term_width(snum, frame):
+  global term_width
+  if conf.term_width:
+    if conf.term_width == "auto":
+      term_width = _get_term_width()
+    else:
+      term_width = int(conf.term_width)
+  else:
+    term_width = 0
+
 class ColorPrompt():
   def __str__(self):
     session_name = abrupt.session.session_name
@@ -56,7 +87,6 @@ class AbruptInteractiveConsole(code.InteractiveConsole):
     if self.re_print_alias.match(line):
       line = self.re_print_alias.sub(r'print \1', line)
     code.InteractiveConsole.push(self, line)
-    
 
 def help(obj=None):
   if not obj:
@@ -166,7 +196,11 @@ def interact():
     readline.set_completer(AbruptCompleter().complete)
     readline.parse_and_bind("tab: complete")
     _load_history() 
- 
+
+  # Hooked window resizing
+  _update_term_width(None, None)
+  signal.signal(signal.SIGWINCH, _update_term_width)
+
   # And run the interpreter!
   sys.ps1 = ColorPrompt()
   atexit.register(abrupt.session.store_session)

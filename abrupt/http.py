@@ -42,7 +42,7 @@ class Request():
       self.method, url, self.http_version = read_banner(fd) 
     except ValueError:
       raise NotConnected()
-    if self.method == "CONNECT":
+    if self.method.upper() == "CONNECT":
       self.hostname, self.port = url.split(":", 1)
     else:
       p_url = urlparse.urlparse(url)
@@ -70,35 +70,54 @@ class Request():
   @property
   def cookies(self):
     b = Cookie.SimpleCookie()
-    for h, v in self.headers:
-      if h == "Cookie":
-        try:
-          b.load(v)
-        except Cookie.CookieError:
-          print "TODO: fix the default cookie library"
+    for v in self.get_header("Set-Cookie"):
+      try:
+        b.load(v)
+      except Cookie.CookieError:
+        print "TODO: fix the default cookie library"
     return b
   
+  def has_header(self, name, value=None):
+    return _has_header(self.headers, name, value)
+
+  def get_header(self, name):
+    return _get_header(self.headers, name)
+
   def set_headers(self, headers):
     self.headers = []
+    # ASSUMPTION: Headers are seperated by a newline character
     for l in headers.splitlines():
       if l:
+        # ASSUMPTION: Each header is composed of two fields seperated by
+        #             a semi-colon.
         t, v = [q.strip() for q in l.split(":", 1)]
-        self.headers.append((t.title(), v))
+        self.headers.append((t, v))
 
   def _update_content_length(self):
     l = str(len(self.content)) if self.content else "0"
     for i, c in enumerate(self.headers):
-      h, v = c  
+      h, v = c
       if h.title() == "Content-Length":
-        self.headers[i] = (h, l) 
+        self.headers[i] = (h, l)
         break
     else:
       self.headers.append(("Content-Length", l))
 
   def __repr__(self):
-    fields =[info(self.method), self.hostname, self.path]
+    return self.repr(width=None)
+
+  def repr(self, width=None):
+    if width and len(self.hostname) > int(0.3*width):
+      hostname = smart_rsplit(self.hostname, int(0.3*width), ".") + ellipsis
+    else:
+      hostname = self.hostname
+    if width and len(self.path) > int(0.6*width):
+      path = ellipsis + smart_split(self.path, int(0.6*width), "/")
+    else:
+      path = self.path
+    fields = [info(self.method), hostname, path]
     if self.use_ssl: fields.append(warning("SSL"))
-    return "<" + " ".join(fields) + ">"
+    return ("<" + " ".join(fields) + ">").encode("utf-8")
   
   def copy(self):
     r_new = copy.copy(self)
@@ -275,13 +294,18 @@ class Response():
   def __repr__(self):
     flags = []
     if self.content: flags.append(str(len(self.content)))
-    if ("Transfer-Encoding", "Chunked") in self.headers: flags.append("Chunked")
-    if ("Content-Encoding", "gzip") in self.headers: flags.append("Gzip")
-    if ("Content-Encoding", "deflate") in self.headers: flags.append("Zip")
-    for h, v in self.headers:
-      if h == "Set-Cookie":
-        flags.append("C:" + v)
+    if self.has_header("Transfer-Encoding", "chunked"): flags.append("chunked")
+    if self.has_header("Content-Encoding", "gzip"): flags.append("gzip")
+    if self.has_header("Content-Encoding", "deflate"): flags.append("deflate")
+    for c in self.get_header("Set-Cookie"):
+      flags.append("C:" + c)
     return "<" + color_status(self.status) + " " + " ".join(flags)  + ">"
+
+  def has_header(self, name, value=None):
+    return _has_header(self.headers, name, value)
+
+  def get_header(self, name):
+    return _get_header(self.headers, name)
 
   def __str__(self):
     s = StringIO()
@@ -303,31 +327,28 @@ class Response():
   @property
   def cookies(self):
     b = Cookie.SimpleCookie()
-    for h, v in self.headers:
-      if h == "Set-Cookie":
-        try:
-          b.load(v)
-        except Cookie.CookieError:
-          print "TODO: fix the default cookie library"
+    for v in self.get_header("Set-Cookie"):
+      try:
+        b.load(v)
+      except Cookie.CookieError:
+        print "TODO: fix the default cookie library"
     return b
 
   @property
   def is_javascript(self):
-    for k, v in self.headers:
-      if k == "Content-Type" and "javascript" in v:
-        return True
+    if any([ "javascript" in self.get_header("Content-Type")]):
+      return True
     return False
 
   @property 
   def is_html(self):
-    for k, v in self.headers:
-      if k == "Content-Type" and "html" in v:
-        return True
+    if any([ "html" in self.get_header("Content-Type")]):
+      return True
     return False
 
   @property
   def closed(self):
-    if ("Connection", "close") in self.headers or self.http_version == "HTTP/1.0":
+    if self.has_header("Connection", "close") or self.http_version == "HTTP/1.0":
       return True
     return False
 
@@ -337,9 +358,10 @@ class Response():
 
   @property
   def content_type(self):
-    for h,v in self.headers:
-      if h == "Content-Type":
-        return v
+    try:
+      return self.get_header("Content-Type")[0]
+    except IndexError:
+      return None
 
   def raw(self):
     s = StringIO()
@@ -356,7 +378,7 @@ class Response():
     for l in headers.splitlines():
       if l:
         t, v = [q.strip() for q in l.split(":", 1)]
-        self.headers.append((t.title(), v))
+        self.headers.append((t, v))
 
   def preview(self):
     fd, fname = tempfile.mkstemp()
@@ -564,17 +586,35 @@ def read_headers(fp):
       break
   return headers
 
+def _has_header(headers, name, value=None):
+  for h, v in headers:
+    if h.lower() == name.lower():
+      if value is None:
+        return True
+      elif v.lower() == value.lower():
+        return True
+      else:
+        return False
+  return False
+
+def _get_header(headers, name):
+  return [ v for h,v in headers if h.lower() == name.lower() ]
+
 def read_content(fp, headers, status=None, method=None):
-  if status == "304": 
+  if status == "304":
     return None
-  elif ("Transfer-Encoding", "chunked") in headers or \
-       ("Transfer-Encoding", "Chunked") in headers:
+  elif _has_header(headers, "Transfer-Encoding", "chunked"):
     return _chunked_read_content(fp).getvalue()
-  elif "Content-Length" in zip(*headers)[0]:
-    length_str = zip(*headers)[1][zip(*headers)[0].index("Content-Length")]
+  elif _has_header(headers, "Content-Length"):
+    # ASSUMPTION: The first Content-Length header will be use to
+    #             read the response
+    length_str = _get_header(headers, "Content-Length")[0]
+    # ASSUMPTION: The value of Content-Length can be converted to an integer
     length = int(length_str)
     return _read_content(fp, length).getvalue()
-  elif status == "200" or method == "POST": # No indication on what we should read, so just read
+  elif status == "200" or method == "POST":
+    # ASSUMPTION: In case we have no indication on what to read, if the method
+    #             is POST or the status 200, we read until EOF
     return fp.read()
   return None
 
@@ -601,8 +641,7 @@ def _read_content(fp, length):
   return buffer
 
 def _clear_content(headers, raw_content):
-  if ("Transfer-Encoding", "chunked") in headers or \
-     ("Transfer-Encoding", "Chunked") in headers:
+  if _has_header(headers, "Transfer-Encoding", "chunked"):
     content_io = StringIO(raw_content)
     buffer = StringIO()
     while True:
@@ -614,11 +653,11 @@ def _clear_content(headers, raw_content):
       content_io.readline()
   else:
     content = raw_content
-  if ("Content-Encoding", "gzip") in headers:
+  if _has_header(headers, "Content-Encoding", "gzip"):
     cs = StringIO(content)
     gzipper = gzip.GzipFile(fileobj=cs)
     return gzipper.read()
-  if ("Content-Encoding", "deflate") in headers:
+  if _has_header(headers, "Content-Encoding", "deflate"):
     try:
       unzipped = StringIO(zlib.decompress(content))
     except zlib.error:

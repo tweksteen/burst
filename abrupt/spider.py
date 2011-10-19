@@ -7,10 +7,10 @@ from abrupt.utils import e, clear_line
 from abrupt.color import *
 
 try:
-  from BeautifulSoup import BeautifulSoup
-  has_soup=True
+  import lxml.html
+  has_lxml = True
 except ImportError:
-  has_soup=False
+  has_lxml = False
 
 def _follow_redirect(r):
   if r.response and r.response.status in ('301', '302'):
@@ -19,14 +19,15 @@ def _follow_redirect(r):
 
 def _get_links(r):
   new_reqs = []
-  if not has_soup: raise Exception("To use the spider, you need BeautifulSoup")
-  soup = BeautifulSoup(r.response.content)
-  base_tag = soup.findAll('base')
-  if base_tag and base_tag[0].has_key('href'):
-    base = base_tag[0]["href"]
+  if not has_lxml:
+    raise Exception("To use the spider, you need lxml")
+  root = lxml.html.fromstring(r.response.content)
+  base_tag = root.xpath('//base')
+  if base_tag and base_tag[0].get('href'):
+    base = base_tag[0].get(["href"])
   else:
     base = r.url
-  links = [ x["href"] for x in soup.findAll(['a', 'area']) if x.has_key('href')]
+  links = [ x.get("href") for x in root.xpath("//a|//area") if x.get('href')]
   for l in links:
     try:
       l.encode('ascii')

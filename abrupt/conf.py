@@ -35,6 +35,7 @@ class Configuration(object):
     - autosave: automatically save the session when exiting
     - history: keep a copy of all the requests made
     - editor, diff_editor: external editors called when editing
+    - term_width: expected width of the terminal
     - ssl_version: ssl version used with the server (ssl.PROTOCOL_*)
   """
   ssl_map = { "SSLv3": ssl.PROTOCOL_SSLv3, "SSLv23": ssl.PROTOCOL_SSLv23,
@@ -46,13 +47,14 @@ class Configuration(object):
     self.timeout = 10
     self.autosave = True
     self.history = True
+    self.term_width = "auto"
     self.editor = "/usr/bin/vim"
     self.diff_editor = "/usr/bin/vimdiff"
     self._ssl_version = ssl.PROTOCOL_SSLv3
     self._values = { "port": "getint", "proxy": "get", "timeout": "getint",
                      "ssl_version": "get", "autosave": "getboolean",
                      "history": "getboolean", "editor": "get",
-                     "diff_editor": "get" }
+                     "diff_editor": "get", "term_width" : "get" }
 
   def _get_ssl_version(self):
     for k,v in self.ssl_map.items():
@@ -81,7 +83,8 @@ class Configuration(object):
 
   def import_dict(self, d):
     for v in self._values:
-      setattr(self, v, getattr(d, v))
+      if hasattr(d,v):
+        setattr(self, v, getattr(d, v))
 
   def load(self):
     if os.path.exists(os.path.join(CONF_DIR, "abrupt.conf")):

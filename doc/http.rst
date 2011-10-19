@@ -3,6 +3,13 @@ abrupt.http - HTTP base classes
 
 .. module:: http
 
+.. note:: In order to provide an easy user interaction and generic
+  functionalities, some assumptions are made on the request and response. In
+  mose of the case, Abrupt tried to minimise these assumptions. To help you
+  to understand how the framework behave, all of these assumptions will be
+  described here after. They can also be found in the source code using:
+  ``grep -PRn "^[\s#]*ASSUMPTION.*(\s*#.*)*" . | sed -e 's/\s*#\sASSUMPTION:\s*/\n/' -e 's/\s*#\s*//'``
+
 .. class:: Request(fp, [hostname=None, port=80, use_ssl=False]) 
 
   The Request class is the base of Abrupt. To create an instance, you have 
