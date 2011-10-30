@@ -70,7 +70,7 @@ def _update_term_width(snum, frame):
   else:
     term_width = 0
 
-class ColorPrompt():
+class ColorPrompt(object):
   def __str__(self):
     session_name = abrupt.session.session_name
     prompt = '\001%s\002' % info('\002>>> \001')

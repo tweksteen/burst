@@ -70,7 +70,7 @@ class Request():
   @property
   def cookies(self):
     b = Cookie.SimpleCookie()
-    for v in self.get_header("Set-Cookie"):
+    for v in self.get_header("Cookie"):
       try:
         b.load(v)
       except Cookie.CookieError:
@@ -231,9 +231,9 @@ class Request():
   def filter(self, predicate):
     return bool(predicate(self))
 
-  def i(self, **kwds):
+  def i(self, value, payload, **kwds):
     from abrupt.injection import inject
-    return inject(self, **kwds)
+    return inject(self, value, payload, **kwds)
   
   def i_at(self, offset, payload, **kwds):
     from abrupt.injection import inject_at
@@ -282,6 +282,7 @@ class Response():
     except ValueError: 
       raise BadStatusLine()
     self.set_headers(read_headers(fd))
+    self.request = request
     if request.method == "HEAD": 
       self.raw_content = self.content = ""
     else:
@@ -323,6 +324,29 @@ class Response():
       f.write(str(self))
     subprocess.call(conf.editor + " " + fname, shell=True)
     os.remove(fname)
+
+  def edit(self):
+    fd, fname = tempfile.mkstemp(suffix=".http")
+    with os.fdopen(fd, 'w') as f:
+      f.write(self.raw())
+    ret = subprocess.call(conf.editor + " " + fname, shell=True)
+    if not ret:
+      f = open(fname, 'r')
+      res_new = Response(f, self.request)
+      if res_new.content:
+        res_new._update_content_length()
+      os.remove(fname)
+      return res_new
+
+  def _update_content_length(self):
+    l = str(len(self.raw_content)) if self.raw_content else "0"
+    for i, c in enumerate(self.headers):
+      h, v = c
+      if h.title() == "Content-Length":
+        self.headers[i] = (h, l)
+        break
+    else:
+      self.headers.append(("Content-Length", l))
 
   @property
   def cookies(self):
@@ -516,6 +540,10 @@ class RequestSet():
   def _init_connection(self):
     return connect(self.hostname, self.port, self.use_ssl)
 
+  def clear(self):
+    for r in self.reqs:
+      r.response = None
+
   def __call__(self, post_call=None, force=False, verbose=False):
     if not self.reqs:
       raise Exception("No request to proceed")
@@ -527,6 +555,9 @@ class RequestSet():
     self.hostname = hostnames.pop()
     self.port = ports.pop()
     self.use_ssl = use_ssls.pop()
+    if force:
+      print "Clearing previous responses..."
+      self.clear()
     conn = self._init_connection()
     print "Running %s requests..." % len(self.reqs),
     clear_line()

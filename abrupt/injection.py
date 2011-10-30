@@ -24,81 +24,95 @@ def _urlencode(query):
   for k, v in query.items():
     if isinstance(v, collections.Iterable):
       for elt in v:
-        l.append(encode(str(k)) + '=' + encode(str(elt)))
+        l.append(str(k) + '=' + str(elt))
     else:
-      l.append(encode(str(k)) + '=' + encode(str(v)))
+      l.append(str(k) + '=' + str(v))
   return '&'.join(l)
-    
 
-def _get_payload(name, kwds):
-  pds = []
+def _parse_qsl(qs):
+  pairs = [s2 for s1 in qs.split('&') for s2 in s1.split(';')]
+  r = []
+  for name_value in pairs:
+    nv = name_value.split('=', 1)
+    if len(nv) != 2:
+      nv.append('')
+    name = nv[0]
+    value = nv[1]
+    r.append((name, value))
+  return r
+
+def _parse_qs(qs):
+  d = {}
+  for name, value in _parse_qsl(qs):
+    if name in d:
+      d[name].append(value)
+    else:
+      d[name] = [value]
+  return d
+
+def _get_payload(p):
   try:
-    if name in kwds:
-      if isinstance(kwds[name], list):
-        pds = kwds[name]
-      else:
-        pds = payloads[kwds[name]]
-    return pds
+    if isinstance(p, list):
+      return p
+    else:
+      return payloads[p]
   except KeyError:
     raise PayloadNotFound("Possible values are: " +", ".join(payloads.keys()))
 
-def _inject_query(r, pre_func=None, **kwds):
+def _inject_query(r, value, pds, pre_func):
   rs = []
-  parsed_url = urlparse.urlparse(r.url)
-  if not pre_func: pre_func = lambda x:x
-  i_pts = urlparse.parse_qs(r.query, True)
-  for i_pt in i_pts:
+  i_pts = _parse_qs(r.query)
+  if value in i_pts:
     nq = i_pts.copy()
-    pds = _get_payload(i_pt, kwds)
+    parsed_url = urlparse.urlparse(r.url)
     for p in pds:
-      nq[i_pt] = [pre_func(p),]
+      nq[value] = [pre_func(p),]
       s = list(parsed_url)
-      s[4] = _urlencode(nq) 
+      s[4] = _urlencode(nq)
       r_new = r.copy()
       r_new.url = urlparse.urlunparse(s)
-      r_new.payload = i_pt + "=" + p
+      r_new.injection_point = value
+      r_new.payload = p
       rs.append(r_new)
   return rs
 
-def _inject_cookie(r, pre_func=encode, **kwds):
+def _inject_post(r, value, pds, pre_func):
   rs = []
-  b = r.cookies
-  if not pre_func: pre_func = lambda x:x
-  n_headers = [(x,v) for x,v in r.headers if x != "Cookie"]
-  for i_pt in b:
-    nb = Cookie.SimpleCookie()
-    nb.load(b.output(header=""))
-    pds = _get_payload(i_pt, kwds)
-    for p in pds:
-      nb[i_pt] = pre_func(p)
-      r_new = r.copy()
-      nbs =  nb.output(header="", sep=";").strip()
-      r_new.headers = n_headers + [("Cookie", nbs),]
-      r_new.payload = i_pt + "=" + p
-      rs.append(r_new)
-  return rs
-
-def _inject_post(r, pre_func=None, **kwds):
-  rs = []
-  i_pts = urlparse.parse_qs(r.content, True)
-  if not pre_func: pre_func = lambda x:x
-  for i_pt in i_pts:
+  i_pts = _parse_qs(r.content)
+  if value in i_pts:
     nc = i_pts.copy()
-    pds = _get_payload(i_pt, kwds)
     for p in pds:
-      nc[i_pt] = [pre_func(p),]
+      nc[value] = [pre_func(p),]
       n_content = _urlencode(nc)
       r_new = r.copy()
       r_new.content = n_content
-      r_new.payload = i_pt + "=" + p
+      r_new.injection_point = value
+      r_new.payload = p
       r_new._update_content_length()
+      rs.append(r_new)
+  return rs
+
+def _inject_cookie(r, value, pds, pre_func):
+  rs = []
+  b = r.cookies
+  n_headers = [(x,v) for x,v in r.headers if x.title() != "Cookie"]
+  if value in b:
+    nb = Cookie.SimpleCookie()
+    nb.load(b.output(header=""))
+    for p in pds:
+      nb[value] = pre_func(p)
+      r_new = r.copy()
+      nbs = nb.output(header="", sep=";").strip()
+      r_new.headers = n_headers + [("Cookie", nbs),]
+      r_new.injection_point = value
+      r_new.payload = p
       rs.append(r_new)
   return rs
 
 def _inject_offset(r, offset, payload, pre_func=encode, choice=None):
   rs = []
   orig = str(r)
-  pds = _get_payload("offset", {"offset":payload})
+  pds = _get_payload(payload)
   if not pre_func: pre_func = lambda x:x
   if isinstance(offset, (list,tuple)): 
     off_b, off_e = offset
@@ -125,41 +139,45 @@ def _inject_offset(r, offset, payload, pre_func=encode, choice=None):
     ct = re.sub("Content-Length:.*\n", "", ct)
     r_new = Request(ct, hostname=r.hostname, port=r.port, use_ssl=r.use_ssl)
     r_new._update_content_length()
-    r_new.payload = "@" + str(offset) + "=" + p
+    r_new.injection_point = "@" + str(offset)
+    r_new.payload = p
     rs.append(r_new)
   return rs
 
-def _inject_one(r, **kwds):
-  rqs = RequestSet(_inject_query(r, **kwds))
+def _inject_one(r, value, payload, pre_func):
+  pds = _get_payload(payload)
+  if not pre_func:
+    pre_func = lambda x:encode(x)
+  rqs = RequestSet(_inject_query(r, value, pds, pre_func))
   if r.method in ("POST", "PUT"):
-    rqs += RequestSet(_inject_post(r, **kwds))
-  if "Cookie" in zip(*r.headers)[0]:
-    rqs += RequestSet(_inject_cookie(r, **kwds))
+    rqs += RequestSet(_inject_post(r, value, pds, pre_func))
+  if r.has_header("Cookie"):
+    rqs += RequestSet(_inject_cookie(r, value, pds, pre_func))
   if not rqs:
     raise NoInjectionPointFound()
   return rqs 
   
-  
-def inject(r, **kwds):
+def inject(r, value, payload, pre_func=None):
   """ Inject a request.
-  For each keyword, this function will try to find the key in the request
-  at the following locations:
 
-    * URL parameters
-    * Cookies
-    * Content for a POST or PUT request
+  This function will create a RequestSet from a Request where
+  value is replaced with some payload. Abrupt will lookup the value
+  in the query string, the request content and the cookies. If no
+  valid injection point is found, an error is raised.
 
-  Then, each value will be injected at the parameter location and a set
-  of request returned. The values could be either a list of payload
-  (e.g., id=[1,2,3]) or a key of the global dictionnary :data:`payloads`
-  (e.g., name="default").
+  payload could either be a list of the payloads to inject or a key
+  of the global dictionnary payloads.
+
+  Before being injected, each payload pass through the pre_func function
+  which is by default encode.
 
   See also: payloads, i_at
   """
   if isinstance(r, Request):
-    return _inject_one(r, **kwds)
+    return _inject_one(r, value, payload, pre_func)
   elif isinstance(r, RequestSet):
-    return reduce(lambda x,y: x+y, [ _inject_one(ro, **kwds) for ro in r ])
+    return reduce(lambda x,y: x+y,
+           [ _inject_one(ro, value, payload, pre_func) for ro in r ])
 
 i = inject
 
@@ -178,6 +196,37 @@ def inject_at(r, offset, payload, **kwds):
   return RequestSet(_inject_offset(r, offset, payload, **kwds))
 
 i_at = inject_at
+
+def find_injection_points(r):
+  """Find valid injection points.
+
+  This functions returns the injection points that could
+  be used by i().
+  """
+  ips = []
+  if r.query:
+    i_pts = _parse_qs(r.query)
+    if i_pts:
+      ips.extend(i_pts)
+  if r.content:
+    i_pts = _parse_qs(r.content)
+    if i_pts:
+      ips.extend(i_pts)
+  if r.cookies:
+    i_pts = r.cookies.keys()
+    if i_pts:
+      ips.extend(i_pts)
+  return ips
+
+fip = find_injection_points
+
+def inject_all(r, payload):
+  ips = find_injection_points(r)
+  if ips:
+    return reduce(lambda x,y:x+y, [ i(r, ip, payload) for ip in ips])
+  return RequestSet()
+
+i_all = inject_all
 
 def fuzz_headers(r, payload):
   print "TODO: adapt payload for each header tested"

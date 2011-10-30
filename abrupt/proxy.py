@@ -113,7 +113,21 @@ class ProxyHTTPRequestHandler(BaseHTTPServer.BaseHTTPRequestHandler):
       self.server.reqs.append(r)
       self._do_connection(r)
       if default or self.server.verbose:
-        print repr(r.response)
+        if pre_action == "a" and not self.server.overrided_ask:
+          print repr(r.response), "?",
+          e = raw_input()
+          while True:
+            if e == "v":
+              print str(r.response)
+            if e == "e":
+              r.response = r.response.edit()
+            if e == "d":
+              return
+            if e == "" or e == "f":
+              break
+            e = raw_input("(v)iew, (e)dit, (f)orward, (d)rop [f]? ")
+        else:
+          print repr(r.response)
         for al in self.server.alerter.parse(r):
           print " |", al
       if self.server.verbose >= 3:
