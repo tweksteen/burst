@@ -233,7 +233,7 @@ def fuzz_headers(r, payload):
   rs = []
   for i, e in enumerate(r.headers):
     k, v = e 
-    pds = _get_payload("header", {"header": payload})
+    pds = _get_payload(payload)
     for p in pds:
       r_new = r.copy()
       h_new = (k, p)
