@@ -162,7 +162,8 @@ def interact(local_dict=None):
   abrupt.session.load_session()
 
   # Insert provided local variables (only used when scripted)
-  abrupt.session.session_dict.update(local_dict)
+  if local_dict:
+    abrupt.session.session_dict.update(local_dict)
 
   # Setup autocompletion if readline
   if has_readline:
