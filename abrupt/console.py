@@ -110,7 +110,7 @@ Please, report any bug or comment to tw@securusglobal.com"""
   else:
     pydoc.help(obj)   
  
-def interact():
+def interact(local_dict=None):
   abrupt_builtins = __import__("all", globals(), locals(), ".").__dict__
   __builtin__.__dict__.update(abrupt_builtins)
   __builtin__.__dict__["help"] = help
@@ -160,6 +160,9 @@ def interact():
   # over global configuration. There is no condition, by default, 
   # load the "default" session.
   abrupt.session.load_session()
+
+  # Insert provided local variables (only used when scripted)
+  abrupt.session.session_dict.update(local_dict)
 
   # Setup autocompletion if readline
   if has_readline:
