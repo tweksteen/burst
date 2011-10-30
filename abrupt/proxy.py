@@ -150,8 +150,8 @@ class ProxyHTTPServer(BaseHTTPServer.HTTPServer):
       print warning(str(exc_type) + ":" + str(exc_value))
       traceback.print_tb(exc_traceback)
 
-def proxy(port=None, nb=-1, rules=None, default_action="a", 
-          alerter=None, persistent=False, verbose=False):
+def proxy(port=None, nb=-1, rules=((lambda x: re_images_ext.search(x.path), "f"),), 
+          default_action="a", alerter=None, persistent=False, verbose=False):
   """Intercept all HTTP(S) requests on port. Return a RequestSet of all the
   answered requests.
   
@@ -171,8 +171,7 @@ def proxy(port=None, nb=-1, rules=None, default_action="a",
   """
   if not port: port = conf.port
   if not alerter: alerter = alert.Generic()
-  if not rules: 
-    rules = ((lambda x: re_images_ext.search(x.path), "f"),)
+  if not rules: rules = []
   e_nb = 0
   try:
     print "Running on port", port
