@@ -1,4 +1,5 @@
 import os
+import time
 import copy
 import zlib
 import gzip
@@ -579,6 +580,8 @@ class RequestSet():
         except (socket.error, BadStatusLine):
           conn = self._init_connection()
           next = False
+        if conf.delay:
+          time.sleep(conf.delay)
     print "Running %s requests...done." % len(self.reqs)
     conn.close()
 

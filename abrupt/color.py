@@ -1,3 +1,5 @@
+from abrupt.conf import conf
+
 style_normal = "\033[0m"
 style_great_success = "\033[1;32m"
 style_success = "\033[32m"
@@ -5,24 +7,21 @@ style_error = "\033[1;31m"
 style_warning = "\033[1;33m"
 style_info = "\033[1;34m"
 style_stealthy = "\033[37m"
-  
-def success(s):
-  return style_success + s + style_normal
 
-def error(s):
-  return style_error + s + style_normal
+def __generic_style(c):
+  def _x(s):
+    if conf.color_enabled:
+      return c + s + style_normal
+    else:
+      return s
+  return _x
 
-def warning(s):
-  return style_warning + s + style_normal
-
-def great_success(s):
-  return style_great_success + s + style_normal
-
-def info(s):
-  return style_info + s + style_normal
-
-def stealthy(s):
-  return style_stealthy + s + style_normal
+success = __generic_style(style_success)
+error =  __generic_style(style_error)
+warning =  __generic_style(style_warning)
+great_success =  __generic_style(style_great_success)
+stealthy =  __generic_style(style_stealthy)
+info =  __generic_style(style_info)
 
 def color_status(status):
   if status.startswith("2"):
