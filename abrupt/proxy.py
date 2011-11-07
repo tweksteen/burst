@@ -84,10 +84,9 @@ class ProxyHTTPRequestHandler(BaseHTTPServer.BaseHTTPRequestHandler):
         pre_action = self.server.overrided_ask
       if pre_action == "a":
         if console.term_width:
-          print r.repr(console.term_width), "?",
+          e = raw_input(r.repr(console.term_width, rl=True) + " ? ")
         else:
-          print r.repr(), "?",
-        e = raw_input()
+          e = raw_input(r.repr(rl=True) + " ? ")
       else:
         e = pre_action
         if default or self.server.verbose:
@@ -114,8 +113,7 @@ class ProxyHTTPRequestHandler(BaseHTTPServer.BaseHTTPRequestHandler):
       self._do_connection(r)
       if default or self.server.verbose:
         if pre_action == "a" and not self.server.overrided_ask:
-          print repr(r.response), "?",
-          e = raw_input()
+          e = raw_input(repr(r.response) + " ? ")
           while True:
             if e == "v":
               print str(r.response)

@@ -107,7 +107,7 @@ class Request():
   def __repr__(self):
     return self.repr(width=None)
 
-  def repr(self, width=None):
+  def repr(self, width=None, rl=False):
     if width and len(self.hostname) > int(0.3*width):
       hostname = smart_rsplit(self.hostname, int(0.3*width), ".") + ellipsis
     else:
@@ -116,8 +116,8 @@ class Request():
       path = ellipsis + smart_split(self.path, int(0.6*width), "/")
     else:
       path = self.path
-    fields = [info(self.method), hostname, path]
-    if self.use_ssl: fields.append(warning("SSL"))
+    fields = [info(self.method, rl=rl), hostname, path]
+    if self.use_ssl: fields.append(warning("SSL", rl=rl))
     return ("<" + " ".join(fields) + ">").encode("utf-8")
   
   def copy(self):
@@ -294,6 +294,9 @@ class Response():
         self.content = ""
 
   def __repr__(self):
+    return self.repr()
+
+  def repr(self, rl=False):
     flags = []
     if self.content: flags.append(str(len(self.content)))
     if self.has_header("Transfer-Encoding", "chunked"): flags.append("chunked")
@@ -301,7 +304,7 @@ class Response():
     if self.has_header("Content-Encoding", "deflate"): flags.append("deflate")
     for c in self.get_header("Set-Cookie"):
       flags.append("C:" + c)
-    return "<" + color_status(self.status) + " " + " ".join(flags)  + ">"
+    return "<" + color_status(self.status, rl) + " " + " ".join(flags)  + ">"
 
   def has_header(self, name, value=None):
     return _has_header(self.headers, name, value)
