@@ -136,8 +136,8 @@ def list_sessions():
   
   See also: ss, save.
   """
-  print "Existing sessions: " + ", ".join([ s for s in os.listdir(SESSION_DIR) 
-                      if os.path.isdir(os.path.join(SESSION_DIR, s)) ])
+  print "Existing sessions: " + ", ".join(sorted([ s for s in os.listdir(SESSION_DIR) 
+                      if os.path.isdir(os.path.join(SESSION_DIR, s)) ]))
 
 lss = list_sessions
 
