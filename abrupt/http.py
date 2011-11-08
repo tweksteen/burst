@@ -232,14 +232,6 @@ class Request():
   def filter(self, predicate):
     return bool(predicate(self))
 
-  def i(self, value, payload, **kwds):
-    from abrupt.injection import inject
-    return inject(self, value, payload, **kwds)
-  
-  def i_at(self, offset, payload, **kwds):
-    from abrupt.injection import inject_at
-    return inject_at(self, offset, payload, **kwds)
-
   def follow(self):
     if not self.response or not self.response.status in ('301', '302'):
       return

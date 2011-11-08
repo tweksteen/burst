@@ -1,3 +1,3 @@
-__all__ = ['console', 'http', 'proxy', 'injection', 'color', 'conf', 'utils', 'cert', 'sessions']
-__version__ = "0.2"
+__all__ = ['console', 'http', 'proxy', 'injection', 'color', 'conf', 'utils', 'cert', 'sessions', 'alert']
+__version__ = "0.3"
 

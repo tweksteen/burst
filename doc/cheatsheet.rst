@@ -7,7 +7,7 @@ Function
 * (w)atch             - run a passive proxy
 * (c)reate            - create a request based on a URL
 * (i)nject            - inject a Request
-* (i_at) inject at    - surgical injection 
+* (i_all) inject_all  - inject all the possible parameters
 * (e)ncode            - urlencode a string
 * (d)ecode            - urldecode a string
 * (ss) switch session - change the current session

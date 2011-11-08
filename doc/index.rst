@@ -1,6 +1,6 @@
 
 
-Web Application Penetration Framework. 
+Web Application Testing Framework. 
 BSD Licensed. Based on Python 2.7.
 
 Quick start
@@ -11,7 +11,7 @@ Quick start
   $ abrupt
   Generating SSL certificate...
   CA certificate : /home/tweksteen/.abrupt/ca.pem
-  Abrupt 0.2
+  Abrupt 0.3
   >>>
   
 .. note:: The first time you start Abrupt, it will generate a CA certificate.
@@ -20,17 +20,16 @@ Quick start
   browser. Currently, no check is performed by Abrupt on the server side
   regarding SSL.
 
-Abrupt will uses the following **optional** modules if they are installed:
-
-* libxml, required by the built-in spider. Also improve accuracy of anomaly
-  detection.
+If libxml is installed, Abrupt will uses it to improve accuracy of anomaly
+detection. This dependancy is optional.
 
 Proxy
 -----
 
 To start, let's grab some HTTP requests. To do so, use the :func:`~proxy.proxy` 
-function or its alias `p`. It will start a new proxy server on port 8080. This 
-server will catch every HTTP(S) request and prompt the user for directions::
+function or its alias `p`. It will start a new proxy server on the port 8080. 
+This server will catch every HTTP(S) request and prompt the user for 
+directions::
 
   >>> p()
   Running on port 8080
@@ -46,8 +45,8 @@ For each request, you can decide what to do:
   * (v)iew - print the full request
   * (e)dit - manually edit the request in your text editor
   * (d)rop - drop the request
-  * (f)orward - Forward the request
-  * (c)ontinue - Forward this request and the followings
+  * (f)orward - forward the request
+  * (c)ontinue - forward this request and the followings
 
 Forward is the default action if none is passed. Once a request has been made,
 you can see the response status and length::
@@ -55,8 +54,8 @@ you can see the response status and length::
   <GET www.phrack.org /> ? f
   <200 Gzip 5419>
 
-Once you're done with your requests, use Ctrl-C to exit. This function return
-all the completed requests and associated responses in a 
+Once you're done with your requests, use Ctrl-C to exit. The proxy function 
+returns all the completed requests and associated responses in a 
 :class:`~http.RequestSet` object::
 
   1 request intercepted
@@ -70,7 +69,7 @@ all the completed requests and associated responses in a
   <GET www.phrack.org />
 
 The proxy comes with a powerful rules system to automatically process some 
-requests according to used-defined criteria. For instance::
+requests according to user-defined criteria. For instance::
 
   >>> p(rules=((lambda x: x.hostname != "www.phrack.org", "d"),) )
 
@@ -80,6 +79,10 @@ If no rule is provided, it will forward image files (.png, .jpg, .jpeg,
 the verbosity level::
 
   >>> p(verbose=1)
+
+Or disable the default rules::
+
+  >>> p(rules=None)
 
 To learn more about rules and how to make your own, see :func:`~proxy.proxy`. 
 
@@ -106,14 +109,21 @@ editor (default is vim) to create a new request::
 
   >>> new_r = r.edit()
   
-And execute the new request::
+For interactive edition, see the :meth:`~http.Request.play` method. *Amusement 
+garanti!* 
+
+The request can be executed and the response displayed::
 
   >>> new_r()
   >>> new_r.response
   <200 Gzip 5419>
 
-For interactive edition, see the :meth:`~http.Request.play` method. Amusement 
-garanti! Abrupt also include a :func:`~http.create` function (aliased `c`) to 
+:class:`~http.Response` objects have the attributes: status, reason, headers, 
+content, raw_content, etc. You can use the :meth:`~http.Response.preview` 
+method to open a static dump of the response in your browser and the 
+:meth:`~http.Response.view` method to view the source in your text editor.
+
+Abrupt also includes a :func:`~http.create` function (aliased `c`) to 
 quickly forge a Request based on a URL::
 
   >>> c("http://www.phrack.org")
@@ -127,10 +137,6 @@ quickly forge a Request based on a URL::
   Accept-Encoding: gzip, deflate
   Accept-Charset: ISO-8859-1,utf-8;q=0.7,*;q=0.7
   
-:class:`~http.Response` objects have the attributes: status, reason, headers, 
-content, raw_content, etc. You can use the :meth:`~http.Response.preview` 
-method to open a static dump of the response in your browser and the 
-:meth:`~http.Response.view` method to view the source in your text editor.
 
 RequestSet
 ----------
@@ -161,42 +167,45 @@ Injection
 From one request, it is possible to generate a batch of requests where one or 
 many parameters vary using the :func:`~injection.inject` function (aliased `i`)::
 
-  >>> r
-  <GET phrack.org /issues.html>
-  >>> batch = i(r, issue="default")
-  >>> batch
-  {unknown:9 | phrack.org}
+  >>> print r
+  GET /issues.html?issue=66 HTTP/1.1
+  Host: www.phrack.org
 
-In this case, a :class:`~http.RequestSet` of 9 requests has been generated. 
-`inject` lookup for the arguments in the query string, the cookies and the POST 
-data. Then, it generates a new request where the value of this argument is 
-replaced by each value of the corresponding payload list. The possible values 
-for the payload list name are the keys of the :data:`~injection.payloads` 
-global dictionary, and Abrupt comes with some default ones::
+  >>> batch = i(r, to="issue", payload="sqli")
+  >>> batch
+  {unknown:106 | phrack.org}
+
+In this case, a :class:`~http.RequestSet` of 106 requests has been generated. 
+`inject` lookup for the `to` parameter in the query string, the cookies and 
+the POST data. Then, it generates new requests where the value of this 
+parameter is replaced by each value of the corresponding payload list. The 
+possible values for the payload list name are the keys of the 
+:data:`~injection.payloads` global dictionary, and Abrupt comes with some 
+default ones::
 
   >>> payloads.keys()
   ['digits', 'lowercase', 'full', 'default', 'uppercase', 'sqli', 'hexdigits', 'printable']
 
 You can add your own payload list to your Abrupt or also use a list generated 
-on the fly. Once the requests have been generated, you can send them::
+on the fly. Read more about this function in the :mod:`injection` module.
+Once the requests have been generated, you can send them::
 
   >>> batch()
-  Running 9 requests...done.
+  Running 106 requests...done.
   >>> batch
-  {200:9 | phrack.org}
+  {200:106 | phrack.org}
   >>> print batch
-  Id Method Path         Query                          Status Length 
-  0  GET    /issues.html issue=%27                      200    2390   
-  1  GET    /issues.html issue=abrupt_xss__             200    2390   
-  2  GET    /issues.html issue=%3C%2Fabrupt%3E          200    2390   
-  3  GET    /issues.html issue=%29%29%29%29%29%29%29... 200    2390   
-  4  GET    /issues.html issue=..%2F..%2F..%2F..%2F.... 200    2390   
-  5  GET    /issues.html issue=..%5C..%5C..%5C..%5C.... 200    2390   
-  6  GET    /issues.html issue=%7C%7C+ping+-i+60+127... 200    2390   
-  7  GET    /issues.html issue=%3Bid                    200    2390   
-  8  GET    /issues.html issue=%3Becho+123456           200    2390
+  Id  Method Path         Payload          Query                           Status Length Time   
+  0   GET    /issues.html '                issue=%27                       200    11026  0.5913 
+  1   GET    /issues.html ' --             issue=%27+--+                   200    11026  0.1318 
+  2   GET    /issues.html a' or 1=1 --     issue=a%27+or+1%3D1+--+         200    11026  0.1064 
+  3   GET    /issues.html "a"" or 1=1 -- " issue=%22a%22%22+or+1%3D1+-%22… 200    11026  0.1281 
+  4   GET    /issues.html  or a = a        issue=+or+a+%3D+a               200    11026  0.0973 
+  5   GET    /issues.html a' or 'a' = 'a   issue=a%27+or+%27a%27+%3D+%27a  200    11026  0.0998 
+  ...
 
-Read more about this function in the :mod:`injection` module.
+This is the end of the quick start. But it only shows the basic functionalities
+of Abrupt. To discover more about it, just follow one of these links:
 
 Reference
 =========
@@ -209,7 +218,7 @@ Reference
   injection
   session
   configuration
-  real-world
+  faq
   cheatsheet
 
 Indices and tables

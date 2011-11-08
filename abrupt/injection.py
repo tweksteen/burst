@@ -109,7 +109,7 @@ def _inject_cookie(r, value, pds, pre_func):
       rs.append(r_new)
   return rs
 
-def _inject_offset(r, offset, payload, pre_func=encode, choice=None):
+def _inject_at(r, offset, payload, pre_func=encode, choice=None):
   rs = []
   orig = str(r)
   pds = _get_payload(payload)
@@ -144,7 +144,7 @@ def _inject_offset(r, offset, payload, pre_func=encode, choice=None):
     rs.append(r_new)
   return rs
 
-def _inject_one(r, value, payload, pre_func):
+def _inject_to(r, value, payload, pre_func=None):
   pds = _get_payload(payload)
   if not pre_func:
     pre_func = lambda x:encode(x)
@@ -157,13 +157,23 @@ def _inject_one(r, value, payload, pre_func):
     raise NoInjectionPointFound()
   return rqs 
   
-def inject(r, value, payload, pre_func=None):
+def inject(r, to=None, at=None, payload="default", **kwds):
   """ Inject a request.
 
-  This function will create a RequestSet from a Request where
-  value is replaced with some payload. Abrupt will lookup the value
-  in the query string, the request content and the cookies. If no
+  This function will create a RequestSet from a Request where a part
+  of the latter is replaced with some payload. There is two way to use
+  this function, either to inject the value of a parameter or to inject
+  at a specific location.
+
+  When used with the 'to' parameter, Abrupt will lookup the value
+  in the query string, the request content and the cookies. It will
+  then replace the value of the parameter with the payloads. If no
   valid injection point is found, an error is raised.
+
+  When used with the 'at' parameter, Abrupt will lookup the string in the 
+  whole request text and replace it with the payloads. If no valid injection
+  point is found, an error is raised. If the string is found more than
+  once, the function will suggest to provide the 'choice' integer keyword.
 
   payload could either be a list of the payloads to inject or a key
   of the global dictionnary payloads.
@@ -171,31 +181,29 @@ def inject(r, value, payload, pre_func=None):
   Before being injected, each payload pass through the pre_func function
   which is by default encode.
 
-  See also: payloads, i_at
+  See also: payloads, inject_all, find_injection_points
   """
-  if isinstance(r, Request):
-    return _inject_one(r, value, payload, pre_func)
-  elif isinstance(r, RequestSet):
-    return reduce(lambda x,y: x+y,
-           [ _inject_one(ro, value, payload, pre_func) for ro in r ])
+  if not to and not at:
+    print error("I need some help here. Where should I inject? " +\
+                "Try 'help(inject)'")
+    return
+  if to and at:
+    print error("Wow, too many parameters. It is either 'to' or 'at'.")
+    return
+  if to:
+    if isinstance(r, Request):
+      return _inject_to(r, to, payload, **kwds)
+    elif isinstance(r, RequestSet):
+      return RequestSet(reduce(lambda x,y: x+y,
+             [ _inject_to(ro, to, payload, **kwds) for ro in r ]))
+  if at:
+    if isinstance(r, Request):
+      return RequestSet(_inject_at(r, at, payload, **kwds))
+    elif isinstance(r, RequestSet):
+      return RequestSet(reduce(lambda x,y: x+y,
+             [ _inject_at(ro, at, payload, **kwds) for ro in r ]))
 
 i = inject
-
-def inject_at(r, offset, payload, **kwds):
-  """Surgically inject a request.
-
-  This function inject the request at a specific offset, between two offset 
-  position or instead a token. If *offset* is an integer, the payload will 
-  be inserted at this position. If *offset* is a range (e.g., (23,29)) this 
-  range will be erased with the payload. If *offset* is a string, it will be 
-  replaced by the payloads. In the latter scenario, if the string is not 
-  found or if more than one occurrence exists, an exception will be raised.
-
-  See also: payloads, i
-  """
-  return RequestSet(_inject_offset(r, offset, payload, **kwds))
-
-i_at = inject_at
 
 def find_injection_points(r):
   """Find valid injection points.

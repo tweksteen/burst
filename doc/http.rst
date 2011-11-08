@@ -6,9 +6,9 @@ abrupt.http - HTTP base classes
 .. note:: In order to provide an easy user interaction and generic
   functionalities, some assumptions are made on the request and response. In
   mose of the case, Abrupt tried to minimise these assumptions. To help you
-  to understand how the framework behave, all of these assumptions will be
-  described here after. They can also be found in the source code using:
-  ``grep -PRn "^[\s#]*ASSUMPTION.*(\s*#.*)*" . | sed -e 's/\s*#\sASSUMPTION:\s*/\n/' -e 's/\s*#\s*//'``
+  to understand how the framework behave, most of these assumptions are
+  described here after. The complete list can be found in the source code 
+  using: ``grep -PRn "^[\s#]*ASSUMPTION.*(\s*#.*)*" . | sed -e 's/\s*#\sASSUMPTION:\s*/\n/' -e 's/\s*#\s*//'``
 
 .. class:: Request(fp, [hostname=None, port=80, use_ssl=False]) 
 
@@ -78,10 +78,6 @@ abrupt.http - HTTP base classes
     will return a request following the redirection. This function is still
     considered as experimental, please code your own and share it.
 
-  .. method:: _update_content_length()
-
-    In case you change the body of the request.
-
   .. method:: copy() 
 
     Create a new request based on the current, without the response.
@@ -91,6 +87,12 @@ abrupt.http - HTTP base classes
     Start your editor to edit the request, the new request is returned. 
     See the configuration parameter :attr:`~conf.Configuration.editor`.
 
+    .. note:: When editing a Request, you might change the content of a POST 
+      request. To be valid, the `Content-Length` header should be adapted to 
+      the new content length. Abrupt will automatically append the correct 
+      header if none is found. In other word, when editing a POST request, 
+      simply remove the `Content-Length` header and Abrupt will do the rest. 
+
   .. method:: play(options)
 
     Start your editor with two windows. Each time the request file is saved,
@@ -98,18 +100,12 @@ abrupt.http - HTTP base classes
     editor terminates, the last valid request made is returned.
     By default, `options` is set to configure ``vim``.
 
+    Please read the above note about Content-Length.
+
   .. method:: extract(field)
 
     Extract a particular field of the request. See 
     :meth:`~http.RequestSet.extract`.
-
-  .. method:: i()
-
-    Shortcut for :func:`~injection.inject`.
-
-  .. method:: i_at()
-
-    Shortcut for :func:`~injection.inject_at`.
 
 .. class:: Response(fd)
     
@@ -159,7 +155,7 @@ abrupt.http - HTTP base classes
 
   .. method:: extract(field)
 
-    Extract information on the request. See :func:`~http.RequestSet.extract`
+    Extract information on the response. See :func:`~http.RequestSet.extract`
 
 .. class:: RequestSet([reqs=None])
 
@@ -181,15 +177,15 @@ abrupt.http - HTTP base classes
     
     Returns a specific attribute for all the requests. For instance, 
     ``rs.extract("hostname")``. It will look up the argument in the request's
-    attribute, URL paramaters, POST content, cookies, response attributes and
+    attribute, URL parameters, POST content, cookies, response attributes and
     response cookies, in this order. If only the response should be looked
     up, set `from_response` to `True`.
 
   .. method:: ()
   
-    Make all the requests contained in the RequestSet only if they are 
-    all using the same host and port. An exception is raised if it is 
-    not the case.
+    Send all the requests contained in the RequestSet. This call is only 
+    valid if the requests are all using the same host and port. 
+    An exception is raised if it is not the case.
 
   .. method:: cmp(i1, i2)
     

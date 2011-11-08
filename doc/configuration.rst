@@ -5,7 +5,7 @@ abrupt.conf - Configuration
 
 .. class:: Configuration
   
-  This class should not be instanciated itself. Instead, use
+  This class should not be instanciated. Instead, use
   the :data:`~conf.conf` instance, described below.
   
   .. method:: save()
@@ -21,6 +21,11 @@ abrupt.conf - Configuration
 
   Default proxy port. See also the `port` parameter of the :func:`proxy.proxy`
   function. By default, 8080.
+
+  .. attribute:: delay
+  
+  Delay between requests when a :class:`~http.RequestSet` is executed. 
+  By default, 0.
 
   .. attribute:: autosave 
 
@@ -44,6 +49,11 @@ abrupt.conf - Configuration
   default "auto" will try to get this information from the system. You
   can set any arbritrary integer. The value 0 will consider the width
   as unlimited.
+
+  .. attribute:: color_enabled
+
+  Boolean to activate or deactivate the colors in the console. 
+  By default, True.
 
   .. attribute:: editor
     
@@ -80,6 +90,7 @@ abrupt.conf - Configuration
     proxy: None
     ssl_version: SSLv3
     >>> conf.autosave = False
+    >>> conf.proxy = "http://127.0.0.1:8081"
     >>> conf.save()
     >>> conf
     autosave: False
@@ -87,6 +98,6 @@ abrupt.conf - Configuration
     editor: /usr/bin/vim
     history: True
     port: 8080
-    proxy: None
+    proxy: http://127.0.0.1:8081
     ssl_version: SSLv3
 
