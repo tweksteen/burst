@@ -5,7 +5,7 @@ abrupt.http - HTTP base classes
 
 .. note:: In order to provide an easy user interaction and generic
   functionalities, some assumptions are made on the request and response. In
-  mose of the case, Abrupt tried to minimise these assumptions. To help you
+  most of the case, Abrupt tried to minimise these assumptions. To help you
   to understand how the framework behave, most of these assumptions are
   described here after. The complete list can be found in the source code 
   using: ``grep -PRn "^[\s#]*ASSUMPTION.*(\s*#.*)*" . | sed -e 's/\s*#\sASSUMPTION:\s*/\n/' -e 's/\s*#\s*//'``

@@ -5,7 +5,7 @@ abrupt.conf - Configuration
 
 .. class:: Configuration
   
-  This class should not be instanciated. Instead, use
+  This class should not be instantiated. Instead, use
   the :data:`~conf.conf` instance, described below.
   
   .. method:: save()
@@ -47,7 +47,7 @@ abrupt.conf - Configuration
   Expected width of the terminal. Abrupt tries to optimise the output
   whenever possible in regards to the current terminal width. The
   default "auto" will try to get this information from the system. You
-  can set any arbritrary integer. The value 0 will consider the width
+  can set any arbitrary integer. The value 0 will consider the width
   as unlimited.
 
   .. attribute:: color_enabled

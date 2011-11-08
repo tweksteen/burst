@@ -21,7 +21,7 @@ Quick start
   regarding SSL.
 
 If libxml is installed, Abrupt will uses it to improve accuracy of anomaly
-detection. This dependancy is optional.
+detection. This dependency is optional.
 
 Proxy
 -----
@@ -176,7 +176,7 @@ many parameters vary using the :func:`~injection.inject` function (aliased `i`):
   {unknown:106 | phrack.org}
 
 In this case, a :class:`~http.RequestSet` of 106 requests has been generated. 
-`inject` lookup for the `to` parameter in the query string, the cookies and 
+`inject` look up for the `to` parameter in the query string, the cookies and 
 the POST data. Then, it generates new requests where the value of this 
 parameter is replaced by each value of the corresponding payload list. The 
 possible values for the payload list name are the keys of the 

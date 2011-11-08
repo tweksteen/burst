@@ -26,7 +26,7 @@ To start a proxy, you can use the intercept method also known as p:
   will drop any POST requests, forward GET requests and ask the user for any other method.
 
   `alerter` should be an object from derived from :class:`alert.Generic`. It will be called
-  after each requests to lookup trivial outstanding responses. If `None` is supplied,
+  after each requests to look up trivial outstanding responses. If `None` is supplied,
   an instance of :class:`alerter.Generic` will be used.
     
   To keep the connection alive with your client, set `persistent` to `True`. This will

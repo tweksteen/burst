@@ -12,18 +12,18 @@ abrupt.injection - Request generator
   this function, either to inject the value of a parameter or to inject
   at a specific location.
 
-  When used with the `to` parameter, Abrupt will lookup the value
+  When used with the `to` parameter, Abrupt will look up the value
   in the query string, the request content and the cookies. It will
   then replace the value of the parameter with the payloads. If no
   valid injection point is found, an error is raised.
 
-  When used with the `at` parameter, Abrupt will lookup the string in the 
+  When used with the `at` parameter, Abrupt will look up the string in the 
   whole request text and replace it with the payloads. If no valid injection
   point is found, an error is raised. If the string is found more than
   once, the function will suggest to provide the 'choice' integer keyword.
 
   `payload` could either be a list of the payloads to inject or a key
-  of the global dictionnary :data:`payloads`.
+  of the global dictionary :data:`payloads`.
 
   Some examples::
 
@@ -49,15 +49,15 @@ abrupt.injection - Request generator
   
 .. data:: payloads
 
-  Dictionnary containing all the payloads. Each value is a list of
+  Dictionary containing all the payloads. Each value is a list of
   string. When started, Abrupt load all the files under the directory
   "payloads" and create the corresponding key.
 
   By default, it contains:
-    * default, a minimal list of standard payload, targetting classic web
+    * default, a minimal list of standard payload, targeting classic web
       app vulnerabilities.
     * full, a larger list of standard payload.
-    * sqli, targetting SQL injection. 
+    * sqli, targeting SQL injection. 
 
 .. function:: encode(x)
 

@@ -39,7 +39,7 @@ Otherwise, you can use the `-l` command line option::
 What is the content of ``~/.abrupt``?
 -------------------------------------
 
-Abrupt creates a subdirectory to store its configuration, the certificates used
+Abrupt creates a sub-directory to store its configuration, the certificates used
 when connected via SSL and the sessions dumps. In this directory,
 you will find:
 

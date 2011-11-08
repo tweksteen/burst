@@ -9,7 +9,7 @@ configuration. By default, your session will be automatically saved whenever
 you exit Abrupt or switch to a new one. When using a session, Abrupt will 
 change the prompt ``>>>`` to ``session_name >>>``. To remind you to save the 
 session from time to time, the color of the prompt will automatically change 
-to red if no savepoint has been made for the last twenty minutes.
+to red if no save point has been made for the last twenty minutes.
 
 .. function:: switch_session(session_name='default')
   
