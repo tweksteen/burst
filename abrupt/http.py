@@ -356,13 +356,13 @@ class Response():
 
   @property
   def is_javascript(self):
-    if any([ "javascript" in self.get_header("Content-Type")]):
+    if any([ "javascript" in h for h in self.get_header("Content-Type")]):
       return True
     return False
 
   @property 
   def is_html(self):
-    if any([ "html" in self.get_header("Content-Type")]):
+    if any([ "html" in h for h in self.get_header("Content-Type")]):
       return True
     return False
 
