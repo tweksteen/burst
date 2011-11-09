@@ -29,10 +29,11 @@ except ImportError:
 term_width = None
 
 def _usage():
-  print """Usage: abrupt [-bhl] [-s session_name]
+  print """Usage: abrupt [-bhlv] [-s session_name]
     -b: no graphical banner
     -h: print this help message
     -l: list existing sessions
+    -v: print the version and exit
     -s: create or load the session"""
   sys.exit(0)
 
@@ -124,7 +125,7 @@ def interact(local_dict=None):
   
   # Parse arguments
   try:
-    opts = getopt.getopt(sys.argv[1:], "hbs:l")
+    opts = getopt.getopt(sys.argv[1:], "s:bhlv")
     for opt, param in opts[0]:
       if opt == "-h":
         _usage()
@@ -132,6 +133,9 @@ def interact(local_dict=None):
         abrupt.session.session_name = param
       elif opt == "-l":
         abrupt.session.list_sessions()
+        sys.exit(0)
+      elif opt == "-v":
+        print "Abrupt %s, Copyright (c) 2011 Securus Global" % (abrupt.__version__,)
         sys.exit(0)
       elif opt == "-b":
         banner = "Abrupt %s" % abrupt.__version__
