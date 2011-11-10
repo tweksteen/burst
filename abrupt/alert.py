@@ -34,6 +34,8 @@ class Generic:
       except UnicodeDecodeError:
         alerts.append(stealthy("reponse.content-type says html but unable to parse"))
         return alerts
+      except lxml.etree.ParserError:
+        return alerts
     else:
       content = r.response.content
     for e in self.html_patterns:

@@ -228,10 +228,10 @@ def find_injection_points(r):
 
 fip = find_injection_points
 
-def inject_all(r, payload):
+def inject_all(r, payload="default"):
   ips = find_injection_points(r)
   if ips:
-    return reduce(lambda x,y:x+y, [ i(r, ip, payload) for ip in ips])
+    return reduce(lambda x,y:x+y, [ i(r, to=ip, payload=payload) for ip in ips])
   return RequestSet()
 
 i_all = inject_all
