@@ -68,7 +68,7 @@ def store_session(force=False):
       del to_save[k]
   if not os.path.exists(d):
     os.mkdir(d, 0700)
-  n = datetime.datetime.now().strftime("%Y.%m.%d_%H.%M.p")
+  n = datetime.datetime.now().strftime("%Y-%m-%dT%H%M.p")
   print "Saving session..."
   f = open(os.path.join(d, n), "wb")
   cPickle.dump(to_save, f, -1)
@@ -103,7 +103,7 @@ def archive(name=None):
     response = str(r.response) if r.response else ""
     output += "\n".join((str(r), response))
     output += "\n" + "="*80 + "\n"
-  f_name = name + "-" + datetime.datetime.now().strftime("%Y.%m.%d_%H.%M.txt.gz")
+  f_name = name + "-" + datetime.datetime.now().strftime("%Y-%m-%dT%H%M.txt.gz")
   full_path = os.path.join(ARCHIVE_DIR, f_name)
   f = gzip.open(full_path, "w")
   f.write(output)
