@@ -115,7 +115,7 @@ class ProxyHTTPRequestHandler(BaseHTTPServer.BaseHTTPRequestHandler):
       self._do_connection(r)
       if default or self.server.verbose:
         if pre_action == "a" and not self.server.overrided_ask:
-          e = raw_input(repr(r.response, rl=True) + " ? ")
+          e = raw_input(r.response.repr(rl=True) + " ? ")
           while True:
             if e == "v":
               print str(r.response)
