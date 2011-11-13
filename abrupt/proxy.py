@@ -106,14 +106,16 @@ class ProxyHTTPRequestHandler(BaseHTTPServer.BaseHTTPRequestHandler):
         if e == "c":
           self.server.overrided_ask = "f"
           break
-        e = raw_input("(v)iew, (e)dit, (f)orward, (d)rop, (c)ontinue [f]? ")
+        if e == "de" and r.content:
+          print decode(r.content)
+        e = raw_input("(v)iew, (e)dit, (f)orward, (d)rop, (c)ontinue, (de)code [f]? ")
       if self.server.verbose >= 2:
         print r
       self.server.reqs.append(r)
       self._do_connection(r)
       if default or self.server.verbose:
         if pre_action == "a" and not self.server.overrided_ask:
-          e = raw_input(repr(r.response) + " ? ")
+          e = raw_input(repr(r.response, rl=True) + " ? ")
           while True:
             if e == "v":
               print str(r.response)
@@ -123,7 +125,9 @@ class ProxyHTTPRequestHandler(BaseHTTPServer.BaseHTTPRequestHandler):
               return
             if e == "" or e == "f":
               break
-            e = raw_input("(v)iew, (e)dit, (f)orward, (d)rop [f]? ")
+            if e == "de" and r.response.content:
+              print decode(r.response.content)
+            e = raw_input("(v)iew, (e)dit, (f)orward, (d)rop, (de)code [f]? ")
         else:
           print repr(r.response)
         for al in self.server.alerter.parse(r):
