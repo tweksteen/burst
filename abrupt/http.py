@@ -19,7 +19,7 @@ from abrupt.conf import conf
 from abrupt.color import *
 from abrupt.utils import make_table, clear_line, ellipsis, \
                          re_space, smart_split, smart_rsplit, \
-                         stats
+                         stats, parse_qs
 
 class UnableToConnect(Exception):
   def __str__(self):
@@ -215,11 +215,11 @@ class Request():
     if hasattr(self, arg):
       return getattr(self, arg)
     if self.query:
-      query = urlparse.parse_qs(self.query, True)
+      query = parse_qs(self.query)
       if arg in query:
         return query[arg][0]
     if self.content:
-      post = urlparse.parse_qs(self.content, True)
+      post = parse_qs(self.content)
       if arg in post:
         return post[arg][0]
     c = self.cookies

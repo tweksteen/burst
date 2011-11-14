@@ -64,7 +64,7 @@ def store_session(force=False):
   if to_save.has_key("__builtins__"):
     del to_save["__builtins__"]
   for k in to_save.keys():
-    if type(to_save[k]) in (types.TypeType, types.ClassType, types.ModuleType, types.NoneType):
+    if type(to_save[k]) in (types.TypeType, types.ClassType, types.ModuleType, types.FunctionType, types.NoneType):
       del to_save[k]
   if not os.path.exists(d):
     os.mkdir(d, 0700)

@@ -1,7 +1,11 @@
 import re
+import os
 import sys
 import math
 import urllib
+import tempfile
+import subprocess
+import collections
 
 re_space = re.compile(r'[ \t]+')
 re_ansi_color = re.compile(r"(\x1b\[[;\d]*[A-Za-z])|\x01|\x02").sub
@@ -27,6 +31,13 @@ def smart_split(s, max_len, sep, reverse=False):
     return s[-max_len:]
   return s[:max_len]
 
+def less(args):
+  fd, fname = tempfile.mkstemp()
+  with os.fdopen(fd, 'w') as f:
+    f.write(str(args))
+  subprocess.call('less' + ' -R ' + fname, shell=True)
+  os.remove(fname)
+
 def stats(values):
   avg = sum(values)/float(len(values))
   variance = sum([x**2 for x in values])/float(len(values)) - avg**2
@@ -34,6 +45,37 @@ def stats(values):
   bottom = avg - 3*std
   top = avg + 3*std
   return avg, bottom, top
+
+def urlencode(query):
+  l = [] 
+  for k, v in query.items():
+    if isinstance(v, collections.Iterable):
+      for elt in v:
+        l.append(str(k) + '=' + str(elt))
+    else:
+      l.append(str(k) + '=' + str(v))
+  return '&'.join(l)
+
+def parse_qsl(qs):
+  pairs = [s2 for s1 in qs.split('&') for s2 in s1.split(';')]
+  r = []
+  for name_value in pairs:
+    nv = name_value.split('=', 1)
+    if len(nv) != 2:
+      nv.append('')
+    name = nv[0]
+    value = nv[1]
+    r.append((name, value))
+  return r
+
+def parse_qs(qs):
+  d = {}
+  for name, value in parse_qsl(qs):
+    if name in d:
+      d[name].append(value)
+    else:
+      d[name] = [value]
+  return d
 
 def encode(s, **kwds):
   return urllib.quote_plus(s, **kwds)  

@@ -1,13 +1,12 @@
 import re
 import urlparse
-import collections
 import glob
 import os.path
 import Cookie
 
 from abrupt.http import Request, RequestSet
 from abrupt.color import *
-from abrupt.utils import encode
+from abrupt.utils import encode, parse_qs, parse_qsl, urlencode
 
 payloads = {}
 for f_name in glob.glob(os.path.join(os.path.dirname(__file__), "payloads/*")):
@@ -19,36 +18,6 @@ class PayloadNotFound(Exception): pass
 class NoInjectionPointFound(Exception): pass
 class NonUniqueInjectionPoint(Exception): pass
 
-def _urlencode(query):
-  l = [] 
-  for k, v in query.items():
-    if isinstance(v, collections.Iterable):
-      for elt in v:
-        l.append(str(k) + '=' + str(elt))
-    else:
-      l.append(str(k) + '=' + str(v))
-  return '&'.join(l)
-
-def _parse_qsl(qs):
-  pairs = [s2 for s1 in qs.split('&') for s2 in s1.split(';')]
-  r = []
-  for name_value in pairs:
-    nv = name_value.split('=', 1)
-    if len(nv) != 2:
-      nv.append('')
-    name = nv[0]
-    value = nv[1]
-    r.append((name, value))
-  return r
-
-def _parse_qs(qs):
-  d = {}
-  for name, value in _parse_qsl(qs):
-    if name in d:
-      d[name].append(value)
-    else:
-      d[name] = [value]
-  return d
 
 def _get_payload(p):
   try:
@@ -61,14 +30,14 @@ def _get_payload(p):
 
 def _inject_query(r, value, pds, pre_func):
   rs = []
-  i_pts = _parse_qs(r.query)
+  i_pts = parse_qs(r.query)
   if value in i_pts:
     nq = i_pts.copy()
     parsed_url = urlparse.urlparse(r.url)
     for p in pds:
       nq[value] = [pre_func(p),]
       s = list(parsed_url)
-      s[4] = _urlencode(nq)
+      s[4] = urlencode(nq)
       r_new = r.copy()
       r_new.url = urlparse.urlunparse(s)
       r_new.injection_point = value
@@ -78,12 +47,12 @@ def _inject_query(r, value, pds, pre_func):
 
 def _inject_post(r, value, pds, pre_func):
   rs = []
-  i_pts = _parse_qs(r.content)
+  i_pts = parse_qs(r.content)
   if value in i_pts:
     nc = i_pts.copy()
     for p in pds:
       nc[value] = [pre_func(p),]
-      n_content = _urlencode(nc)
+      n_content = urlencode(nc)
       r_new = r.copy()
       r_new.content = n_content
       r_new.injection_point = value
@@ -213,11 +182,11 @@ def find_injection_points(r):
   """
   ips = []
   if r.query:
-    i_pts = _parse_qs(r.query)
+    i_pts = parse_qs(r.query)
     if i_pts:
       ips.extend(i_pts)
   if r.content:
-    i_pts = _parse_qs(r.content)
+    i_pts = parse_qs(r.content)
     if i_pts:
       ips.extend(i_pts)
   if r.cookies:
