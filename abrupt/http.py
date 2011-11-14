@@ -7,6 +7,7 @@ import ssl
 import socket
 import urlparse
 import operator
+import random
 import tempfile
 import webbrowser
 import subprocess
@@ -540,7 +541,7 @@ class RequestSet():
     for r in self.reqs:
       r.response = None
 
-  def __call__(self, post_call=None, force=False, verbose=False):
+  def __call__(self, post_call=None, force=False, randomised=False, verbose=False):
     if not self.reqs:
       raise Exception("No request to proceed")
     hostnames = set([r.hostname for r in self.reqs])
@@ -557,9 +558,13 @@ class RequestSet():
     conn = self._init_connection()
     print "Running %s requests..." % len(self.reqs),
     clear_line()
-    for i, r in enumerate(self.reqs):
+    indices = range(len(self.reqs))
+    if randomised: random.shuffle(indices)
+    done = 0
+    for i in indices:
+      r = self.reqs[i]
       if not verbose:
-        print "Running %s requests...%d%%" % (len(self.reqs), i*100/len(self.reqs)),
+        print "Running %s requests...%d%%" % (len(self.reqs), done*100/len(self.reqs)),
         clear_line()
       next = False
       if r.response and not force:
@@ -571,6 +576,7 @@ class RequestSet():
           if verbose: print repr(r.response)
           if r.response.closed: 
             conn = self._init_connection()
+          done += 1
           next = True
         except (socket.error, BadStatusLine):
           conn = self._init_connection()
