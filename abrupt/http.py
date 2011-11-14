@@ -561,13 +561,15 @@ class RequestSet():
     indices = range(len(self.reqs))
     if randomised: random.shuffle(indices)
     done = 0
+    todo = len(self.reqs)
     for i in indices:
       r = self.reqs[i]
       if not verbose:
-        print "Running %s requests...%d%%" % (len(self.reqs), done*100/len(self.reqs)),
+        print "Running %s requests...%d%%" % (todo, done*100/todo),
         clear_line()
       next = False
       if r.response and not force:
+        todo -= 1
         next = True
       while not next:
         try:
