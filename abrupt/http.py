@@ -490,17 +490,19 @@ class RequestSet():
             ("Method", lambda r, i: info(r.method)),
             ("Path",   lambda r, i: ellipsis + smart_split(r.path, 30, "/") if
                                     len(r.path)>30 else r.path),
-            ("Query",  lambda r, i: smart_rsplit(r.query, 30, "&") + ellipsis if
-                                    len(r.query)>30 else r.query),
             ("Status", lambda r, i: color_status(r.response.status) if
                                     r.response else "-"),
             ("Length", lambda r, i: str(len(r.response.content)) if
                                     (r.response and r.response.content) else "-")
     ]
     if any([hasattr(x, "payload") for x in self.reqs]):
-      cols.insert(2, ("Payload", lambda r, i: getattr(r,"payload","-")[:30]))
+      cols.insert(2, ("Injection Point", lambda r, i: getattr(r,"injection_point","-")[:30]))
+      cols.insert(3, ("Payload", lambda r, i: getattr(r,"payload","-")[:30]))
       cols.append(("Time", lambda r, i: "%.4f" % r.response.time.total_seconds() if
                                         r.response else "-"))
+    else:
+      cols.insert(2, ("Query",  lambda r, i: smart_rsplit(r.query, 30, "&") + ellipsis if
+                                    len(r.query)>30 else r.query))
     if len(set([r.hostname for r in self.reqs])) > 1:
       cols.insert(1, ("Host", lambda r, i: smart_rsplit(r.hostname, 20, ".") + ellipsis if
                                            len(r.hostname)>20 else r.hostname))
