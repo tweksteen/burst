@@ -85,7 +85,11 @@ div.body h6 {
     font-weight: normal;
     color: #000;
     margin: 10px 0px 0px 0px;
-    padding: 5px 0 5px 0px;
+    padding: 0;
+}
+
+div.body h2 {
+  margin:1.5em 0 0;
 }
  
 div.body h1 { font-size: 200%; }
@@ -122,7 +126,7 @@ a.headerlink:hover {
  
 div.body p, div.body dd {
     line-height: 1.5em;
-    margin: 0.5em 0px 1em 0px;
+    margin: 0.2em 0px;
 }
 
 div.body dd {
@@ -130,9 +134,13 @@ div.body dd {
     margin: 0.5em 0em 1em 2em;
 }
 
+div.body ul {
+    margin:0.5em 0;
+}
+
 div.body li {
     line-height: 1.5em;
-    margin: 0.2em 0px 0.2em 0px;
+    margin: 0.2em 0px;
 }
  
 div.admonition p.admonition-title + p {
@@ -156,6 +164,10 @@ div.seealso {
 div.topic {
     background-color: #eee;
 }
+
+div.section {
+    margin: 0.5em 0;
+}
  
 div.warning {
     background-color: #ffe4e4;
@@ -177,7 +189,7 @@ pre {
     line-height: 1.2em;
     border: 1px solid #C6C9CB;
     font-size: 1.1em;
-    margin: 0 0;
+    margin: 1em 0;
     -webkit-box-shadow: 1px 1px 1px #d8d8d8;
     -moz-box-shadow: 1px 1px 1px #d8d8d8;
 }

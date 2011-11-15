@@ -66,7 +66,7 @@ abrupt.http - HTTP base classes
     The associated response, once the request has been made to the server.
     For more information, see :class:`~http.Response`.
 
-  .. method:: ()
+  .. method:: __call__()
     
     Do the request. Includes connect to the server, send the request,
     read the response, create the corresponding :class:`~http.Response` 
@@ -181,11 +181,27 @@ abrupt.http - HTTP base classes
     response cookies, in this order. If only the response should be looked
     up, set `from_response` to `True`.
 
-  .. method:: ()
+  .. method:: __call__([force=False, randomised=False, post_call=None, verbose=False])
   
     Send all the requests contained in the RequestSet. This call is only 
     valid if the requests are all using the same host and port. 
     An exception is raised if it is not the case.
+
+    By default, Request which already have a Response are skipped. To force
+    all the Request to be made, use `force=True`. 
+    
+    It is also possible to randomise the order in which the Requests are 
+    executed. To do so, use `randomised=True`.
+
+    A callback can be executed after each Request. It should be a function
+    that receive one argument, the current Request.
+
+    If `verbose` is `True`, all the Request and Response will be displayed
+    instead of a global indicator.
+
+  .. method:: summary()
+  
+    Provide a statistical summary based on response length and time.
 
   .. method:: cmp(i1, i2)
     
