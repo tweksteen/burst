@@ -292,6 +292,8 @@ class Response():
   def repr(self, rl=False):
     flags = []
     if self.content: flags.append(str(len(self.content)))
+    if self.has_header("Content-Type"): 
+      flags.append(",".join([ x.split(";")[0] for x in self.get_header("Content-Type")]))
     if self.has_header("Transfer-Encoding", "chunked"): flags.append("chunked")
     if self.has_header("Content-Encoding", "gzip"): flags.append("gzip")
     if self.has_header("Content-Encoding", "deflate"): flags.append("deflate")
