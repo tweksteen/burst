@@ -12,8 +12,9 @@ import abrupt
 from abrupt.conf import CONF_DIR
 from abrupt.color import *
 
-try: 
-  import readline, rlcompleter
+try:
+  import readline
+  import rlcompleter
   has_readline = True
 except ImportError:
   has_readline = False
@@ -77,9 +78,9 @@ class ColorPrompt(object):
     prompt = '\001%s\002' % info('\002>>> \001')
     if session_name != "default":
       if abrupt.session.should_save():
-        prompt = '\001%s\002 ' % error('\002'+session_name+'\001') + prompt
+        prompt = '\001%s\002 ' % error('\002' + session_name + '\001') + prompt
       else:
-        prompt = '\001%s\002 ' % warning('\002'+session_name+'\001') + prompt
+        prompt = '\001%s\002 ' % warning('\002' + session_name + '\001') + prompt
     return prompt
 
 class AbruptInteractiveConsole(code.InteractiveConsole):
@@ -112,20 +113,20 @@ Abrupt have few classes which worth having a look at, typing 'help(class)':
 
 Please, report any bug or comment to tw@securusglobal.com"""
   else:
-    pydoc.help(obj)   
- 
+    pydoc.help(obj)
+
 def interact(local_dict=None):
   abrupt_builtins = __import__("all", globals(), locals(), ".").__dict__
   __builtin__.__dict__.update(abrupt_builtins)
   __builtin__.__dict__["help"] = help
   __builtin__.__dict__["python_help"] = pydoc.help
 
-  banner = """   _   _                  _   
-  /_\ | |__ _ _ _  _ _ __| |_ 
+  banner = """   _   _                  _
+  /_\ | |__ _ _ _  _ _ __| |_
  / _ \| '_ \ '_| || | '_ \  _|
 /_/ \_\_.__/_|  \_,_| .__/\__|
                  """ + abrupt.__version__ + """|_|"""
-  
+
   # Parse arguments
   try:
     opts = getopt.getopt(sys.argv[1:], "s:bhlv")
@@ -142,17 +143,17 @@ def interact(local_dict=None):
         sys.exit(0)
       elif opt == "-b":
         banner = "Abrupt %s" % abrupt.__version__
-    if opts[1]: 
+    if opts[1]:
         _usage()
   except getopt.GetoptError:
     _usage()
-  
+
   # First time setup
   if not abrupt.conf.check_config_dir():
     print "Generating SSL certificate..."
     abrupt.cert.generate_ca_cert()
     banner += "\nWelcome to Abrupt, type help() for more information"
-  
+
   # Could we find the payloads?
   if not abrupt.injection.payloads:
     print warning("No payload found for the injection, check abrupt/payloads")
@@ -163,8 +164,8 @@ def interact(local_dict=None):
   # Import config from the environment
   conf.import_env()
 
-  # Load the session, session configuration takes precedence 
-  # over global configuration. There is no condition, by default, 
+  # Load the session, session configuration takes precedence
+  # over global configuration. There is no condition, by default,
   # load the "default" session.
   abrupt.session.load_session()
 
@@ -185,7 +186,7 @@ def interact(local_dict=None):
 
       def attr_matches(self, text):
         m = re.match(r"([\w\[\]]+(\.[\w\[\]]+)*)\.(\w*)", text)
-        if m: 
+        if m:
           expr, attr = m.group(1, 3)
         else:
           return
@@ -206,7 +207,7 @@ def interact(local_dict=None):
     readline.set_completer_delims(" \t\n`~!@#$%^&*()-=+{}\\|;:'\",<>/?")
     readline.set_completer(AbruptCompleter().complete)
     readline.parse_and_bind("tab: complete")
-    _load_history() 
+    _load_history()
 
   # Hooked window resizing
   _update_term_width(None, None)
@@ -217,4 +218,3 @@ def interact(local_dict=None):
   atexit.register(abrupt.session.store_session)
   aci = AbruptInteractiveConsole(abrupt.session.session_dict)
   aci.interact(banner)
-

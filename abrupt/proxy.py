@@ -22,16 +22,16 @@ class ProxyHTTPRequestHandler(BaseHTTPServer.BaseHTTPRequestHandler):
     SSL bypass, behave like the requested server and provide a certificate.
     """
     l = self.rfile.readline()  # Purge headers
-    while l !="\r\n":
+    while l != "\r\n":
       l = self.rfile.readline()
     self.wfile.write("HTTP/1.1 200 Connection established\r\n\r\n") # yes, sure
     self.ssl_sock = ssl.wrap_socket(self.request, server_side=True,
-                                    certfile=generate_ssl_cert(r.hostname), 
+                                    certfile=generate_ssl_cert(r.hostname),
                                     keyfile=get_key_file())
     self.rfile = self.ssl_sock.makefile('rb', self.rbufsize)
     self.wfile = self.ssl_sock.makefile('wb', self.wbufsize)
     return Request(self.rfile, hostname=r.hostname, port=r.port, use_ssl=True)
- 
+
   def _init_connection(self, r):
     """
     Init the connection with the remote server
@@ -53,8 +53,8 @@ class ProxyHTTPRequestHandler(BaseHTTPServer.BaseHTTPRequestHandler):
       try:
         r(conn=self.server.conn)
         if not r.response.closed:
-          self.server.prev = {"hostname":r.hostname, "port":r.port,
-                              "use_ssl":r.use_ssl}
+          self.server.prev = {"hostname": r.hostname, "port": r.port,
+                              "use_ssl": r.use_ssl}
         else:
           self.server.conn.close()
           self.close_connection = 1
@@ -141,9 +141,9 @@ class ProxyHTTPRequestHandler(BaseHTTPServer.BaseHTTPRequestHandler):
       print warning(str(e))
       #self.wfile.write("Abrupt: " + str(e))
       return
-   
+
 class ProxyHTTPServer(BaseHTTPServer.HTTPServer):
-  
+
   def handle_error(self, request, client_address):
     exc_type, exc_value, exc_traceback = sys.exc_info()
     if exc_type == KeyboardInterrupt:
@@ -152,22 +152,22 @@ class ProxyHTTPServer(BaseHTTPServer.HTTPServer):
       print warning(str(exc_type) + ":" + str(exc_value))
       traceback.print_tb(exc_traceback)
 
-def proxy(port=None, nb=-1, rules=((lambda x: re_images_ext.search(x.path), "f"),), 
+def proxy(port=None, nb=-1, rules=((lambda x: re_images_ext.search(x.path), "f"),),
           default_action="a", alerter=None, persistent=False, verbose=False):
   """Intercept all HTTP(S) requests on port. Return a RequestSet of all the
   answered requests.
-  
+
   port           -- port to listen to
   nb             -- number of request to intercept (-1 for infinite)
   alerter        -- alerter triggered on each response, by default alerter.Generic
   rules          -- set of rules for automated actions over requests
   default_action -- action to execute when no rules matches, by default "a"
-  persistent     -- keep the connection persistent with your client 
+  persistent     -- keep the connection persistent with your client
   verbose        -- degree of verbosity:
                     False -- Only display requests undergoing default_action
                     1     -- Display all requests, including automated ones
                     2     -- Display all requests with their full content
-                    3     -- Display all requests and responses with their 
+                    3     -- Display all requests and responses with their
                              full content
   See also: w()
   """
@@ -202,8 +202,7 @@ def proxy(port=None, nb=-1, rules=((lambda x: re_images_ext.search(x.path), "f")
 
 p = proxy
 
-def w(**kwds): 
-  """Run a proxy without user interaction, all the requests are forwarded. 
+def w(**kwds):
+  """Run a proxy without user interaction, all the requests are forwarded.
      See also p()"""
   return proxy(default_action="f", **kwds)
-

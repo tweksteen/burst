@@ -20,11 +20,11 @@ def __generic_style(c):
   return _x
 
 success = __generic_style(style_success)
-error =  __generic_style(style_error)
-warning =  __generic_style(style_warning)
-great_success =  __generic_style(style_great_success)
-stealthy =  __generic_style(style_stealthy)
-info =  __generic_style(style_info)
+error = __generic_style(style_error)
+warning = __generic_style(style_warning)
+great_success = __generic_style(style_great_success)
+stealthy = __generic_style(style_stealthy)
+info = __generic_style(style_info)
 
 def color_status(status, rl=False):
   if status.startswith("2"):
@@ -34,4 +34,3 @@ def color_status(status, rl=False):
   elif status.startswith("4") or status.startswith("5"):
     return error(status, rl)
   return stealthy(status, rl)
-    

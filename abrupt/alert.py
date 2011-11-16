@@ -9,7 +9,6 @@ except ImportError:
   has_lxml = False
 
 class Generic:
-
   html_keywords = [r'Error', r'Warning', r'SQL', r'LDAP', r'Failure']
   js_keywords = [r'password', r'credential']
 
@@ -30,9 +29,11 @@ class Generic:
     if has_lxml:
       try:
         root = lxml.html.fromstring(r.response.content)
-        content = ''.join([ x for x in root.xpath("//text()") if x.getparent().tag != "script"])
+        content = ''.join([x for x in root.xpath("//text()") if
+                            x.getparent().tag != "script"])
       except UnicodeDecodeError:
-        alerts.append(stealthy("reponse.content-type says html but unable to parse"))
+        alerts.append(stealthy("reponse.content-type says html but " \
+                               "unable to parse"))
         return alerts
       except lxml.etree.ParserError:
         return alerts
@@ -52,9 +53,9 @@ class Generic:
       if e.search(r.response.content):
         alerts.append(error("response.content matches " + e.pattern))
     return alerts
-            
+
   def parse(self, r):
-    if r.response and r.response.content:  
+    if r.response and r.response.content:
       if r.response.is_html:
         return self.parse_html(r) + self.cookies_in_body(r)
       if r.response.is_javascript:

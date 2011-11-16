@@ -5,15 +5,18 @@ import subprocess
 
 from abrupt.conf import CERT_DIR
 
+
 def generate_serial():
   return hex(random.getrandbits(64))[:-1]
+
 
 def get_key_file():
   return os.path.join(CERT_DIR, "key.pem")
 
+
 def generate_ssl_cert(domain):
   domain_cert = os.path.join(CERT_DIR, "sites", domain + ".pem")
-  gen_req_cmd = "openssl req -new -out %(cert_dir)s/req.pem -key %(cert_dir)s/key.pem -subj '/O=Abrupt/CN=%(domain)s'" % {'cert_dir': CERT_DIR, 'domain': domain} 
+  gen_req_cmd = "openssl req -new -out %(cert_dir)s/req.pem -key %(cert_dir)s/key.pem -subj '/O=Abrupt/CN=%(domain)s'" % {'cert_dir': CERT_DIR, 'domain': domain}
   sign_req_cmd = "openssl x509 -req -in %(cert_dir)s/req.pem -CA %(cert_dir)s/ca.pem -CAkey %(cert_dir)s/key.pem -out %(domain_cert)s -set_serial %(serial)s" % {'cert_dir': CERT_DIR, 'domain_cert': domain_cert, 'serial': generate_serial()}
   if not os.path.exists(domain_cert):
     p_req = subprocess.Popen(shlex.split(gen_req_cmd), stdout=subprocess.PIPE, stderr=subprocess.PIPE)
@@ -26,6 +29,7 @@ def generate_ssl_cert(domain):
       raise Exception("Error while signing the certificate:" + se)
     os.remove(os.path.join(CERT_DIR, "req.pem"))
   return domain_cert
+
 
 def generate_ca_cert():
   gen_key_cmd = "openssl genrsa -out %s/key.pem 2048" % CERT_DIR

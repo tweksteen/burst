@@ -55,13 +55,13 @@ def load_session():
 def store_session(force=False):
   if session_name == "default" and not force:
     return
-  if not conf.autosave and not force: 
+  if not conf.autosave and not force:
     return
   d = os.path.join(SESSION_DIR, session_name)
   to_save = session_dict.copy()
   to_save["__conf"] = conf
   to_save["__history"] = history
-  if to_save.has_key("__builtins__"):
+  if "__builtins__" in to_save:
     del to_save["__builtins__"]
   for k in to_save.keys():
     if type(to_save[k]) in (types.TypeType, types.ClassType, types.ModuleType, types.FunctionType, types.NoneType):
@@ -74,19 +74,19 @@ def store_session(force=False):
   cPickle.dump(to_save, f, -1)
   reset_last_save()
   f.close()
-  
+
 def save(obj=None, force=False):
   """ Save the current session.
-  By default, this function is automatically called when the session 
-  is terminated (either by switching session (ss) or exiting Abrupt) 
+  By default, this function is automatically called when the session
+  is terminated (either by switching session (ss) or exiting Abrupt)
   except is the session is "default" or if conf.autosave is False.
 
   See also: ss, lss, conf.autosave.
   """
   if session_name == "default":
     if not force:
-      print error("""It is a bad idea to save your data in the default session, 
-you should create another session with ss('my_session'). 
+      print error("""It is a bad idea to save your data in the default session,
+you should create another session with ss('my_session').
 If you are sure, use save(force=True)""")
   else:
     store_session(force=True)
@@ -94,15 +94,15 @@ If you are sure, use save(force=True)""")
 def archive(name=None):
   if not name:
     name = session_name
-  to_archive = [ v for k,v in session_dict.items() if isinstance(v, Request)]
-  for rs in [ v for k,v in session_dict.items() if isinstance(v, RequestSet) ]:
+  to_archive = [v for k, v in session_dict.items() if isinstance(v, Request)]
+  for rs in [v for k, v in session_dict.items() if isinstance(v, RequestSet)]:
     to_archive.extend(rs)
   to_archive.extend(history)
   output = ""
   for r in to_archive:
     response = str(r.response) if r.response else ""
     output += "\n".join((str(r), response))
-    output += "\n" + "="*80 + "\n"
+    output += "\n" + "=" * 80 + "\n"
   f_name = name + "-" + datetime.datetime.now().strftime("%Y-%m-%dT%H%M.txt.gz")
   full_path = os.path.join(ARCHIVE_DIR, f_name)
   f = gzip.open(full_path, "w")
@@ -127,17 +127,17 @@ def switch_session(name="default"):
     clear_session()
   session_name = name
   load_session()
- 
+
 ss = switch_session
 
 def list_sessions():
   """ List sessions.
   List the existing sessions.
-  
+
   See also: ss, save.
   """
-  print "Existing sessions: " + ", ".join(sorted([ s for s in os.listdir(SESSION_DIR) 
-                      if os.path.isdir(os.path.join(SESSION_DIR, s)) ]))
+  print "Existing sessions:",
+  print ", ".join(sorted([s for s in os.listdir(SESSION_DIR)
+                            if os.path.isdir(os.path.join(SESSION_DIR, s))]))
 
 lss = list_sessions
-

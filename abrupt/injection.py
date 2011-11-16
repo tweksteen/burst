@@ -6,7 +6,7 @@ import Cookie
 
 from abrupt.http import Request, RequestSet
 from abrupt.color import *
-from abrupt.utils import encode, parse_qs, parse_qsl, urlencode
+from abrupt.utils import encode, parse_qs, urlencode
 
 payloads = {}
 for f_name in glob.glob(os.path.join(os.path.dirname(__file__), "payloads/*")):
@@ -26,7 +26,7 @@ def _get_payload(p):
     else:
       return payloads[p]
   except KeyError:
-    raise PayloadNotFound("Possible values are: " +", ".join(payloads.keys()))
+    raise PayloadNotFound("Possible values are: " + ", ".join(payloads.keys()))
 
 def _inject_query(r, value, pds, pre_func):
   rs = []
@@ -35,7 +35,7 @@ def _inject_query(r, value, pds, pre_func):
     nq = i_pts.copy()
     parsed_url = urlparse.urlparse(r.url)
     for p in pds:
-      nq[value] = [pre_func(p),]
+      nq[value] = [pre_func(p), ]
       s = list(parsed_url)
       s[4] = urlencode(nq)
       r_new = r.copy()
@@ -51,7 +51,7 @@ def _inject_post(r, value, pds, pre_func):
   if value in i_pts:
     nc = i_pts.copy()
     for p in pds:
-      nc[value] = [pre_func(p),]
+      nc[value] = [pre_func(p), ]
       n_content = urlencode(nc)
       r_new = r.copy()
       r_new.content = n_content
@@ -64,7 +64,7 @@ def _inject_post(r, value, pds, pre_func):
 def _inject_cookie(r, value, pds, pre_func):
   rs = []
   b = r.cookies
-  n_headers = [(x,v) for x,v in r.headers if x.title() != "Cookie"]
+  n_headers = [(x, v) for x, v in r.headers if x.title() != "Cookie"]
   if value in b:
     nb = Cookie.SimpleCookie()
     nb.load(b.output(header=""))
@@ -72,7 +72,7 @@ def _inject_cookie(r, value, pds, pre_func):
       nb[value] = pre_func(p)
       r_new = r.copy()
       nbs = nb.output(header="", sep=";").strip()
-      r_new.headers = n_headers + [("Cookie", nbs),]
+      r_new.headers = n_headers + [("Cookie", nbs), ]
       r_new.injection_point = value
       r_new.payload = p
       rs.append(r_new)
@@ -82,8 +82,8 @@ def _inject_at(r, offset, payload, pre_func=encode, choice=None):
   rs = []
   orig = str(r)
   pds = _get_payload(payload)
-  if not pre_func: pre_func = lambda x:x
-  if isinstance(offset, (list,tuple)): 
+  if not pre_func: pre_func = lambda x: x
+  if isinstance(offset, (list, tuple)):
     off_b, off_e = offset
   elif isinstance(offset, basestring):
     ct = str(r).count(offset)
@@ -94,13 +94,13 @@ def _inject_at(r, offset, payload, pre_func=encode, choice=None):
         c_off = 0
         for i in range(choice):
           idx = str(r)[c_off:].find(offset)
-          c_off += idx + 1 
-        idx = c_off - 1 
-    elif ct < 1: 
+          c_off += idx + 1
+        idx = c_off - 1
+    elif ct < 1:
       raise NoInjectionPointFound("Could not find the pattern")
     else:
       idx = str(r).find(offset)
-    off_b, off_e = idx, idx+len(offset)
+    off_b, off_e = idx, idx + len(offset)
   else:
     off_b = off_e = offset
   for p in pds:
@@ -116,7 +116,7 @@ def _inject_at(r, offset, payload, pre_func=encode, choice=None):
 def _inject_to(r, value, payload, pre_func=None):
   pds = _get_payload(payload)
   if not pre_func:
-    pre_func = lambda x:encode(x)
+    pre_func = lambda x: encode(x)
   rqs = RequestSet(_inject_query(r, value, pds, pre_func))
   if r.method in ("POST", "PUT"):
     rqs += RequestSet(_inject_post(r, value, pds, pre_func))
@@ -124,8 +124,8 @@ def _inject_to(r, value, payload, pre_func=None):
     rqs += RequestSet(_inject_cookie(r, value, pds, pre_func))
   if not rqs:
     raise NoInjectionPointFound()
-  return rqs 
-  
+  return rqs
+
 def inject(r, to=None, at=None, payload="default", **kwds):
   """ Inject a request.
 
@@ -139,7 +139,7 @@ def inject(r, to=None, at=None, payload="default", **kwds):
   then replace the value of the parameter with the payloads. If no
   valid injection point is found, an error is raised.
 
-  When used with the 'at' parameter, Abrupt will lookup the string in the 
+  When used with the 'at' parameter, Abrupt will lookup the string in the
   whole request text and replace it with the payloads. If no valid injection
   point is found, an error is raised. If the string is found more than
   once, the function will suggest to provide the 'choice' integer keyword.
@@ -163,14 +163,14 @@ def inject(r, to=None, at=None, payload="default", **kwds):
     if isinstance(r, Request):
       return _inject_to(r, to, payload, **kwds)
     elif isinstance(r, RequestSet):
-      return RequestSet(reduce(lambda x,y: x+y,
-             [ _inject_to(ro, to, payload, **kwds) for ro in r ]))
+      return RequestSet(reduce(lambda x, y: x + y,
+             [_inject_to(ro, to, payload, **kwds) for ro in r]))
   if at:
     if isinstance(r, Request):
       return RequestSet(_inject_at(r, at, payload, **kwds))
     elif isinstance(r, RequestSet):
-      return RequestSet(reduce(lambda x,y: x+y,
-             [ _inject_at(ro, at, payload, **kwds) for ro in r ]))
+      return RequestSet(reduce(lambda x, y: x + y,
+             [_inject_at(ro, at, payload, **kwds) for ro in r]))
 
 i = inject
 
@@ -200,7 +200,7 @@ fip = find_injection_points
 def inject_all(r, payload="default"):
   ips = find_injection_points(r)
   if ips:
-    return reduce(lambda x,y:x+y, [ i(r, to=ip, payload=payload) for ip in ips])
+    return reduce(lambda x, y: x + y, [i(r, to=ip, payload=payload) for ip in ips])
   return RequestSet()
 
 i_all = inject_all
@@ -209,7 +209,7 @@ def fuzz_headers(r, payload):
   print "TODO: adapt payload for each header tested"
   rs = []
   for i, e in enumerate(r.headers):
-    k, v = e 
+    k, v = e
     pds = _get_payload(payload)
     for p in pds:
       r_new = r.copy()
@@ -217,5 +217,5 @@ def fuzz_headers(r, payload):
       r_new.headers[i] = h_new
       rs.append(r_new)
   return RequestSet(rs)
-    
+
 f_h = fuzz_headers

@@ -13,7 +13,7 @@ import webbrowser
 import subprocess
 import datetime
 import Cookie
-from collections import defaultdict 
+from collections import defaultdict
 from StringIO import StringIO
 
 from abrupt.conf import conf
@@ -25,13 +25,14 @@ from abrupt.utils import make_table, clear_line, ellipsis, \
 class UnableToConnect(Exception):
   def __str__(self):
     return "Unable to connect to the server"
-class NotConnected(Exception): 
+class NotConnected(Exception):
   def __str__(self):
     return "Unable to read the request"
-class BadStatusLine(Exception): 
+class BadStatusLine(Exception):
   def __str__(self):
     return "They host did not return a correct banner"
-class ProxyError(Exception): pass
+class ProxyError(Exception):
+  pass
 
 class Request():
 
@@ -39,16 +40,17 @@ class Request():
     """Create a request. fd should be either a socket descriptor
        or a string. In both case, it should contain a full request.
        To generate a request from a URL, see c()"""
-    if isinstance(fd, basestring): fd = StringIO(fd)
+    if isinstance(fd, basestring):
+      fd = StringIO(fd)
     try:
-      self.method, url, self.http_version = read_banner(fd) 
+      self.method, url, self.http_version = read_banner(fd)
     except ValueError:
       raise NotConnected()
     if self.method.upper() == "CONNECT":
       self.hostname, self.port = url.split(":", 1)
     else:
       p_url = urlparse.urlparse(url)
-      self.url = urlparse.urlunparse(("","") + p_url[2:])
+      self.url = urlparse.urlunparse(("", "") + p_url[2:])
       self.hostname = p_url.hostname or hostname
       if not self.hostname: raise Exception("No hostname")
       if p_url.scheme == 'https':
@@ -60,7 +62,7 @@ class Request():
       self.set_headers(read_headers(fd))
       self.content = read_content(fd, self.headers, method=self.method)
       self.response = None
-      
+
   @property
   def path(self):
     return urlparse.urlparse(self.url).path
@@ -78,7 +80,7 @@ class Request():
       except Cookie.CookieError:
         print "TODO: fix the default cookie library"
     return b
-  
+
   def has_header(self, name, value=None):
     return _has_header(self.headers, name, value)
 
@@ -109,18 +111,16 @@ class Request():
     return self.repr(width=None)
 
   def repr(self, width=None, rl=False):
-    if width and len(self.hostname) > int(0.3*width):
-      hostname = smart_rsplit(self.hostname, int(0.3*width), ".") + ellipsis
+    if width:
+      hostname = smart_rsplit(self.hostname, int(0.3 * width), ".")
+      path = smart_split(self.path, int(0.6 * width), "/")
     else:
       hostname = self.hostname
-    if width and len(self.path) > int(0.6*width):
-      path = ellipsis + smart_split(self.path, int(0.6*width), "/")
-    else:
       path = self.path
     fields = [info(self.method, rl=rl), hostname, path]
     if self.use_ssl: fields.append(warning("SSL", rl=rl))
     return ("<" + " ".join(fields) + ">").encode("utf-8")
-  
+
   def copy(self):
     r_new = copy.copy(self)
     r_new.headers = copy.deepcopy(self.headers)
@@ -145,9 +145,9 @@ class Request():
        self.headers != r.headers:
       return False
     if (self.content or r.content) and self.content != r.content:
-      return False 
+      return False
     return True
-      
+
   def __call__(self, conn=None, post_call=None):
     if conn:
       sock = conn
@@ -156,8 +156,8 @@ class Request():
     if conf.history:
       history.append(self)
     _send_request(sock, self)
-    n1 = datetime.datetime.now() 
-    self.response = Response(sock.makefile('rb',0), self)
+    n1 = datetime.datetime.now()
+    self.response = Response(sock.makefile('rb', 0), self)
     n2 = datetime.datetime.now()
     self.response.time = n2 - n1
     if post_call: post_call(self)
@@ -189,7 +189,7 @@ class Request():
     while ret.poll() != 0:
       if os.stat(freqname).st_mtime != last_access:
         freq = open(freqname, 'r')
-        try:  
+        try:
           r_new = Request(freq, self.hostname, self.port, self.use_ssl)
           if r_new.method in ('POST', 'PUT'):
             r_new._update_content_length()
@@ -229,7 +229,7 @@ class Request():
         return c[arg].value
     if from_response is None and self.response:
       return self.response.extract(arg)
-  
+
   def filter(self, predicate):
     return bool(predicate(self))
 
@@ -248,11 +248,11 @@ class Request():
             nr.url = urlparse.urlunparse(urlparse.urlparse(self.url)[:2] + urlparse.urlparse(n_path)[2:])
             return nr
           else:
-            raise Exception("Unknown redirection, please add some code in abrupt/http.py:Request.follow")  
+            raise Exception("Unknown redirection, please add some code in abrupt/http.py:Request.follow")
 
 def create(url):
   """Create a request on the fly, based on a URL"""
-  p_url = urlparse.urlparse(url) 
+  p_url = urlparse.urlparse(url)
   host = p_url.hostname
   if not p_url.path:
     url += "/"
@@ -261,23 +261,23 @@ Host: %s
 User-Agent: Mozilla/5.0 (Windows; U; MSIE 9.0; Windows NT 0.9; en-US)
 Accept: text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8
 Accept-Language: en;q=0.5,fr;q=0.2
-Accept-Encoding: gzip, deflate 
+Accept-Encoding: gzip, deflate
 Accept-Charset: ISO-8859-1,utf-8;q=0.7,*;q=0.7
 
-""" % (url,host))
+""" % (url, host))
 
 c = create
 
 class Response():
-  
+
   def __init__(self, fd, request):
     try:
       self.http_version, self.status, self.reason = read_banner(fd)
-    except ValueError: 
+    except ValueError:
       raise BadStatusLine()
     self.set_headers(read_headers(fd))
     self.request = request
-    if request.method == "HEAD": 
+    if request.method == "HEAD":
       self.raw_content = self.content = ""
     else:
       self.raw_content = read_content(fd, self.headers, self.status)
@@ -292,14 +292,14 @@ class Response():
   def repr(self, rl=False):
     flags = []
     if self.content: flags.append(str(len(self.content)))
-    if self.has_header("Content-Type"): 
-      flags.append(",".join([ x.split(";")[0] for x in self.get_header("Content-Type")]))
+    if self.has_header("Content-Type"):
+      flags.append(",".join([x.split(";")[0] for x in self.get_header("Content-Type")]))
     if self.has_header("Transfer-Encoding", "chunked"): flags.append("chunked")
     if self.has_header("Content-Encoding", "gzip"): flags.append("gzip")
     if self.has_header("Content-Encoding", "deflate"): flags.append("deflate")
     for c in self.get_header("Set-Cookie"):
       flags.append("C:" + c)
-    return "<" + color_status(self.status, rl) + " " + " ".join(flags)  + ">"
+    return "<" + color_status(self.status, rl) + " " + " ".join(flags) + ">"
 
   def has_header(self, name, value=None):
     return _has_header(self.headers, name, value)
@@ -359,13 +359,13 @@ class Response():
 
   @property
   def is_javascript(self):
-    if any([ "javascript" in h for h in self.get_header("Content-Type")]):
+    if any(["javascript" in h for h in self.get_header("Content-Type")]):
       return True
     return False
 
-  @property 
+  @property
   def is_html(self):
-    if any([ "html" in h for h in self.get_header("Content-Type")]):
+    if any(["html" in h for h in self.get_header("Content-Type")]):
       return True
     return False
 
@@ -395,9 +395,9 @@ class Response():
     if self.raw_content:
       s.write(self.raw_content)
     return s.getvalue()
-    
+
   def set_headers(self, headers):
-    self.headers = [] 
+    self.headers = []
     for l in headers.splitlines():
       if l:
         t, v = [q.strip() for q in l.split(":", 1)]
@@ -415,7 +415,7 @@ class Response():
     c = self.cookies
     if arg in c:
       return c[arg].value
-  
+
   def filter(self, predicate):
     return bool(predicate(self))
 
@@ -433,11 +433,11 @@ def compare(r1, r2):
 cmp = compare
 
 class RequestSet():
-  
+
   def __init__(self, reqs=None):
     self.reqs = reqs if reqs else []
     self.hostname = None
-  
+
   def __getitem__(self, i):
     if isinstance(i, slice):
       return RequestSet(self.reqs[i])
@@ -459,13 +459,13 @@ class RequestSet():
     self.reqs.extend(rs)
 
   def pop(self):
-    return self.reqs.pop()  
+    return self.reqs.pop()
 
   def filter(self, predicate):
-    return RequestSet([ r for r in self.reqs if r.filter(predicate)])
+    return RequestSet([r for r in self.reqs if r.filter(predicate)])
 
   def extract(self, arg, from_response=None):
-    return [ r.extract(arg, from_response) for r in self.reqs ] 
+    return [r.extract(arg, from_response) for r in self.reqs]
 
   def cmp(self, i1, i2):
     compare(self[i1], self[i2])
@@ -480,7 +480,7 @@ class RequestSet():
         status[r.response.status] += 1
       else:
         status["unknown"] += 1
-    status_flat = [ color_status(x) + ":" + str(nb) for x, nb in sorted(status.items())]
+    status_flat = [color_status(x) + ":" + str(nb) for x, nb in sorted(status.items())]
     hostnames = set([r.hostname for r in self.reqs])
     return "{" + " ".join(status_flat) + " | " + ", ".join(hostnames) + "}"
 
@@ -490,24 +490,20 @@ class RequestSet():
   def __unicode__(self):
     cols = [
             ("Method", lambda r, i: info(r.method)),
-            ("Path",   lambda r, i: ellipsis + smart_split(r.path, 30, "/") if
-                                    len(r.path)>30 else r.path),
+            ("Path", lambda r, i: smart_split(r.path, 30, "/")),
             ("Status", lambda r, i: color_status(r.response.status) if
                                     r.response else "-"),
             ("Length", lambda r, i: str(len(r.response.content)) if
-                                    (r.response and r.response.content) else "-")
-    ]
+                                    (r.response and r.response.content) else "-")]
     if any([hasattr(x, "payload") for x in self.reqs]):
-      cols.insert(2, ("Injection Point", lambda r, i: getattr(r,"injection_point","-")[:30]))
-      cols.insert(3, ("Payload", lambda r, i: getattr(r,"payload","-")[:30]))
+      cols.insert(2, ("Injection Point", lambda r, i: getattr(r, "injection_point", "-")[:20]))
+      cols.insert(3, ("Payload", lambda r, i: getattr(r, "payload", "-")[:20]))
       cols.append(("Time", lambda r, i: "%.4f" % r.response.time.total_seconds() if
                                         r.response else "-"))
     else:
-      cols.insert(2, ("Query",  lambda r, i: smart_rsplit(r.query, 30, "&") + ellipsis if
-                                    len(r.query)>30 else r.query))
+      cols.insert(2, ("Query", lambda r, i: smart_rsplit(r.query, 30, "&")))
     if len(set([r.hostname for r in self.reqs])) > 1:
-      cols.insert(1, ("Host", lambda r, i: smart_rsplit(r.hostname, 20, ".") + ellipsis if
-                                           len(r.hostname)>20 else r.hostname))
+      cols.insert(1, ("Host", lambda r, i: smart_rsplit(r.hostname, 20, ".")))
     if len(self.reqs) > 5:
       cols.insert(0, ("Id", lambda r, i: str(i)))
     return make_table(self.reqs, cols)
@@ -516,20 +512,20 @@ class RequestSet():
     lengths = [r.response.length for r in self.reqs if r.response]
     avg, bottom, top = stats(lengths)
     print "Length: %.2f %.2f %.2f" % (bottom, avg, top)
-    outsiders = [(i,r) for i,r in enumerate(self.reqs)
-                       if r.response and (r.response.length<bottom or r.response.length>top)]
+    outsiders = [(i, r) for i, r in enumerate(self.reqs)
+                       if r.response and (r.response.length < bottom or r.response.length > top)]
     if outsiders:
-      print  "\n".join([" |"+str(i)+ " " +error(str(r.response.length)) for i,r in outsiders])
+      print "\n".join([" |" + str(i) + " " + error(str(r.response.length)) for i, r in outsiders])
 
     print
     times = [r.response.time.total_seconds() for r in self.reqs if r.response]
     avg, bottom, top = stats(times)
     print "Time: %.2f %.2f %.2f" % (bottom, avg, top)
-    outsiders = [(i,r) for i,r in enumerate(self.reqs)
-                        if r.response and (r.response.time.total_seconds()<bottom or
-                         r.response.time.total_seconds()>top) ]
+    outsiders = [(i, r) for i, r in enumerate(self.reqs)
+                        if r.response and (r.response.time.total_seconds() < bottom or
+                         r.response.time.total_seconds() > top)]
     if outsiders:
-      print "\n".join([" |"+str(i)+ " " +error(str(r.response.time)) for i,r in outsiders])
+      print "\n".join([" |" + str(i) + " " + error(str(r.response.time)) for i, r in outsiders])
 
 
   def by_length(self):
@@ -569,7 +565,7 @@ class RequestSet():
     for i in indices:
       r = self.reqs[i]
       if not verbose:
-        print "Running %s requests...%d%%" % (todo, done*100/todo),
+        print "Running %s requests...%d%%" % (todo, done * 100 / todo),
         clear_line()
       next = False
       if r.response and not force:
@@ -580,7 +576,7 @@ class RequestSet():
           if verbose: print repr(r)
           r(conn=conn, post_call=post_call)
           if verbose: print repr(r.response)
-          if r.response.closed: 
+          if r.response.closed:
             conn = self._init_connection()
           done += 1
           next = True
@@ -639,7 +635,7 @@ def _has_header(headers, name, value=None):
   return False
 
 def _get_header(headers, name):
-  return [ v for h,v in headers if h.lower() == name.lower() ]
+  return [v for h, v in headers if h.lower() == name.lower()]
 
 def read_content(fp, headers, status=None, method=None):
   if status == "304":
@@ -664,19 +660,19 @@ def _chunked_read_content(fp):
   while True:
     l = fp.readline()
     buffer.write(l)
-    s = int(l,16)
+    s = int(l, 16)
     if s == 0:
       buffer.write(fp.readline())
       return buffer
     buffer.write(_read_content(fp, s).getvalue())
-    buffer.write(fp.readline()) 
+    buffer.write(fp.readline())
 
 def _read_content(fp, length):
   buffer = StringIO()
   while True:
     l = len(buffer.getvalue())
     if l < length:
-      buffer.write(fp.read(length-l))
+      buffer.write(fp.read(length - l))
     else:
       break
   return buffer
@@ -687,7 +683,7 @@ def _clear_content(headers, raw_content):
     buffer = StringIO()
     while True:
       s = int(content_io.readline(), 16)
-      if s == 0: 
+      if s == 0:
         content = buffer.getvalue()
         break
       buffer.write(_read_content(content_io, s).getvalue())
@@ -748,12 +744,12 @@ def connect(hostname, port, use_ssl):
 def _send_request(sock, request):
   if conf.proxy and not request.use_ssl:
     p_url = urlparse.urlparse(request.url)
-    url =  urlparse.urlunparse(("http", request.hostname+":"+str(request.port)) + p_url[2:])
+    url = urlparse.urlunparse(("http", request.hostname + ":" + str(request.port)) + p_url[2:])
     buf = ["%s %s %s" % (request.method, url, request.http_version), ]
   else:
     buf = ["%s %s %s" % (request.method, request.url, request.http_version), ]
-  buf += [ "%s: %s" % (h, v) for h, v in request.headers] + ["", ""]
-  data = "\r\n".join(buf) 
+  buf += ["%s: %s" % (h, v) for h, v in request.headers] + ["", ""]
+  data = "\r\n".join(buf)
   if request.content:
-    data += request.content 
+    data += request.content
   sock.sendall(data)

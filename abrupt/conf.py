@@ -36,8 +36,8 @@ class Configuration(object):
     - term_width: expected width of the terminal
     - ssl_version: ssl version used with the server (ssl.PROTOCOL_*)
   """
-  ssl_map = { "SSLv3": ssl.PROTOCOL_SSLv3, "SSLv23": ssl.PROTOCOL_SSLv23,
-              "SSLv2": ssl.PROTOCOL_SSLv2, "TLSv1" : ssl.PROTOCOL_TLSv1 }
+  ssl_map = {"SSLv3": ssl.PROTOCOL_SSLv3, "SSLv23": ssl.PROTOCOL_SSLv23,
+             "SSLv2": ssl.PROTOCOL_SSLv2, "TLSv1": ssl.PROTOCOL_TLSv1}
 
   def __init__(self):
     self.port = 8080
@@ -51,15 +51,16 @@ class Configuration(object):
     self.editor = "/usr/bin/vim"
     self.diff_editor = "/usr/bin/vimdiff"
     self._ssl_version = ssl.PROTOCOL_SSLv3
-    self._values = { "port": "getint", "proxy": "get", "timeout": "getint",
-                     "ssl_version": "get", "autosave": "getboolean",
-                     "history": "getboolean", "editor": "get",
-                     "diff_editor": "get", "term_width" : "get",
-                     "delay" : "getint", "color_enabled": "getboolean" }
+    self._values = {"port": "getint", "proxy": "get", "timeout": "getint",
+                    "ssl_version": "get", "autosave": "getboolean",
+                    "history": "getboolean", "editor": "get",
+                    "diff_editor": "get", "term_width": "get",
+                    "delay": "getint", "color_enabled": "getboolean"}
 
   def _get_ssl_version(self):
-    for k,v in self.ssl_map.items():
-      if v == self._ssl_version: return k
+    for k, v in self.ssl_map.items():
+      if v == self._ssl_version:
+        return k
 
   def _set_ssl_version(self, v):
     try:
@@ -73,7 +74,7 @@ class Configuration(object):
     return str(self)
 
   def __str__(self):
-    return "\n".join(sorted([ s + ": " + str(getattr(self,s)) for s in self._values]))
+    return "\n".join(sorted([s + ": " + str(getattr(self, s)) for s in self._values]))
 
   def import_env(self):
     if "http_proxy" in os.environ:
@@ -84,7 +85,7 @@ class Configuration(object):
 
   def import_dict(self, d):
     for v in self._values:
-      if hasattr(d,v):
+      if hasattr(d, v):
         setattr(self, v, getattr(d, v))
 
   def load(self):
@@ -96,7 +97,7 @@ class Configuration(object):
       for k, v in self._values.items():
         if c.has_option("abrupt", k):
           setattr(self, k, getattr(c, v).__call__("abrupt", k))
-      
+
   def save(self, force=False):
     import abrupt.session
     if abrupt.session.session_name != "default" and not force:

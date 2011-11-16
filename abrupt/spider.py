@@ -14,7 +14,7 @@ except ImportError:
 
 def _follow_redirect(r):
   if r.response and r.response.status in ('301', '302'):
-    return [r.follow(),]
+    return [r.follow(), ]
   return []
 
 def _get_links(r):
@@ -27,7 +27,7 @@ def _get_links(r):
     base = base_tag[0].get(["href"])
   else:
     base = r.url
-  links = [ x.get("href") for x in root.xpath("//a|//area") if x.get('href')]
+  links = [x.get("href") for x in root.xpath("//a|//area") if x.get('href')]
   for l in links:
     try:
       l.encode('ascii')
@@ -36,7 +36,7 @@ def _get_links(r):
     url_p = urlparse.urlparse(l)
     if url_p.scheme in ('http', 'https'):
       new_reqs.append(c(l))
-    elif url_p.scheme in ('javascript', 'mailto', '#'): 
+    elif url_p.scheme in ('javascript', 'mailto', '#'):
       continue
     elif url_p.scheme == '' and url_p.path:
       nr = r.copy()
@@ -49,21 +49,21 @@ def _get_links(r):
   return RequestSet(new_reqs)
 
 def spider(r_init, max=-1, post_func=None, hosts=None):
-  """ 
+  """
   Spider a request by following some links.
-  
+
   r_init    - The initial request
   max       - The maximum of request to execute
   post_func - A hook to be executed after each new page fetched
   hosts     - A lists of authorised hosts to spider on. By default,
               only the hostname of r_init is allowed.
   """
-  q = deque([r_init,])
+  q = deque([r_init, ])
   checked = []
   nb = 0
-  hs = [r_init.hostname,]
+  hs = [r_init.hostname, ]
   if hosts:
-    hs += hosts 
+    hs += hosts
   try:
     while nb != max and q:
       to_add = []
@@ -78,7 +78,7 @@ def spider(r_init, max=-1, post_func=None, hosts=None):
         else:
           print "\nIgnoring", r.response.content_type
       checked.append(r)
-      if post_func: 
+      if post_func:
         post_func(r)
       for nr in to_add:
         if nr.hostname not in hs:
@@ -90,5 +90,5 @@ def spider(r_init, max=-1, post_func=None, hosts=None):
   except KeyboardInterrupt:
     pass
   return RequestSet(checked)
-   
+
 s = spider
