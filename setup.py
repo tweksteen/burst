@@ -4,7 +4,7 @@ from distutils.core import setup
 
 setup(
     name = 'abrupt',
-    version = '0.3',
+    version = '0.4',
     packages = ['abrupt'],
     scripts = ['bin/abrupt'],
     package_data = {'abrupt': [ 'payloads/*',]},

@@ -11,7 +11,7 @@ Quick start
   $ abrupt
   Generating SSL certificate...
   CA certificate : /home/tweksteen/.abrupt/ca.pem
-  Abrupt 0.3
+  Abrupt 0.4
   >>>
   
 .. note:: The first time you start Abrupt, it will generate a CA certificate.
