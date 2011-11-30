@@ -11,7 +11,7 @@ from abrupt.http import Request, RequestSet, connect, \
 from abrupt.conf import conf
 from abrupt.color import *
 from abrupt.cert import generate_ssl_cert, get_key_file
-from abrupt.utils import re_images_ext
+from abrupt.utils import re_images_ext, flush_input
 
 class ProxyHTTPRequestHandler(BaseHTTPServer.BaseHTTPRequestHandler):
 
@@ -83,6 +83,7 @@ class ProxyHTTPRequestHandler(BaseHTTPServer.BaseHTTPRequestHandler):
       if self.server.overrided_ask and pre_action == "a":
         pre_action = self.server.overrided_ask
       if pre_action == "a":
+        flush_input()
         if console.term_width:
           e = raw_input(r.repr(console.term_width, rl=True) + " ? ")
         else:
@@ -108,6 +109,7 @@ class ProxyHTTPRequestHandler(BaseHTTPServer.BaseHTTPRequestHandler):
           break
         if e == "de" and r.content:
           print decode(r.content)
+        flush_input()
         e = raw_input("(v)iew, (e)dit, (f)orward, (d)rop, (c)ontinue, (de)code [f]? ")
       if self.server.verbose >= 2:
         print r
@@ -115,6 +117,7 @@ class ProxyHTTPRequestHandler(BaseHTTPServer.BaseHTTPRequestHandler):
       self._do_connection(r)
       if default or self.server.verbose:
         if pre_action == "a" and not self.server.overrided_ask:
+          flush_input()
           e = raw_input(r.response.repr(rl=True) + " ? ")
           while True:
             if e == "v":
@@ -127,6 +130,7 @@ class ProxyHTTPRequestHandler(BaseHTTPServer.BaseHTTPRequestHandler):
               break
             if e == "de" and r.response.content:
               print decode(r.response.content)
+            flush_input()
             e = raw_input("(v)iew, (e)dit, (f)orward, (d)rop, (de)code [f]? ")
         else:
           print repr(r.response)

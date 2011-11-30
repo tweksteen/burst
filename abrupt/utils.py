@@ -7,6 +7,12 @@ import tempfile
 import subprocess
 import collections
 
+try:
+  import termios
+  has_termios = True
+except ImportError:
+  has_termios = False
+
 re_space = re.compile(r'[ \t]+')
 re_ansi_color = re.compile(r"(\x1b\[[;\d]*[A-Za-z])|\x01|\x02").sub
 re_images_ext = re.compile(r'\.(png|jpg|jpeg|ico|gif)$')
@@ -44,6 +50,10 @@ def smart_split(s, max_len, sep):
     if len(s) > max_len:
       return s[:max_len] + ellipsis
   return s
+
+def flush_input():
+  if has_termios:
+    termios.tcflush(sys.stdin, termios.TCIOFLUSH)
 
 def less(args):
   fd, fname = tempfile.mkstemp()
