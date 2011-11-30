@@ -77,6 +77,15 @@ the `Content-Length` header might not match the real length. Therefore, Abrupt
 can't properly parse your new Request. To avoid that, simply delete the 
 `Content-Length` header, Abrupt will append a new one if it cannot be found. 
 
+I got SSL errors like ``[Errno 1] _ssl.c:499: error::SSL3_READ_BYTES:tlsv1 alert unknown ca``
+---------------------------------------------------------------------------------------------
+
+SSL errors araise for different reasons. If you did not add the Abrupt CA 
+certificate in your browser, your browser will alert you when passing by the 
+proxy. You could add an exception within it which will bypass this error. 
+Other common errors could be the lost of connection during the certificate
+exchange or incompatible SSL version.
+
 
 I'm confused, how do I execute a Request/RequestSet?
 ----------------------------------------------------

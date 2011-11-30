@@ -103,9 +103,16 @@ class Request():
       h, v = c
       if h.title() == "Content-Length":
         self.headers[i] = (h, l)
+        # ASSUMPTION: Only one Content-Length header per request
         break
     else:
       self.headers.append(("Content-Length", l))
+
+  def _remove_content_length(self):
+    for i, c in enumerate(self.headers):
+      h, v = c
+      if h.title() == "Content-Length":
+        del self.headers[i]
 
   def __repr__(self):
     return self.repr(width=None)
@@ -163,9 +170,12 @@ class Request():
     if post_call: post_call(self)
 
   def edit(self):
+    r_tmp = self.copy()
+    if conf.update_content_length:
+      r_tmp._remove_content_length()
     fd, fname = tempfile.mkstemp(suffix=".http")
     with os.fdopen(fd, 'w') as f:
-      f.write(str(self))
+      f.write(str(r_tmp))
     ret = subprocess.call(conf.editor + " " + fname, shell=True)
     if not ret:
       f = open(fname, 'r')
@@ -176,10 +186,13 @@ class Request():
       return r_new
 
   def play(self, options='-o2 -c "set autoread" -c "autocmd CursorMoved * checktime" -c "autocmd CursorHold * checktime"'):
+    r_tmp = self.copy()
+    if conf.update_content_length:
+      r_tmp._remove_content_length()
     fdreq, freqname = tempfile.mkstemp(suffix=".http")
     fdrep, frepname = tempfile.mkstemp(suffix=".http")
     with os.fdopen(fdreq, 'w') as f:
-      f.write(str(self))
+      f.write(str(r_tmp))
     if self.response:
       with os.fdopen(fdrep, 'w') as f:
         f.write(str(self.response))
