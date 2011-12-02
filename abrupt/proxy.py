@@ -140,7 +140,11 @@ class ProxyHTTPRequestHandler(BaseHTTPServer.BaseHTTPRequestHandler):
         print r.response
       self.wfile.write(r.response.raw())
 
-    except (ssl.SSLError, socket.timeout, UnableToConnect), e:
+    except ssl.SSLError, e:
+      if hasattr(r, "hostname"):
+        print warning("Abrupt certificate for %s has been rejected by your browser." % r.hostname)
+
+    except (socket.timeout, UnableToConnect), e:
       self.close_connection = 1
       print warning(str(e))
       #self.wfile.write("Abrupt: " + str(e))
@@ -180,9 +184,9 @@ def proxy(port=None, nb=-1, rules=((lambda x: re_images_ext.search(x.path), "f")
   if not rules: rules = []
   e_nb = 0
   try:
-    print "Running on port", port
+    print "Running on", conf.ip + ":" + str(port)
     print "Ctrl-C to interrupt the proxy..."
-    server_address = ('', port)
+    server_address = (conf.ip, port)
     httpd = ProxyHTTPServer(server_address, ProxyHTTPRequestHandler)
     httpd.rules = rules
     httpd.default_action = default_action

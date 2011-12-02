@@ -40,6 +40,7 @@ class Configuration(object):
              "SSLv2": ssl.PROTOCOL_SSLv2, "TLSv1": ssl.PROTOCOL_TLSv1}
 
   def __init__(self):
+    self.ip = '127.0.0.1'
     self.port = 8080
     self.proxy = None
     self.timeout = 10
@@ -57,7 +58,7 @@ class Configuration(object):
                     "history": "getboolean", "editor": "get",
                     "diff_editor": "get", "term_width": "get",
                     "delay": "getint", "color_enabled": "getboolean",
-                    "update_content_length": "getboolean"}
+                    "update_content_length": "getboolean", "ip": "get"}
 
   def _get_ssl_version(self):
     for k, v in self.ssl_map.items():
