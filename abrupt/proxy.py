@@ -4,14 +4,15 @@ import socket
 import select
 import BaseHTTPServer
 import ssl
+import urlparse
 
 from abrupt import alert, console
 from abrupt.http import Request, RequestSet, connect, \
-                        BadStatusLine, UnableToConnect
+                        BadStatusLine, UnableToConnect, NotConnected
 from abrupt.conf import conf
 from abrupt.color import *
 from abrupt.cert import generate_ssl_cert, get_key_file
-from abrupt.utils import re_images_ext, flush_input
+from abrupt.utils import re_images_ext, flush_input, decode
 
 class ProxyHTTPRequestHandler(BaseHTTPServer.BaseHTTPRequestHandler):
 
@@ -62,6 +63,23 @@ class ProxyHTTPRequestHandler(BaseHTTPServer.BaseHTTPRequestHandler):
       except (socket.error, BadStatusLine):
         self.server.conn = self._init_connection(r)
 
+  def read_request(self):
+    if conf.target:
+      t_url = urlparse.urlparse(conf.target)
+      if t_url.scheme == 'https':
+        use_ssl = True
+        port = int(t_url.port) if t_url.port else 443
+      else:
+        use_ssl = False
+        port = int(t_url.port) if t_url.port else 80
+      r = Request(self.rfile, hostname=t_url.hostname, 
+                  port=port, use_ssl=use_ssl)
+    else:
+      r = Request(self.rfile)
+    if r.method == "CONNECT":
+      r = self._bypass_ssl(r)
+    return r
+
   def handle_one_request(self):
     """
     Accept a request, enable the user to modify, drop or forward it.
@@ -69,9 +87,8 @@ class ProxyHTTPRequestHandler(BaseHTTPServer.BaseHTTPRequestHandler):
     if self.server.persistent:
       self.close_connection = 0
     try:
-      r = Request(self.rfile)
-      if r.method == "CONNECT":
-        r = self._bypass_ssl(r)
+      r = self.read_request()
+      r = self.server.pre_func(r)
       for rule, action in self.server.rules:
         if bool(rule(r)):
           pre_action = action
@@ -108,7 +125,7 @@ class ProxyHTTPRequestHandler(BaseHTTPServer.BaseHTTPRequestHandler):
           self.server.overrided_ask = "f"
           break
         if e == "de" and r.content:
-          print decode(r.content)
+          print self.server.decode_func(r.content)
         flush_input()
         e = raw_input("(v)iew, (e)dit, (f)orward, (d)rop, (c)ontinue, (de)code [f]? ")
       if self.server.verbose >= 2:
@@ -129,7 +146,7 @@ class ProxyHTTPRequestHandler(BaseHTTPServer.BaseHTTPRequestHandler):
             if e == "" or e == "f":
               break
             if e == "de" and r.response.content:
-              print decode(r.response.content)
+              print self.server.decode_func(r.response.content)
             flush_input()
             e = raw_input("(v)iew, (e)dit, (f)orward, (d)rop, (de)code [f]? ")
         else:
@@ -139,16 +156,16 @@ class ProxyHTTPRequestHandler(BaseHTTPServer.BaseHTTPRequestHandler):
       if self.server.verbose >= 3:
         print r.response
       self.wfile.write(r.response.raw())
-
-    except ssl.SSLError, e:
+    except ssl.SSLError as e:
       if hasattr(r, "hostname"):
-        print warning("Abrupt certificate for %s has been rejected by your browser." % r.hostname)
-
-    except (socket.timeout, UnableToConnect), e:
+        print warning("Abrupt certificate for {} has been rejected by your browser.".format(r.hostname))
+    except NotConnected as e:
       self.close_connection = 1
-      print warning(str(e))
-      #self.wfile.write("Abrupt: " + str(e))
-      return
+      print repr(e)
+    except (UnableToConnect, socket.timeout) as e:
+      self.close_connection = 1
+      print repr(e)
+      self.wfile.write("Abrupt: " + str(e))
 
 class ProxyHTTPServer(BaseHTTPServer.HTTPServer):
 
@@ -161,7 +178,8 @@ class ProxyHTTPServer(BaseHTTPServer.HTTPServer):
       traceback.print_tb(exc_traceback)
 
 def proxy(port=None, nb=-1, rules=((lambda x: re_images_ext.search(x.path), "f"),),
-          default_action="a", alerter=None, persistent=False, verbose=False):
+          default_action="a", alerter=None, persistent=False,  pre_func=None,
+          decode_func=None, verbose=False):
   """Intercept all HTTP(S) requests on port. Return a RequestSet of all the
   answered requests.
 
@@ -170,18 +188,23 @@ def proxy(port=None, nb=-1, rules=((lambda x: re_images_ext.search(x.path), "f")
   alerter        -- alerter triggered on each response, by default alerter.Generic
   rules          -- set of rules for automated actions over requests
   default_action -- action to execute when no rules matches, by default "a"
+  pre_func       -- callback used before processing a request
+  decode_func    -- callback used when (de)coding a request/response content, by
+                    default, decode().
   persistent     -- keep the connection persistent with your client
   verbose        -- degree of verbosity:
-                    False -- Only display requests undergoing default_action
-                    1     -- Display all requests, including automated ones
-                    2     -- Display all requests with their full content
-                    3     -- Display all requests and responses with their
-                             full content
+                    False  -- Only display requests undergoing default_action
+                    1/True -- Display all requests, including automated ones
+                    2      -- Display all requests with their full content
+                    3      -- Display all requests and responses with their
+                              full content
   See also: w()
   """
   if not port: port = conf.port
   if not alerter: alerter = alert.Generic()
   if not rules: rules = []
+  if not decode_func: decode_func = decode
+  if not pre_func: pre_func = lambda x:x
   e_nb = 0
   try:
     print "Running on", conf.ip + ":" + str(port)
@@ -191,6 +214,8 @@ def proxy(port=None, nb=-1, rules=((lambda x: re_images_ext.search(x.path), "f")
     httpd.rules = rules
     httpd.default_action = default_action
     httpd.overrided_ask = None
+    httpd.pre_func = pre_func
+    httpd.decode_func = decode_func
     httpd.alerter = alerter
     httpd.reqs = []
     httpd.verbose = verbose
@@ -205,12 +230,14 @@ def proxy(port=None, nb=-1, rules=((lambda x: re_images_ext.search(x.path), "f")
       e_nb += 1
     return httpd.reqs
   except KeyboardInterrupt:
-    print "%d request intercepted" % e_nb
+    print "{} request intercepted".format(e_nb)
     return RequestSet(httpd.reqs)
 
 p = proxy
 
-def w(**kwds):
+def watch(**kwds):
   """Run a proxy without user interaction, all the requests are forwarded.
      See also p()"""
   return proxy(default_action="f", **kwds)
+
+w = watch

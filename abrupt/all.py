@@ -1,4 +1,5 @@
 import re
+import base64
 from abrupt.conf      import conf
 from abrupt.http      import Request, Response, RequestSet, create, c, \
                              history, compare, cmp

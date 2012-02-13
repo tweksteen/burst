@@ -3,6 +3,7 @@ import os
 import sys
 import re
 import code
+import glob
 import atexit
 import getopt
 import pydoc
@@ -30,12 +31,13 @@ except ImportError:
 term_width = None
 
 def _usage():
-  print """Usage: abrupt [-bhlv] [-s session_name]
+  print """Usage: abrupt [-bhlrv] [-s session_name]
     -b: no graphical banner
     -h: print this help message
     -l: list existing sessions
     -v: print the version and exit
-    -s: create or load the session"""
+    -s: create or load a session
+    -r: put the session in read-only"""
   sys.exit(0)
 
 def _save_history():
@@ -75,12 +77,12 @@ def _update_term_width(snum, frame):
 class ColorPrompt(object):
   def __str__(self):
     session_name = abrupt.session.session_name
-    prompt = '\001%s\002' % info('\002>>> \001')
+    prompt = '\001{}\002'.format(info('\002>>> \001'))
     if session_name != "default":
       if abrupt.session.should_save():
-        prompt = '\001%s\002 ' % error('\002' + session_name + '\001') + prompt
+        prompt = '\001{}\002 '.format(error('\002' + session_name + '\001')) + prompt
       else:
-        prompt = '\001%s\002 ' % warning('\002' + session_name + '\001') + prompt
+        prompt = '\001{}\002 '.format(warning('\002' + session_name + '\001')) + prompt
     return prompt
 
 class AbruptInteractiveConsole(code.InteractiveConsole):
@@ -129,7 +131,7 @@ def interact(local_dict=None):
 
   # Parse arguments
   try:
-    opts = getopt.getopt(sys.argv[1:], "s:bhlv")
+    opts = getopt.getopt(sys.argv[1:], "s:bhlvr")
     for opt, param in opts[0]:
       if opt == "-h":
         _usage()
@@ -139,10 +141,12 @@ def interact(local_dict=None):
         abrupt.session.list_sessions()
         sys.exit(0)
       elif opt == "-v":
-        print "Abrupt %s, Copyright (c) 2011 Securus Global" % (abrupt.__version__,)
+        print "Abrupt {}, Copyright (c) 2012 Securus Global".format(abrupt.__version__)
         sys.exit(0)
       elif opt == "-b":
-        banner = "Abrupt %s" % abrupt.__version__
+        banner = "Abrupt {}".version(abrupt.__version__)
+      elif opt == "-r":
+        abrupt.session.session_readonly = True
     if opts[1]:
         _usage()
   except getopt.GetoptError:
@@ -154,11 +158,14 @@ def interact(local_dict=None):
     abrupt.cert.generate_ca_cert()
     banner += "\nWelcome to Abrupt, type help() for more information"
 
+  # Load user plugins
+  abrupt.conf.load_plugins()
+
   # Could we find the payloads?
   if not abrupt.injection.payloads:
     print warning("No payload found for the injection, check abrupt/payloads")
 
-  # Load user configuration, if any
+  # Load user default configuration, if any
   conf.load()
 
   # Import config from the environment
@@ -169,7 +176,8 @@ def interact(local_dict=None):
   # load the "default" session.
   abrupt.session.load_session()
 
-  # Insert provided local variables (only used when scripted)
+  # Experimental: Insert provided local variables 
+  # (only used when scripted)
   if local_dict:
     abrupt.session.session_dict.update(local_dict)
 
@@ -201,7 +209,7 @@ def interact(local_dict=None):
         n = len(attr)
         for word in words:
           if word[:n] == attr and word != "__builtins__":
-            matches.append("%s.%s" % (expr, word))
+            matches.append("{}.{}".format(expr, word))
         return matches
 
     readline.set_completer_delims(" \t\n`~!@#$%^&*()-=+{}\\|;:'\",<>/?")
@@ -215,6 +223,6 @@ def interact(local_dict=None):
 
   # And run the interpreter!
   sys.ps1 = ColorPrompt()
-  atexit.register(abrupt.session.store_session)
+  atexit.register(abrupt.session.autosave_session)
   aci = AbruptInteractiveConsole(abrupt.session.session_dict)
   aci.interact(banner)

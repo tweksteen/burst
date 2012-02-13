@@ -21,31 +21,34 @@ def _get_links(r):
   new_reqs = []
   if not has_lxml:
     raise Exception("To use the spider, you need lxml")
-  root = lxml.html.fromstring(r.response.content)
-  base_tag = root.xpath('//base')
-  if base_tag and base_tag[0].get('href'):
-    base = base_tag[0].get(["href"])
-  else:
-    base = r.url
-  links = [x.get("href") for x in root.xpath("//a|//area") if x.get('href')]
-  for l in links:
-    try:
-      l.encode('ascii')
-    except UnicodeEncodeError:
-      l = e(l.encode('utf-8'), safe='/')
-    url_p = urlparse.urlparse(l)
-    if url_p.scheme in ('http', 'https'):
-      new_reqs.append(c(l))
-    elif url_p.scheme in ('javascript', 'mailto', '#'):
-      continue
-    elif url_p.scheme == '' and url_p.path:
-      nr = r.copy()
-      n_path = urlparse.urljoin(base, l)
-      nr.url = urlparse.urlunparse(urlparse.urlparse(r.url)[:2] + urlparse.urlparse(n_path)[2:])
-      new_reqs.append(nr)
+  try:
+    root = lxml.html.fromstring(r.response.content)
+    base_tag = root.xpath('//base')
+    if base_tag and base_tag[0].get('href'):
+      base = base_tag[0].get(["href"])
     else:
-      if url_p.scheme not in ("ftp", "irc", "xmpp", "mms"):
-        print "UNKNOWN PROTOCOL Miam!?:" + l, url_p.scheme
+      base = r.url
+    links = [x.get("href") for x in root.xpath("//a|//area") if x.get('href')]
+    for l in links:
+      try:
+        l.encode('ascii')
+      except UnicodeEncodeError:
+        l = e(l.encode('utf-8'), safe='/')
+      url_p = urlparse.urlparse(l)
+      if url_p.scheme in ('http', 'https'):
+        new_reqs.append(c(l))
+      elif url_p.scheme in ('javascript', 'mailto') or l.startswith("#"):
+        continue
+      elif url_p.scheme == '' and url_p.path:
+        nr = r.copy()
+        n_path = urlparse.urljoin(base, l)
+        nr.url = urlparse.urlunparse(urlparse.urlparse(r.url)[:2] + urlparse.urlparse(n_path)[2:])
+        new_reqs.append(nr)
+      else:
+        if url_p.scheme not in ("ftp", "irc", "xmpp", "mms"):
+          print "UNKNOWN PROTOCOL Miam!?:" + l, url_p.scheme
+  except XMLSyntaxError:
+    pass
   return RequestSet(new_reqs)
 
 def spider(r_init, max=-1, post_func=None, hosts=None):

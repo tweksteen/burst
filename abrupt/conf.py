@@ -1,5 +1,8 @@
+import __builtin__
 import os
 import os.path
+import sys
+import glob
 import ConfigParser
 import ssl
 
@@ -7,6 +10,7 @@ CONF_DIR = os.path.expanduser("~/.abrupt/")
 CERT_DIR = os.path.join(CONF_DIR, "certs")
 SESSION_DIR = os.path.join(CONF_DIR, "sessions")
 ARCHIVE_DIR = os.path.join(CONF_DIR, "archives")
+PLUGIN_DIR = os.path.join(CONF_DIR, "plugins")
 
 def check_config_dir():
   existed = True
@@ -21,8 +25,16 @@ def check_config_dir():
     os.mkdir(SESSION_DIR, 0700)
   if not os.path.exists(ARCHIVE_DIR):
     os.mkdir(ARCHIVE_DIR, 0700)
+  if not os.path.exists(PLUGIN_DIR):
+    os.mkdir(PLUGIN_DIR, 0700)
   return existed
 
+def load_plugins():
+  sys.path.append(os.path.join(CONF_DIR, "plugins"))
+  for f in glob.glob(os.path.join(PLUGIN_DIR, "*.py")):
+    m, ext = os.path.splitext(os.path.basename(f))
+    __builtin__.__dict__.update(__import__(m, globals(), locals(), ".").__dict__)
+    
 class Configuration(object):
   """
   Class representing the configuration of Abrupt. You should use
@@ -43,6 +55,7 @@ class Configuration(object):
     self.ip = '127.0.0.1'
     self.port = 8080
     self.proxy = None
+    self.target = None
     self.timeout = 10
     self.delay = 0
     self.autosave = True
@@ -58,7 +71,8 @@ class Configuration(object):
                     "history": "getboolean", "editor": "get",
                     "diff_editor": "get", "term_width": "get",
                     "delay": "getint", "color_enabled": "getboolean",
-                    "update_content_length": "getboolean", "ip": "get"}
+                    "update_content_length": "getboolean", "ip": "get",
+                    "target": "get"}
 
   def _get_ssl_version(self):
     for k, v in self.ssl_map.items():

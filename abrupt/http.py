@@ -21,17 +21,19 @@ from abrupt.color import *
 from abrupt.utils import make_table, clear_line, ellipsis, \
                          re_space, smart_split, smart_rsplit, \
                          stats, parse_qs
-
-class UnableToConnect(Exception):
+class AbruptException(Exception):
+  def __repr__(self):
+    return "<{}: {}>".format(error(self.__class__.__name__), str(self))
+class UnableToConnect(AbruptException):
   def __str__(self):
     return "Unable to connect to the server"
-class NotConnected(Exception):
+class NotConnected(AbruptException):
   def __str__(self):
-    return "Unable to read the request"
-class BadStatusLine(Exception):
+    return "Unable to read the request from the client"
+class BadStatusLine(AbruptException):
   def __str__(self):
     return "They host did not return a correct banner"
-class ProxyError(Exception):
+class ProxyError(AbruptException):
   pass
 
 class Request():
@@ -52,13 +54,15 @@ class Request():
       p_url = urlparse.urlparse(url)
       self.url = urlparse.urlunparse(("", "") + p_url[2:])
       self.hostname = p_url.hostname or hostname
-      if not self.hostname: raise Exception("No hostname")
-      if p_url.scheme == 'https':
-        self.use_ssl = True
-        self.port = int(p_url.port) if p_url.port else 443
+      if not self.hostname:
+        raise Exception("No hostname")
       else:
-        self.port = int(p_url.port) if p_url.port else port
-        self.use_ssl = use_ssl
+        if p_url.scheme == 'https':
+          self.use_ssl = True
+          self.port = int(p_url.port) if p_url.port else 443
+        else:
+          self.port = int(p_url.port) if p_url.port else port
+          self.use_ssl = use_ssl
       self.set_headers(read_headers(fd))
       self.content = read_content(fd, self.headers, method=self.method)
       self.response = None
@@ -136,9 +140,9 @@ class Request():
 
   def __str__(self):
     s = StringIO()
-    s.write("%s %s %s\r\n" % (self.method, self.url, self.http_version))
+    s.write("{s.method} {s.url} {s.http_version}\r\n".format(s=self))
     for h, v in self.headers:
-      s.write("%s: %s\r\n" % (h, v))
+      s.write("{}: {}\r\n".format(h, v))
     s.write("\r\n")
     if self.content:
       s.write(self.content)
@@ -269,15 +273,15 @@ def create(url):
   host = p_url.hostname
   if not p_url.path:
     url += "/"
-  return Request("""GET %s HTTP/1.1
-Host: %s
+  return Request("""GET {} HTTP/1.1
+Host: {}
 User-Agent: Mozilla/5.0 (Windows; U; MSIE 9.0; Windows NT 0.9; en-US)
 Accept: text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8
 Accept-Language: en;q=0.5,fr;q=0.2
 Accept-Encoding: gzip, deflate
 Accept-Charset: ISO-8859-1,utf-8;q=0.7,*;q=0.7
 
-""" % (url, host))
+""".format(url, host))
 
 c = create
 
@@ -322,9 +326,9 @@ class Response():
 
   def __str__(self):
     s = StringIO()
-    s.write("%s %s %s\r\n" % (self.http_version, self.status, self.reason))
+    s.write("{s.http_version} {s.status} {s.reason}\r\n".format(s=self))
     for h, v in self.headers:
-      s.write("%s: %s\r\n" % (h, v))
+      s.write("{}: {}\r\n".format(h, v))
     s.write("\r\n")
     if self.content:
       s.write(self.content)
@@ -401,9 +405,9 @@ class Response():
 
   def raw(self):
     s = StringIO()
-    s.write("%s %s %s\r\n" % (self.http_version, self.status, self.reason))
+    s.write("{s.http_version} {s.status} {s.reason}\r\n".format(s=self))
     for h, v in self.headers:
-      s.write("%s: %s\r\n" % (h, v))
+      s.write("{}: {}\r\n".format(h, v))
     s.write("\r\n")
     if self.raw_content:
       s.write(self.raw_content)
@@ -511,8 +515,8 @@ class RequestSet():
     if any([hasattr(x, "payload") for x in self.reqs]):
       cols.insert(2, ("Injection Point", lambda r, i: getattr(r, "injection_point", "-")[:20]))
       cols.insert(3, ("Payload", lambda r, i: getattr(r, "payload", "-")[:20]))
-      cols.append(("Time", lambda r, i: "%.4f" % r.response.time.total_seconds() if
-                                        r.response else "-"))
+      cols.append(("Time", lambda r, i: "{:.4f}".format(r.response.time.total_seconds()) if
+                                        (r.response and hasattr(r, "time")) else "-"))
     else:
       cols.insert(2, ("Query", lambda r, i: smart_rsplit(r.query, 30, "&")))
     if len(set([r.hostname for r in self.reqs])) > 1:
@@ -524,7 +528,7 @@ class RequestSet():
   def summary(self):
     lengths = [r.response.length for r in self.reqs if r.response]
     avg, bottom, top = stats(lengths)
-    print "Length: %.2f %.2f %.2f" % (bottom, avg, top)
+    print "Length: {:.2f} {:.2f} {:.2f}".format(bottom, avg, top)
     outsiders = [(i, r) for i, r in enumerate(self.reqs)
                        if r.response and (r.response.length < bottom or r.response.length > top)]
     if outsiders:
@@ -533,7 +537,7 @@ class RequestSet():
     print
     times = [r.response.time.total_seconds() for r in self.reqs if r.response]
     avg, bottom, top = stats(times)
-    print "Time: %.2f %.2f %.2f" % (bottom, avg, top)
+    print "Time: {:.2f} {:.2f} {:.2f}".format(bottom, avg, top)
     outsiders = [(i, r) for i, r in enumerate(self.reqs)
                         if r.response and (r.response.time.total_seconds() < bottom or
                          r.response.time.total_seconds() > top)]
@@ -569,7 +573,7 @@ class RequestSet():
       print "Clearing previous responses..."
       self.clear()
     conn = self._init_connection()
-    print "Running %s requests..." % len(self.reqs),
+    print "Running {} requests...".format(len(self.reqs)),
     clear_line()
     indices = range(len(self.reqs))
     if randomised: random.shuffle(indices)
@@ -578,7 +582,7 @@ class RequestSet():
     for i in indices:
       r = self.reqs[i]
       if not verbose:
-        print "Running %s requests...%d%%" % (todo, done * 100 / todo),
+        print "Running {} requests...{}%".format(todo, done * 100 / todo),
         clear_line()
       next = False
       if r.response and not force:
@@ -598,7 +602,7 @@ class RequestSet():
           next = False
         if conf.delay:
           time.sleep(conf.delay)
-    print "Running %s requests...done." % len(self.reqs)
+    print "Running {} requests...done.".format(len(self.reqs))
     conn.close()
 
 class History(RequestSet):
@@ -743,7 +747,7 @@ def connect(hostname, port, use_ssl):
         raise UnableToConnect("Unable to use SSL with the server")
     else:
       f = sock.makefile("rwb", 0)
-      f.write("CONNECT %s:%s HTTP/1.1\r\n\r\n" % (hostname, port))
+      f.write("CONNECT {}:{} HTTP/1.1\r\n\r\n".format(hostname, port))
       try:
         v, s, m = read_banner(f)
       except ValueError:
@@ -758,10 +762,10 @@ def _send_request(sock, request):
   if conf.proxy and not request.use_ssl:
     p_url = urlparse.urlparse(request.url)
     url = urlparse.urlunparse(("http", request.hostname + ":" + str(request.port)) + p_url[2:])
-    buf = ["%s %s %s" % (request.method, url, request.http_version), ]
+    buf = [" ".join([request.method, url, request.http_version]), ]
   else:
-    buf = ["%s %s %s" % (request.method, request.url, request.http_version), ]
-  buf += ["%s: %s" % (h, v) for h, v in request.headers] + ["", ""]
+    buf = [" ".join([request.method, request.url, request.http_version]), ]
+  buf += ["{}: {}".format(h, v) for h, v in request.headers] + ["", ""]
   data = "\r\n".join(buf)
   if request.content:
     data += request.content

@@ -12,6 +12,7 @@ from abrupt.color import *
 
 session_name = "default"
 session_dict = {}
+session_readonly = False
 last_save = None
 
 def reset_last_save():
@@ -19,7 +20,8 @@ def reset_last_save():
   last_save = datetime.datetime.now()
 
 def should_save():
-  return datetime.datetime.now() - last_save > datetime.timedelta(minutes=20)
+  delta_t = datetime.datetime.now() - last_save 
+  return (delta_t > datetime.timedelta(minutes=20) and not session_readonly)
 
 def clear_session():
   for k in session_dict:
@@ -52,10 +54,26 @@ def load_session():
     os.mkdir(d, 0700)
   reset_last_save()
 
-def store_session(force=False):
+def autosave_session():
+  if conf.autosave and session_name != "default" and not session_readonly:
+    save()
+
+def save(force=False):
+  """ Save the current session.
+  By default, this function is automatically called when the session
+  is terminated (either by switching session (ss) or exiting Abrupt)
+  except is the session is "default" or if conf.autosave is False.
+
+  See also: ss, lss, conf.autosave.
+  """
   if session_name == "default" and not force:
+    print error("""It is a bad idea to save your data in the default session,\n"""
+                """you should create another session with ss('my_session').\n"""
+                """If you are sure, use save(force=True)""")
     return
-  if not conf.autosave and not force:
+  if session_readonly and not force:
+    print error("""This session is read-only.\n"""
+                """To overwrite it, use save(force=True)""")
     return
   d = os.path.join(SESSION_DIR, session_name)
   to_save = session_dict.copy()
@@ -74,22 +92,6 @@ def store_session(force=False):
   cPickle.dump(to_save, f, -1)
   reset_last_save()
   f.close()
-
-def save(obj=None, force=False):
-  """ Save the current session.
-  By default, this function is automatically called when the session
-  is terminated (either by switching session (ss) or exiting Abrupt)
-  except is the session is "default" or if conf.autosave is False.
-
-  See also: ss, lss, conf.autosave.
-  """
-  if session_name == "default":
-    if not force:
-      print error("""It is a bad idea to save your data in the default session,
-you should create another session with ss('my_session').
-If you are sure, use save(force=True)""")
-  else:
-    store_session(force=True)
 
 def archive(name=None):
   if not name:
@@ -122,8 +124,8 @@ def switch_session(name="default"):
   global session_name
   if name == session_name: return
   if session_name != "default":
-    if conf.autosave:
-      store_session()
+    if conf.autosave and not session_readonly:
+      save()
     clear_session()
   session_name = name
   load_session()
