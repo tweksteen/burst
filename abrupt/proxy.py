@@ -18,20 +18,28 @@ class ProxyHTTPRequestHandler(BaseHTTPServer.BaseHTTPRequestHandler):
 
   protocol_version = "HTTP/1.1"
 
-  def _bypass_ssl(self, r):
+  def _bypass_ssl(self, hostname, port, purge_headers=False):
     """
     SSL bypass, behave like the requested server and provide a certificate.
     """
-    l = self.rfile.readline()  # Purge headers
-    while l != "\r\n":
+    if purge_headers:
       l = self.rfile.readline()
-    self.wfile.write("HTTP/1.1 200 Connection established\r\n\r\n") # yes, sure
-    self.ssl_sock = ssl.wrap_socket(self.request, server_side=True,
-                                    certfile=generate_ssl_cert(r.hostname),
-                                    keyfile=get_key_file())
-    self.rfile = self.ssl_sock.makefile('rb', self.rbufsize)
-    self.wfile = self.ssl_sock.makefile('wb', self.wbufsize)
-    return Request(self.rfile, hostname=r.hostname, port=r.port, use_ssl=True)
+      while l != "\r\n":
+        l = self.rfile.readline()
+      self.wfile.write("HTTP/1.1 200 Connection established\r\n\r\n") # yes, sure
+    try:
+      self.ssl_sock = ssl.wrap_socket(self.request, server_side=True,
+                                      certfile=generate_ssl_cert(hostname),
+                                      keyfile=get_key_file())
+      self.rfile = self.ssl_sock.makefile('rb', self.rbufsize)
+      self.wfile = self.ssl_sock.makefile('wb', self.wbufsize)
+      return Request(self.rfile, hostname=hostname, port=port, use_ssl=True)
+    except ssl.SSLError as e:
+      if "alert unknown ca" in str(e):
+        print warning("Abrupt certificate for {} ".format(hostname) + 
+                      "has been rejected by your browser.")
+      else:
+        print warning(str(e))
 
   def _init_connection(self, r):
     """
@@ -65,19 +73,17 @@ class ProxyHTTPRequestHandler(BaseHTTPServer.BaseHTTPRequestHandler):
 
   def read_request(self):
     if conf.target:
-      t_url = urlparse.urlparse(conf.target)
-      if t_url.scheme == 'https':
-        use_ssl = True
-        port = int(t_url.port) if t_url.port else 443
+      t = urlparse.urlparse(conf.target)
+      if t.scheme == 'https':
+        port = int(t.port) if t.port else 443
+        r = self._bypass_ssl(t.hostname, port, purge_headers=False)
       else:
-        use_ssl = False
-        port = int(t_url.port) if t_url.port else 80
-      r = Request(self.rfile, hostname=t_url.hostname, 
-                  port=port, use_ssl=use_ssl)
+        port = int(t.port) if t.port else 80
+        r = Request(self.rfile, hostname=t.hostname, port=port, use_ssl=False)
     else:
       r = Request(self.rfile)
-    if r.method == "CONNECT":
-      r = self._bypass_ssl(r)
+      if r.method == "CONNECT":
+        r = self._bypass_ssl(r.hostname, r.port, purge_headers=True)
     return r
 
   def handle_one_request(self):
@@ -88,6 +94,8 @@ class ProxyHTTPRequestHandler(BaseHTTPServer.BaseHTTPRequestHandler):
       self.close_connection = 0
     try:
       r = self.read_request()
+      if not r:
+        return
       r = self.server.pre_func(r)
       for rule, action in self.server.rules:
         if bool(rule(r)):
@@ -157,8 +165,8 @@ class ProxyHTTPRequestHandler(BaseHTTPServer.BaseHTTPRequestHandler):
         print r.response
       self.wfile.write(r.response.raw())
     except ssl.SSLError as e:
-      if hasattr(r, "hostname"):
-        print warning("Abrupt certificate for {} has been rejected by your browser.".format(r.hostname))
+     self.close_connection = 1 
+     print "<" + warning("SSLError") + ": " + str(e) + ">"
     except NotConnected as e:
       self.close_connection = 1
       print repr(e)
@@ -230,7 +238,7 @@ def proxy(port=None, nb=-1, rules=((lambda x: re_images_ext.search(x.path), "f")
       e_nb += 1
     return httpd.reqs
   except KeyboardInterrupt:
-    print "{} request intercepted".format(e_nb)
+    print "{} requests intercepted".format(e_nb)
     return RequestSet(httpd.reqs)
 
 p = proxy
