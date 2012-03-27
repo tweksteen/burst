@@ -63,9 +63,9 @@ class Request():
         else:
           self.port = int(p_url.port) if p_url.port else port
           self.use_ssl = use_ssl
-      self.set_headers(read_headers(fd))
-      self.content = read_content(fd, self.headers, method=self.method)
-      self.response = None
+    self.set_headers(read_headers(fd))
+    self.content = read_content(fd, self.headers, method=self.method)
+    self.response = None
 
   @property
   def path(self):

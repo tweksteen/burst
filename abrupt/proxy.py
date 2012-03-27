@@ -18,14 +18,11 @@ class ProxyHTTPRequestHandler(BaseHTTPServer.BaseHTTPRequestHandler):
 
   protocol_version = "HTTP/1.1"
 
-  def _bypass_ssl(self, hostname, port, purge_headers=False):
+  def _bypass_ssl(self, hostname, port, proxy_aware=False):
     """
     SSL bypass, behave like the requested server and provide a certificate.
     """
-    if purge_headers:
-      l = self.rfile.readline()
-      while l != "\r\n":
-        l = self.rfile.readline()
+    if proxy_aware:
       self.wfile.write("HTTP/1.1 200 Connection established\r\n\r\n") # yes, sure
     try:
       self.ssl_sock = ssl.wrap_socket(self.request, server_side=True,
@@ -76,14 +73,14 @@ class ProxyHTTPRequestHandler(BaseHTTPServer.BaseHTTPRequestHandler):
       t = urlparse.urlparse(conf.target)
       if t.scheme == 'https':
         port = int(t.port) if t.port else 443
-        r = self._bypass_ssl(t.hostname, port, purge_headers=False)
+        r = self._bypass_ssl(t.hostname, port, proxy_aware=False)
       else:
         port = int(t.port) if t.port else 80
         r = Request(self.rfile, hostname=t.hostname, port=port, use_ssl=False)
     else:
       r = Request(self.rfile)
       if r.method == "CONNECT":
-        r = self._bypass_ssl(r.hostname, r.port, purge_headers=True)
+        r = self._bypass_ssl(r.hostname, r.port, proxy_aware=True)
     return r
 
   def handle_one_request(self):
