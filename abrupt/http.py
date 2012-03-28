@@ -173,14 +173,14 @@ class Request():
     self.response.time = n2 - n1
     if post_call: post_call(self)
 
-  def edit(self):
+  def edit(self, options='-c "set noeol" -c "set fileformats=dos" -b'):
     r_tmp = self.copy()
     if conf.update_content_length:
       r_tmp._remove_content_length()
     fd, fname = tempfile.mkstemp(suffix=".http")
     with os.fdopen(fd, 'w') as f:
       f.write(str(r_tmp))
-    ret = subprocess.call(conf.editor + " " + fname, shell=True)
+    ret = subprocess.call(conf.editor + " " + fname + " " + options, shell=True)
     if not ret:
       f = open(fname, 'r')
       r_new = Request(f, self.hostname, self.port, self.use_ssl)
@@ -189,7 +189,7 @@ class Request():
       os.remove(fname)
       return r_new
 
-  def play(self, options='-o2 -c "set autoread" -c "autocmd CursorMoved * checktime" -c "autocmd CursorHold * checktime"'):
+  def play(self, options='-o2 -c "set noeol" -b -c "set autoread" -c "autocmd CursorMoved * checktime" -c "autocmd CursorHold * checktime"'):
     r_tmp = self.copy()
     if conf.update_content_length:
       r_tmp._remove_content_length()
