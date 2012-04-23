@@ -10,15 +10,14 @@ Quick start
   $ sudo pip install abrupt
   $ abrupt
   Generating SSL certificate...
-  CA certificate : /home/tweksteen/.abrupt/ca.pem
+  CA certificate : ~/.abrupt/ca.pem
   Abrupt 0.4
   >>>
   
 .. note:: The first time you start Abrupt, it will generate a CA certificate.
   This is useful to avoid the exception creation whenever you reach a HTTPS
   site with the proxy enabled. You can install this certificate in your
-  browser. Currently, no check is performed by Abrupt on the server side
-  regarding SSL.
+  browser.
 
 If libxml is installed, Abrupt will uses it to improve accuracy of anomaly
 detection. This dependency is optional.

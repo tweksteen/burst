@@ -89,9 +89,10 @@ abrupt.http - HTTP base classes
 
     .. note:: When editing a Request, you might change the content of a POST 
       request. To be valid, the `Content-Length` header should be adapted to 
-      the new content length. Abrupt will automatically append the correct 
-      header if none is found. In other word, when editing a POST request, 
-      simply remove the `Content-Length` header and Abrupt will do the rest. 
+      the new content length. By default, Abrupt will automatically remove 
+      any `Content-Length` header before editing a Request and append a 
+      valid one once the Request has been saved. To disable this option,
+      see `conf.Configuration.update_content_length`.
 
   .. method:: play(options)
 
@@ -100,7 +101,7 @@ abrupt.http - HTTP base classes
     editor terminates, the last valid request made is returned.
     By default, `options` is set to configure ``vim``.
 
-    Please read the above note about Content-Length.
+    Please read the above note about `Content-Length`.
 
   .. method:: extract(field)
 

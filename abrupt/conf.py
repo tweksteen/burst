@@ -64,6 +64,7 @@ class Configuration(object):
     self.term_width = "auto"
     self.editor = "/usr/bin/vim"
     self.diff_editor = "/usr/bin/vimdiff"
+    self.ssl_hostname = None
     self.update_content_length = True
     self._ssl_version = ssl.PROTOCOL_SSLv3
     self._values = {"port": "getint", "proxy": "get", "timeout": "getint",
@@ -72,7 +73,7 @@ class Configuration(object):
                     "diff_editor": "get", "term_width": "get",
                     "delay": "getint", "color_enabled": "getboolean",
                     "update_content_length": "getboolean", "ip": "get",
-                    "target": "get"}
+                    "target": "get", "ssl_hostname": "get"}
 
   def _get_ssl_version(self):
     for k, v in self.ssl_map.items():

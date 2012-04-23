@@ -25,6 +25,8 @@ class ProxyHTTPRequestHandler(BaseHTTPServer.BaseHTTPRequestHandler):
     if proxy_aware:
       self.wfile.write("HTTP/1.1 200 Connection established\r\n\r\n") # yes, sure
     try:
+      if conf.ssl_hostname:
+        hostname = conf.ssl_hostname
       self.ssl_sock = ssl.wrap_socket(self.request, server_side=True,
                                       certfile=generate_ssl_cert(hostname),
                                       keyfile=get_key_file())
@@ -32,9 +34,9 @@ class ProxyHTTPRequestHandler(BaseHTTPServer.BaseHTTPRequestHandler):
       self.wfile = self.ssl_sock.makefile('wb', self.wbufsize)
       return Request(self.rfile, hostname=hostname, port=port, use_ssl=True)
     except ssl.SSLError as e:
-      if "alert unknown ca" in str(e):
+      if "alert unknown ca" in str(e) or "alert certificate unknown" in str(e):
         print warning("Abrupt certificate for {} ".format(hostname) + 
-                      "has been rejected by your browser.")
+                      "has been rejected by your client.")
       else:
         print warning(str(e))
 

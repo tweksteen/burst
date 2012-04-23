@@ -3,6 +3,7 @@ import urlparse
 import glob
 import os.path
 import Cookie
+import json
 
 from abrupt.http import Request, RequestSet
 from abrupt.color import *
@@ -55,6 +56,24 @@ def _inject_post(r, value, pds, pre_func):
       n_content = urlencode(nc)
       r_new = r.copy()
       r_new.content = n_content
+      r_new.injection_point = value
+      r_new.payload = p
+      r_new._update_content_length()
+      rs.append(r_new)
+  return rs
+
+def _inject_json(r, value, pds, pre_func):
+  rs = []
+  try:
+    x = json.loads(r.content)
+  except ValueError:
+    return rs
+  if x.has_key(value):
+    n_json = x.copy()
+    for p in pds:
+      n_json[value] = pre_func(p)
+      r_new = r.copy()
+      r_new.content = json.dumps(n_json)
       r_new.injection_point = value
       r_new.payload = p
       r_new._update_content_length()
@@ -122,6 +141,7 @@ def _inject_to(r, value, payload, pre_func=None):
     rqs += RequestSet(_inject_post(r, value, pds, pre_func))
   if r.has_header("Cookie"):
     rqs += RequestSet(_inject_cookie(r, value, pds, pre_func))
+  rqs += RequestSet(_inject_json(r, value, pds, pre_func))
   if not rqs:
     raise NoInjectionPointFound()
   return rqs
@@ -193,6 +213,11 @@ def find_injection_points(r):
     i_pts = r.cookies.keys()
     if i_pts:
       ips.extend(i_pts)
+  try:
+    i_pts = json.loads(r.content)
+    ips.extends(i_pts.keys())
+  except ValueError:
+    pass
   return ips
 
 fip = find_injection_points

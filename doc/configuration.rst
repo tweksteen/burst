@@ -17,10 +17,20 @@ abrupt.conf - Configuration
   
   Upstream proxy. By default, None.
 
+  .. attribute:: ip
+
+  Default proxy ip. Default IP address on which Abrupt will listen. If None,
+  will only listen on 127.0.0.1. By default, None.
+
   .. attribute:: port
 
   Default proxy port. See also the `port` parameter of the :func:`proxy.proxy`
   function. By default, 8080.
+
+  .. attribute:: target
+     
+  Set a target in case of transparent proxying. If your application is not
+  proxy-aware, use this parameter to set a target. By default, None.
 
   .. attribute:: delay
   
@@ -65,6 +75,12 @@ abrupt.conf - Configuration
     
   Default editor to use when comparing requests or responses.
   By default, ``/usr/bin/vimdiff``.
+
+  .. attribute:: update_content_length
+    
+  When editing a Request, Abrupt will automatically update any
+  `Content-Length` header. To disable this feature, set this
+  option to False. By default, True.
 
 .. data:: conf
 

@@ -25,14 +25,20 @@ class AbruptException(Exception):
   def __repr__(self):
     return "<{}: {}>".format(error(self.__class__.__name__), str(self))
 class UnableToConnect(AbruptException):
-  def __str__(self):
-    return "Unable to connect to the server"
+  def __init__(self, message="Unable to connect to the server"):
+    AbruptException.__init__(self, message)
 class NotConnected(AbruptException):
+  def __init__(self, junk):
+    self.junk = junk
+    AbruptException.__init__(self, "Unable to read the request from the client")
   def __str__(self):
-    return "Unable to read the request from the client"
+    return self.__class__.__name__ + ": " + self.message + "[" + str(self.junk) + "]" 
 class BadStatusLine(AbruptException):
+  def __init__(self, junk):
+    self.junk = junk
+    AbruptException.__init__(self, "They host did not return a correct banner")
   def __str__(self):
-    return "They host did not return a correct banner"
+    return self.message + "[" + str(self.junk) + "]" 
 class ProxyError(AbruptException):
   pass
 
@@ -45,9 +51,10 @@ class Request():
     if isinstance(fd, basestring):
       fd = StringIO(fd)
     try:
-      self.method, url, self.http_version = read_banner(fd)
+      banner = read_banner(fd)
+      self.method, url, self.http_version = banner
     except ValueError:
-      raise NotConnected()
+      raise NotConnected(banner)
     if self.method.upper() == "CONNECT":
       self.hostname, self.port = url.split(":", 1)
     else:
@@ -289,9 +296,10 @@ class Response():
 
   def __init__(self, fd, request):
     try:
-      self.http_version, self.status, self.reason = read_banner(fd)
+      banner = read_banner(fd)
+      self.http_version, self.status, self.reason = banner
     except ValueError:
-      raise BadStatusLine()
+      raise BadStatusLine(banner)
     self.set_headers(read_headers(fd))
     self.request = request
     if request.method == "HEAD":
