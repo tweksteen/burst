@@ -2,9 +2,11 @@ import sys
 import traceback
 import socket
 import select
-import BaseHTTPServer
+import SocketServer
 import ssl
 import urlparse
+import threading
+import time
 
 from abrupt import alert, console
 from abrupt.http import Request, RequestSet, connect, \
@@ -14,9 +16,16 @@ from abrupt.color import *
 from abrupt.cert import generate_ssl_cert, get_key_file
 from abrupt.utils import re_images_ext, flush_input, decode
 
-class ProxyHTTPRequestHandler(BaseHTTPServer.BaseHTTPRequestHandler):
+lock = threading.Lock()
+
+class ProxyHTTPRequestHandler(SocketServer.StreamRequestHandler):
 
   protocol_version = "HTTP/1.1"
+
+  def __init__(self, request, client_address, server):
+    self.delay = 1
+    self.pt = "[" + threading.current_thread().name.replace("Thread-", "") + "]"
+    SocketServer.StreamRequestHandler.__init__(self, request, client_address, server)
 
   def _bypass_ssl(self, hostname, port, proxy_aware=False):
     """
@@ -40,37 +49,48 @@ class ProxyHTTPRequestHandler(BaseHTTPServer.BaseHTTPRequestHandler):
       else:
         print warning(str(e))
 
-  def _init_connection(self, r):
+  def _init_connection(self):
     """
     Init the connection with the remote server
     """
-    return connect(r.hostname, r.port, r.use_ssl)
+    return connect(self.r.hostname, self.r.port, self.r.use_ssl)
 
-  def _do_connection(self, r):
+  def _update_chunk(self, diff):
+    if hasattr(self, "chunk_written"):
+      self.wfile.write(diff)
+      self.chunk_written += diff
+    else:
+      self.wfile.write(self.r.response.raw())
+      self.wfile.write(diff)
+      self.chunk_written = diff
+
+  def _do_connection(self):
     """
     Do the request to the remote server. Equivalent to r().
     Just reuse the socket if we can.
     """
-    if not self.server.prev or \
-           self.server.prev["hostname"] != r.hostname or \
-           self.server.prev["port"] != r.port or \
-           self.server.prev["use_ssl"] != r.use_ssl:
-      self.server.conn = self._init_connection(r)
+    if not hasattr(self, 'prev') or not self.prev or \
+           self.prev["hostname"] != self.r.hostname or \
+           self.prev["port"] != self.r.port or \
+           self.prev["use_ssl"] != self.r.use_ssl:
+      self.conn = self._init_connection()
     done = False
     while not done:
       try:
-        r(conn=self.server.conn)
-        if not r.response.closed:
-          self.server.prev = {"hostname": r.hostname, "port": r.port,
-                              "use_ssl": r.use_ssl}
+        if self.server.forward_chunked:
+          self.r(conn=self.conn, chunk_callback=self._update_chunk)
         else:
-          self.server.conn.close()
+          self.r(conn=self.conn)
+        if not self.r.response.closed:
+          self.prev = {"hostname": self.r.hostname, "port": self.r.port, "use_ssl": self.r.use_ssl}
+        else:
+          self.conn.close()
           self.close_connection = 1
         done = True
       except (socket.error, BadStatusLine):
-        self.server.conn = self._init_connection(r)
+        self.conn = self._init_connection()
 
-  def read_request(self):
+  def _read_request(self):
     if conf.target:
       t = urlparse.urlparse(conf.target)
       if t.scheme == 'https':
@@ -80,10 +100,42 @@ class ProxyHTTPRequestHandler(BaseHTTPServer.BaseHTTPRequestHandler):
         port = int(t.port) if t.port else 80
         r = Request(self.rfile, hostname=t.hostname, port=port, use_ssl=False)
     else:
-      r = Request(self.rfile)
-      if r.method == "CONNECT":
-        r = self._bypass_ssl(r.hostname, r.port, proxy_aware=True)
+      if not hasattr(self, 'prev') or not self.prev or not self.prev["use_ssl"]:
+        r = Request(self.rfile)
+        if r.method == "CONNECT":
+          r = self._bypass_ssl(r.hostname, r.port, proxy_aware=True)
+      else:
+        r = Request(self.rfile, hostname=self.prev["hostname"], port=self.prev["port"], use_ssl=self.prev["use_ssl"])
     return r
+
+  def _apply_rules(self):
+    for rule, action in self.server.rules:
+      if bool(rule(self.r)):
+        pre_action = action
+        default = False
+        break
+    else:
+      pre_action = self.server.default_action
+      default = True
+    if self.server.overrided_ask and pre_action == "a":
+      pre_action = self.server.overrided_ask
+    return pre_action, default
+
+  def poll(self):
+    while True:
+      if self.server._BaseServer__shutdown_request:
+        return False
+      r, _, _ = select.select([self.request],[], [], 0.5)
+      if self.request in r:
+        return True
+
+  def handle(self):
+    self.close_connection = 1
+    self.handle_one_request()
+    while not self.close_connection:
+      n = self.poll()
+      if not n: break
+      self.handle_one_request()
 
   def handle_one_request(self):
     """
@@ -92,89 +144,117 @@ class ProxyHTTPRequestHandler(BaseHTTPServer.BaseHTTPRequestHandler):
     if self.server.persistent:
       self.close_connection = 0
     try:
-      r = self.read_request()
-      if not r:
+      self.r = self._read_request()
+      if not self.r:
         return
-      r = self.server.pre_func(r)
-      for rule, action in self.server.rules:
-        if bool(rule(r)):
-          pre_action = action
-          default = False
-          break
-      else:
-        pre_action = self.server.default_action
-        default = True
-      if self.server.overrided_ask and pre_action == "a":
-        pre_action = self.server.overrided_ask
+      self.r = self.server.pre_func(self.r)
+      lock.acquire()
+      pre_action, default = self._apply_rules()
       if pre_action == "a":
         flush_input()
         if console.term_width:
-          e = raw_input(r.repr(console.term_width, rl=True) + " ? ")
+          e = raw_input(self.pt + " " + self.r.repr(console.term_width - 4 - len(self.pt), rl=True) + " ? ")
         else:
-          e = raw_input(r.repr(rl=True) + " ? ")
+          e = raw_input(self.pt + " " + self.r.repr(rl=True) + " ? ")
       else:
         e = pre_action
         if default or self.server.verbose:
           if console.term_width:
-            print r.repr(console.term_width), e
+            print self.pt, self.r.repr(console.term_width - len(self.pt) - len(e)), e
           else:
-            print r.repr(), e
+            print self.pt, self.r.repr(), e
       while True:
         if e == "v":
-          print str(r)
+          print  str(self.r)
+        if e == "h":
+          print self.r.__str__(headers_only=True)
         if e == "e":
-          r = r.edit()
+          self.r = self.r.edit()
         if e == "d":
+          lock.release()
           return
         if e == "" or e == "f":
           break
         if e == "c":
           self.server.overrided_ask = "f"
           break
-        if e == "de" and r.content:
-          print self.server.decode_func(r.content)
+        if e == "de":
+          if self.r.content:
+            print self.server.decode_func(self.r.content)
+          else:
+            print "no content to decode"
+        if e == "n":
+          lock.release()
+          time.sleep(1)
+          lock.acquire()
+          if console.term_width:
+            print self.pt, self.r.repr(console.term_width - 5), e
+          else:
+            print self.pt, self.r.repr(), e
         flush_input()
-        e = raw_input("(v)iew, (e)dit, (f)orward, (d)rop, (c)ontinue, (de)code [f]? ")
+        e = raw_input("(f)orward, (d)rop, (c)ontinue, (v)iew, (h)eaders, (e)dit, (de)code, (n)ext [f]? ")
       if self.server.verbose >= 2:
-        print r
-      self.server.reqs.append(r)
-      self._do_connection(r)
+        print self.r
+      self.server.reqs.append(self.r)
+      lock.release()
+      self._do_connection()
+      lock.acquire()
       if default or self.server.verbose:
         if pre_action == "a" and not self.server.overrided_ask:
           flush_input()
-          e = raw_input(r.response.repr(rl=True) + " ? ")
+          e = raw_input(self.pt + " " + self.r.response.repr(rl=True) + " ? ")
           while True:
             if e == "v":
-              print str(r.response)
+              print str(self.r.response)
+            if e == "h":
+              print self.r.response.__str__(headers_only=True)
             if e == "e":
-              r.response = r.response.edit()
+              self.r.response = self.r.response.edit()
             if e == "d":
+              lock.release()
               return
             if e == "" or e == "f":
               break
-            if e == "de" and r.response.content:
-              print self.server.decode_func(r.response.content)
+            if e == "c":
+              self.server.overrided_ask = "f"
+              break
+            if e == "de":
+              if self.r.response.content:
+                print self.server.decode_func(self.r.response.content)
+              else:
+                print "no content to decode"
+            if e == "n":
+              lock.release()
+              time.sleep(1)
+              lock.acquire()
+              print self.pt, self.r.response.repr()
             flush_input()
-            e = raw_input("(v)iew, (e)dit, (f)orward, (d)rop, (de)code [f]? ")
+            e = raw_input("(f)orward, (d)rop, (c)ontinue, (v)iew, (h)eaders, (e)dit, (de)code, (n)ext [f]? ")
         else:
-          print repr(r.response)
-        for al in self.server.alerter.parse(r):
-          print " |", al
+          print self.pt, repr(self.r.response)
+        for al in self.server.alerter.parse(self.r):
+          print " " * len(self.pt), " |", al
       if self.server.verbose >= 3:
-        print r.response
-      self.wfile.write(r.response.raw())
+        print self.r.response
+      lock.release()
+      if not hasattr(self, "chunk_written"):
+        self.wfile.write(self.r.response.raw())
     except ssl.SSLError as e:
      self.close_connection = 1 
-     print "<" + warning("SSLError") + ": " + str(e) + ">"
+     print self.pt, "<" + warning("SSLError") + ": " + str(e) + ">"
     except NotConnected as e:
       self.close_connection = 1
-      print repr(e)
     except (UnableToConnect, socket.timeout) as e:
       self.close_connection = 1
-      print repr(e)
+      lock.acquire()
+      print self.pt, repr(e)
       self.wfile.write("Abrupt: " + str(e))
+      lock.release()
 
-class ProxyHTTPServer(BaseHTTPServer.HTTPServer):
+class ProxyHTTPServer(SocketServer.ThreadingMixIn, SocketServer.TCPServer):
+
+  deamon_threads = True
+  allow_reuse_address = 1
 
   def handle_error(self, request, client_address):
     exc_type, exc_value, exc_traceback = sys.exc_info()
@@ -185,8 +265,8 @@ class ProxyHTTPServer(BaseHTTPServer.HTTPServer):
       traceback.print_tb(exc_traceback)
 
 def proxy(port=None, nb=-1, rules=((lambda x: re_images_ext.search(x.path), "f"),),
-          default_action="a", alerter=None, persistent=False,  pre_func=None,
-          decode_func=None, verbose=False):
+          default_action="a", alerter=None, persistent=True,  pre_func=None,
+          decode_func=None, forward_chunked=False, verbose=False):
   """Intercept all HTTP(S) requests on port. Return a RequestSet of all the
   answered requests.
 
@@ -194,7 +274,7 @@ def proxy(port=None, nb=-1, rules=((lambda x: re_images_ext.search(x.path), "f")
   nb             -- number of request to intercept (-1 for infinite)
   alerter        -- alerter triggered on each response, by default alerter.Generic
   rules          -- set of rules for automated actions over requests
-  default_action -- action to execute when no rules matches, by default "a"
+  default_action -- action to execute when no rules matches, by default (a)sk
   pre_func       -- callback used before processing a request
   decode_func    -- callback used when (de)coding a request/response content, by
                     default, decode().
@@ -205,46 +285,47 @@ def proxy(port=None, nb=-1, rules=((lambda x: re_images_ext.search(x.path), "f")
                     2      -- Display all requests with their full content
                     3      -- Display all requests and responses with their
                               full content
-  See also: w()
+  See also: watch()
   """
   if not port: port = conf.port
   if not alerter: alerter = alert.Generic()
   if not rules: rules = []
   if not decode_func: decode_func = decode
   if not pre_func: pre_func = lambda x:x
+  print "Running on", conf.ip + ":" + str(port)
+  print "Ctrl-C to interrupt the proxy..."
+  httpd = ProxyHTTPServer((conf.ip, port), ProxyHTTPRequestHandler)
+  httpd.rules = rules
+  httpd.default_action = default_action
+  httpd.overrided_ask = None
+  httpd.pre_func = pre_func
+  httpd.decode_func = decode_func
+  httpd.alerter = alerter
+  httpd.reqs = []
+  httpd.forward_chunked = forward_chunked
+  httpd.verbose = verbose
+  httpd.persistent = persistent
   e_nb = 0
-  try:
-    print "Running on", conf.ip + ":" + str(port)
-    print "Ctrl-C to interrupt the proxy..."
-    server_address = (conf.ip, port)
-    httpd = ProxyHTTPServer(server_address, ProxyHTTPRequestHandler)
-    httpd.rules = rules
-    httpd.default_action = default_action
-    httpd.overrided_ask = None
-    httpd.pre_func = pre_func
-    httpd.decode_func = decode_func
-    httpd.alerter = alerter
-    httpd.reqs = []
-    httpd.verbose = verbose
-    httpd.persistent = persistent
-    httpd.prev = None
-    while e_nb != nb:
-      try:
-        httpd.handle_request()
-      except select.error:
-        # select syscall got interrupted by window resizing
-        pass
-      e_nb += 1
-    return httpd.reqs
-  except KeyboardInterrupt:
-    print "{} requests intercepted".format(e_nb)
-    return RequestSet(httpd.reqs)
+  while True:
+    try:
+      httpd.serve_forever()
+    except select.error:
+      # select syscall got interrupted by window resizing
+      pass
+    except KeyboardInterrupt:
+      print "Waiting for the threads to stop"
+      httpd.shutdown()
+      for t in threading.enumerate():
+        if t != threading.current_thread():
+          t.join()
+      break
+  return RequestSet(httpd.reqs)
 
 p = proxy
 
 def watch(**kwds):
   """Run a proxy without user interaction, all the requests are forwarded.
-     See also p()"""
+     See also proxy()"""
   return proxy(default_action="f", **kwds)
 
 w = watch

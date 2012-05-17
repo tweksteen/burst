@@ -4,6 +4,7 @@ import copy
 import zlib
 import gzip
 import ssl
+import struct
 import socket
 import urlparse
 import operator
@@ -32,13 +33,13 @@ class NotConnected(AbruptException):
     self.junk = junk
     AbruptException.__init__(self, "Unable to read the request from the client")
   def __str__(self):
-    return self.__class__.__name__ + ": " + self.message + "[" + str(self.junk) + "]" 
+    return self.message + " [" + str(self.junk) + "]"
 class BadStatusLine(AbruptException):
   def __init__(self, junk):
     self.junk = junk
     AbruptException.__init__(self, "They host did not return a correct banner")
   def __str__(self):
-    return self.message + "[" + str(self.junk) + "]" 
+    return self.message + " [" + str(self.junk) + "]"
 class ProxyError(AbruptException):
   pass
 
@@ -54,7 +55,7 @@ class Request():
       banner = read_banner(fd)
       self.method, url, self.http_version = banner
     except ValueError:
-      raise NotConnected(banner)
+      raise NotConnected(' '.join(banner))
     if self.method.upper() == "CONNECT":
       self.hostname, self.port = url.split(":", 1)
     else:
@@ -62,7 +63,7 @@ class Request():
       self.url = urlparse.urlunparse(("", "") + p_url[2:])
       self.hostname = p_url.hostname or hostname
       if not self.hostname:
-        raise Exception("No hostname")
+        raise AbruptException("No hostname: " + str(url))
       else:
         if p_url.scheme == 'https':
           self.use_ssl = True
@@ -71,7 +72,11 @@ class Request():
           self.port = int(p_url.port) if p_url.port else port
           self.use_ssl = use_ssl
     self.set_headers(read_headers(fd))
-    self.content = read_content(fd, self.headers, method=self.method)
+    self.raw_content = read_content(fd, self.headers, method=self.method)
+    if self.raw_content:
+      self.content = _clear_content(self.headers, self.raw_content)
+    else:
+      self.content = ""
     self.response = None
 
   @property
@@ -145,13 +150,13 @@ class Request():
     r_new.response = None
     return r_new
 
-  def __str__(self):
+  def __str__(self, headers_only=False):
     s = StringIO()
     s.write("{s.method} {s.url} {s.http_version}\r\n".format(s=self))
     for h, v in self.headers:
       s.write("{}: {}\r\n".format(h, v))
     s.write("\r\n")
-    if self.content:
+    if not headers_only and self.content:
       s.write(self.content)
     return s.getvalue()
 
@@ -166,7 +171,7 @@ class Request():
       return False
     return True
 
-  def __call__(self, conn=None, post_call=None):
+  def __call__(self, conn=None, post_call=None, chunk_callback=None):
     if conn:
       sock = conn
     else:
@@ -175,7 +180,7 @@ class Request():
       history.append(self)
     _send_request(sock, self)
     n1 = datetime.datetime.now()
-    self.response = Response(sock.makefile('rb', 0), self)
+    self.response = Response(sock.makefile('rb', 0), self, chunk_callback=chunk_callback)
     n2 = datetime.datetime.now()
     self.response.time = n2 - n1
     if post_call: post_call(self)
@@ -187,6 +192,7 @@ class Request():
     fd, fname = tempfile.mkstemp(suffix=".http")
     with os.fdopen(fd, 'w') as f:
       f.write(str(r_tmp))
+      f.write("\n")
     ret = subprocess.call(conf.editor + " " + fname + " " + options, shell=True)
     if not ret:
       f = open(fname, 'r')
@@ -204,6 +210,7 @@ class Request():
     fdrep, frepname = tempfile.mkstemp(suffix=".http")
     with os.fdopen(fdreq, 'w') as f:
       f.write(str(r_tmp))
+      f.write("\n")
     if self.response:
       with os.fdopen(fdrep, 'w') as f:
         f.write(str(self.response))
@@ -284,7 +291,7 @@ def create(url):
 Host: {}
 User-Agent: Mozilla/5.0 (Windows; U; MSIE 9.0; Windows NT 0.9; en-US)
 Accept: text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8
-Accept-Language: en;q=0.5,fr;q=0.2
+Accept-Language: en;q=0.5
 Accept-Encoding: gzip, deflate
 Accept-Charset: ISO-8859-1,utf-8;q=0.7,*;q=0.7
 
@@ -294,7 +301,7 @@ c = create
 
 class Response():
 
-  def __init__(self, fd, request):
+  def __init__(self, fd, request, chunk_callback=None):
     try:
       banner = read_banner(fd)
       self.http_version, self.status, self.reason = banner
@@ -305,7 +312,7 @@ class Response():
     if request.method == "HEAD":
       self.raw_content = self.content = ""
     else:
-      self.raw_content = read_content(fd, self.headers, self.status)
+      self.raw_content = read_content(fd, self.headers, self.status, chunk_callback=chunk_callback)
       if self.raw_content:
         self.content = _clear_content(self.headers, self.raw_content)
       else:
@@ -332,28 +339,18 @@ class Response():
   def get_header(self, name):
     return _get_header(self.headers, name)
 
-  def __str__(self):
-    s = StringIO()
-    s.write("{s.http_version} {s.status} {s.reason}\r\n".format(s=self))
-    for h, v in self.headers:
-      s.write("{}: {}\r\n".format(h, v))
-    s.write("\r\n")
-    if self.content:
-      s.write(self.content)
-    return s.getvalue()
-
-  def view(self):
+  def view(self, options='-c "set noeol" -c "set fileformats=dos" -b'):
     fd, fname = tempfile.mkstemp(suffix=".http")
     with os.fdopen(fd, 'w') as f:
       f.write(str(self))
-    subprocess.call(conf.editor + " " + fname, shell=True)
+    subprocess.call(conf.editor + " " + fname + " " + options, shell=True)
     os.remove(fname)
 
-  def edit(self):
+  def edit(self, options='-c "set noeol" -c "set fileformats=dos" -b'):
     fd, fname = tempfile.mkstemp(suffix=".http")
     with os.fdopen(fd, 'w') as f:
       f.write(self.raw())
-    ret = subprocess.call(conf.editor + " " + fname, shell=True)
+    ret = subprocess.call(conf.editor + " " + fname + " " + options, shell=True)
     if not ret:
       f = open(fname, 'r')
       res_new = Response(f, self.request)
@@ -411,13 +408,24 @@ class Response():
     except IndexError:
       return None
 
+  def __str__(self, headers_only=False):
+    s = StringIO()
+    s.write("{s.http_version} {s.status} {s.reason}\r\n".format(s=self))
+    for h, v in self.headers:
+      s.write("{}: {}\r\n".format(h, v))
+    s.write("\r\n")
+    if not headers_only and self.content:
+      s.write(self.content)
+    return s.getvalue()
+
   def raw(self):
     s = StringIO()
     s.write("{s.http_version} {s.status} {s.reason}\r\n".format(s=self))
     for h, v in self.headers:
       s.write("{}: {}\r\n".format(h, v))
     s.write("\r\n")
-    if self.raw_content:
+    # XXX clean that
+    if hasattr(self, "raw_content") and self.raw_content:
       s.write(self.raw_content)
     return s.getvalue()
 
@@ -513,18 +521,27 @@ class RequestSet():
     return unicode(self).encode('utf-8')
 
   def __unicode__(self):
+
+    def n_length(r, i):
+      if r.response and r.response.content:
+        p = str(len(r.response.content))
+        if hasattr(r, "payload"):
+          p += "(" + str(len(r.response.content)-len(encode(r.payload))) + ")"
+        return p
+      else:
+        return "-"
+
     cols = [
             ("Method", lambda r, i: info(r.method)),
             ("Path", lambda r, i: smart_split(r.path, 30, "/")),
-            ("Status", lambda r, i: color_status(r.response.status) if
-                                    r.response else "-"),
-            ("Length", lambda r, i: str(len(r.response.content)) if
-                                    (r.response and r.response.content) else "-")]
+            ("Status", lambda r, i: color_status(r.response.status) if r.response else "-"),
+            ("Length", n_length)]
+
     if any([hasattr(x, "payload") for x in self.reqs]):
       cols.insert(2, ("Injection Point", lambda r, i: getattr(r, "injection_point", "-")[:20]))
       cols.insert(3, ("Payload", lambda r, i: getattr(r, "payload", "-")[:20]))
       cols.append(("Time", lambda r, i: "{:.4f}".format(r.response.time.total_seconds()) if
-                                        (r.response and hasattr(r, "time")) else "-"))
+                                        (r.response and hasattr(r.response, "time")) else "-"))
     else:
       cols.insert(2, ("Query", lambda r, i: smart_rsplit(r.query, 30, "&")))
     if len(set([r.hostname for r in self.reqs])) > 1:
@@ -540,7 +557,7 @@ class RequestSet():
     outsiders = [(i, r) for i, r in enumerate(self.reqs)
                        if r.response and (r.response.length < bottom or r.response.length > top)]
     if outsiders:
-      print "\n".join([" |" + str(i) + " " + error(str(r.response.length)) for i, r in outsiders])
+      print "\n".join([" |" + str(i) + " " + getattr(r, "payload", "-") + " " + error(str(r.response.length)) for i, r in outsiders])
 
     print
     times = [r.response.time.total_seconds() for r in self.reqs if r.response]
@@ -550,7 +567,7 @@ class RequestSet():
                         if r.response and (r.response.time.total_seconds() < bottom or
                          r.response.time.total_seconds() > top)]
     if outsiders:
-      print "\n".join([" |" + str(i) + " " + error(str(r.response.time)) for i, r in outsiders])
+      print "\n".join([" |" + str(i) + " " + getattr(r, "payload", "-") + " " + error(str(r.response.time)) for i, r in outsiders])
 
 
   def by_length(self):
@@ -662,17 +679,19 @@ def _has_header(headers, name, value=None):
 def _get_header(headers, name):
   return [v for h, v in headers if h.lower() == name.lower()]
 
-def read_content(fp, headers, status=None, method=None):
+def read_content(fp, headers, status=None, method=None, chunk_callback=None):
   if status == "304":
     return None
   elif _has_header(headers, "Transfer-Encoding", "chunked"):
-    return _chunked_read_content(fp).getvalue()
+    return _chunked_read_content(fp, chunk_callback=chunk_callback).getvalue()
   elif _has_header(headers, "Content-Length"):
     # ASSUMPTION: The first Content-Length header will be use to
     #             read the response
     length_str = _get_header(headers, "Content-Length")[0]
     # ASSUMPTION: The value of Content-Length can be converted to an integer
     length = int(length_str)
+    if length < 0:
+      raise AbruptException("Invalid Content-Length")
     return _read_content(fp, length).getvalue()
   elif status == "200" or method == "POST":
     # ASSUMPTION: In case we have no indication on what to read, if the method
@@ -680,17 +699,24 @@ def read_content(fp, headers, status=None, method=None):
     return fp.read()
   return None
 
-def _chunked_read_content(fp):
+def _chunked_read_content(fp, chunk_callback=None):
   buffer = StringIO()
   while True:
+    diff = ""
     l = fp.readline()
-    buffer.write(l)
+    diff += l
     s = int(l, 16)
     if s == 0:
-      buffer.write(fp.readline())
+      diff += fp.readline()
+      buffer.write(diff)
+      if chunk_callback:
+        chunk_callback(diff)
       return buffer
-    buffer.write(_read_content(fp, s).getvalue())
-    buffer.write(fp.readline())
+    diff += _read_content(fp, s).getvalue()
+    diff += fp.readline()
+    buffer.write(diff)
+    if chunk_callback:
+      chunk_callback(diff)
 
 def _read_content(fp, length):
   buffer = StringIO()
@@ -727,50 +753,119 @@ def _clear_content(headers, raw_content):
     return unzipped.read()
   return content
 
+def _socks5_connect(hostname, port, use_ssl):
+  p_url = urlparse.urlparse(conf.proxy)
+  p_hostname = p_url.hostname
+  p_port = p_url.port
+  sock = socket.create_connection((p_hostname, p_port))
+  sock.sendall("\x05\x01\x00")
+  auth = sock.recv(2)
+  if auth != "\x05\x00":
+    raise ProxyError("Authentication required for the proxy")
+  p_r = "\x05\x01\x00"
+  try:
+    p_r += "\x01" + socket.inet_aton(hostname)
+  except socket.error:
+    p_r += "\x03" + chr(len(hostname)) + hostname
+  p_r += struct.pack(">H", port)
+  sock.sendall(p_r)
+  p_res = sock.recv(4)
+  if not p_res.startswith("\x05\x00"):
+    raise ProxyError("Socks proxy returned: " + repr(p_res))
+  if p_res[3] == "\x01":
+    sock.recv(4)
+  elif p_res[3] == "\x03":
+    sock.recv(5)
+  return sock
+
+def _socks4_connect(hostname, port, use_ssl):
+  p_url = urlparse.urlparse(conf.proxy)
+  p_hostname = p_url.hostname
+  p_port = p_url.port
+  try:
+    ipaddr = socket.inet_aton(hostname)
+    resolv = False
+  except socket.error:
+    ipaddr = "\x00\x00\x00\x01"
+    resolv = True
+  p_r = "\x04\x01" + struct.pack(">H", port) + ipaddr + "\x00"
+  if resolv:
+    p_r += hostname + "\x00"
+  sock = socket.create_connection((p_hostname, p_port))
+  sock.sendall(p_r)
+  p_res = sock.recv(8)
+  if not p_res.startswith("\x00\x5A"):
+    raise ProxyError("Socks proxy returned: " + repr(p_res))
+  if use_ssl:
+    try:
+      sock = ssl.wrap_socket(sock, ssl_version=conf._ssl_version)
+    except socket.error:
+      raise UnableToConnect("Unable to use SSL with the proxy")
+  return sock
+
+def _http_connect(hostname, port, use_ssl):
+  p_url = urlparse.urlparse(conf.proxy)
+  p_hostname = p_url.hostname
+  p_port = p_url.port
+  p_use_ssl = True if p_url.scheme[-1] == 's' else False
+  try:
+    sock = socket.create_connection((p_hostname, p_port))
+  except socket.error:
+    raise ProxyError("Unable to connect to the proxy")
+  if p_use_ssl:
+    try:
+      # No check is made to verify proxy certificate
+      sock = ssl.wrap_socket(sock, ssl_version=conf._ssl_version)
+    except socket.error:
+      raise ProxyError("Unable to use SSL with the proxy")
+  if use_ssl:
+    f = sock.makefile("rwb", 0)
+    f.write("CONNECT {}:{} HTTP/1.1\r\n\r\n".format(hostname, port))
+    try:
+      v, s, m = read_banner(f)
+    except ValueError:
+      raise BadStatusLine()
+    if s != "200":
+      raise ProxyError("Bad status " + s + " " + m)
+    _ = read_headers(f)
+    sock = ssl.wrap_socket(sock, ssl_version=conf._ssl_version)
+  return sock
+
+def _direct_connect(hostname, port, use_ssl):
+  try:
+    sock = socket.create_connection((hostname, port))
+  except socket.error:
+    raise UnableToConnect()
+  if use_ssl:
+    try:
+      sock = ssl.wrap_socket(sock, ssl_version=conf._ssl_version)
+    except socket.error:
+      raise UnableToConnect("Unable to use SSL with the server")
+  return sock
+
 def connect(hostname, port, use_ssl):
   if conf.proxy:
     p_url = urlparse.urlparse(conf.proxy)
-    p_hostname = p_url.hostname
-    p_port = p_url.port
-    p_use_ssl = True if p_url.scheme[-1] == 's' else False
-    try:
-      sock = socket.create_connection((p_hostname, p_port))
-    except socket.error:
-      raise ProxyError("Unable to connect to the proxy")
-    if p_use_ssl:
-      try:
-        sock = ssl.wrap_socket(sock, ssl_version=conf._ssl_version)
-      except socket.error:
-        raise ProxyError("Unable to use SSL with the proxy")
-  else:
-    try:
-      sock = socket.create_connection((hostname, port))
-    except socket.error:
-      raise UnableToConnect()
-  if use_ssl:
-    if not conf.proxy:
-      try:
-        sock = ssl.wrap_socket(sock, ssl_version=conf._ssl_version)
-      except socket.error:
-        raise UnableToConnect("Unable to use SSL with the server")
+    if p_url.scheme.startswith("http"):
+      return _http_connect(hostname, port, use_ssl)
+    elif p_url.scheme.startswith("socks4"):
+      return _socks4_connect(hostname, port, use_ssl)
+    elif p_url.scheme.startswith("socks5"):
+      return _socks5_connect(hostname, port, use_ssl)
     else:
-      f = sock.makefile("rwb", 0)
-      f.write("CONNECT {}:{} HTTP/1.1\r\n\r\n".format(hostname, port))
-      try:
-        v, s, m = read_banner(f)
-      except ValueError:
-        raise BadStatusLine()
-      if s != "200":
-        raise ProxyError("Bad status " + s + " " + m)
-      _ = read_headers(f)
-      sock = ssl.wrap_socket(sock, ssl_version=conf._ssl_version)
-  return sock
+      raise NotImplemented("Available proxy protocols: http(s), socks4a, socks5")
+  else:
+    return _direct_connect(hostname, port, use_ssl)
 
 def _send_request(sock, request):
   if conf.proxy and not request.use_ssl:
-    p_url = urlparse.urlparse(request.url)
-    url = urlparse.urlunparse(("http", request.hostname + ":" + str(request.port)) + p_url[2:])
-    buf = [" ".join([request.method, url, request.http_version]), ]
+    p_url = urlparse.urlparse(conf.proxy)
+    if p_url.scheme == "http":
+      p_url = urlparse.urlparse(request.url)
+      url = urlparse.urlunparse(("http", request.hostname + ":" + str(request.port)) + p_url[2:])
+      buf = [" ".join([request.method, url, request.http_version]), ]
+    else:
+      buf = [" ".join([request.method, request.url, request.http_version]), ]
   else:
     buf = [" ".join([request.method, request.url, request.http_version]), ]
   buf += ["{}: {}".format(h, v) for h, v in request.headers] + ["", ""]
