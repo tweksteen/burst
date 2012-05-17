@@ -9,16 +9,19 @@ from abrupt.http import Request, RequestSet
 from abrupt.color import *
 from abrupt.utils import encode, parse_qs, urlencode
 
-payloads = {}
+payloads = { "default": [] }
 for f_name in glob.glob(os.path.join(os.path.dirname(__file__), "payloads/*")):
   k = os.path.basename(f_name)
   plds = open(f_name).read().splitlines()
   payloads[k] = plds
 
+for k in ('sqli', 'xss', 'cmd', 'dir', 'misc'):
+  if k in payloads:
+    payloads["default"].extend(payloads[k])
+
 class PayloadNotFound(Exception): pass
 class NoInjectionPointFound(Exception): pass
 class NonUniqueInjectionPoint(Exception): pass
-
 
 def _get_payload(p):
   try:
@@ -66,7 +69,7 @@ def _inject_json(r, value, pds, pre_func):
   rs = []
   try:
     x = json.loads(r.content)
-  except ValueError:
+  except (ValueError, TypeError):
     return rs
   if x.has_key(value):
     n_json = x.copy()
@@ -150,7 +153,7 @@ def inject(r, to=None, at=None, payload="default", **kwds):
   """ Inject a request.
 
   This function will create a RequestSet from a Request where a part
-  of the latter is replaced with some payload. There is two way to use
+  of the latter is replaced with some payload. There is two ways to use
   this function, either to inject the value of a parameter or to inject
   at a specific location.
 
@@ -165,7 +168,7 @@ def inject(r, to=None, at=None, payload="default", **kwds):
   once, the function will suggest to provide the 'choice' integer keyword.
 
   payload could either be a list of the payloads to inject or a key
-  of the global dictionnary payloads.
+  of the global dictionnary 'payloads'.
 
   Before being injected, each payload pass through the pre_func function
   which is by default encode.
@@ -176,6 +179,7 @@ def inject(r, to=None, at=None, payload="default", **kwds):
     print error("I need some help here. Where should I inject? " +\
                 "Try 'help(inject)'")
     return
+  # TODO: make to and at possibly an array
   if to and at:
     print error("Wow, too many parameters. It is either 'to' or 'at'.")
     return
@@ -216,7 +220,7 @@ def find_injection_points(r):
   try:
     i_pts = json.loads(r.content)
     ips.extends(i_pts.keys())
-  except ValueError:
+  except (ValueError,TypeError):
     pass
   return ips
 
@@ -230,7 +234,7 @@ def inject_all(r, payload="default"):
 
 i_all = inject_all
 
-def fuzz_headers(r, payload):
+def fuzz_headers(r, payload="default"):
   print "TODO: adapt payload for each header tested"
   rs = []
   for i, e in enumerate(r.headers):
