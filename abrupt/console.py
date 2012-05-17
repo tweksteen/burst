@@ -113,6 +113,10 @@ Abrupt have few classes which worth having a look at, typing 'help(class)':
   * Response
   * RequestSet
 
+There are also few interesting global objects, 'help(object)':
+  * conf
+  * history
+
 Please, report any bug or comment to tw@securusglobal.com"""
   else:
     pydoc.help(obj)
@@ -127,7 +131,7 @@ def interact(local_dict=None):
   /_\ | |__ _ _ _  _ _ __| |_
  / _ \| '_ \ '_| || | '_ \  _|
 /_/ \_\_.__/_|  \_,_| .__/\__|
-                 """ + abrupt.__version__ + """|_|"""
+""" + " " * (20 - len(abrupt.__version__)) + abrupt.__version__ + """|_|"""
 
   # Parse arguments
   try:
