@@ -14,8 +14,9 @@ def get_key_file():
 
 def generate_ssl_cert(domain):
   domain_cert = os.path.join(CERT_DIR, "sites", domain + ".pem")
-  gen_req_cmd = "openssl req -new -out {0}/req.pem -key {0}/key.pem -subj '/O=Abrupt/CN={1}'".format(CERT_DIR, domain)
-  sign_req_cmd = "openssl x509 -req -in {0}/req.pem -CA {0}/ca.pem -CAkey {0}/key.pem -out {1} -set_serial {2}".format(CERT_DIR, domain_cert, generate_serial())
+  gen_req_cmd = "openssl req -new -out {0}/req{1}.pem -key {0}/key.pem -subj '/O=Abrupt/CN={1}'".format(CERT_DIR, domain)
+  sign_req_cmd = "openssl x509 -req -in {0}/req{3}.pem -CA {0}/ca.pem -CAkey {0}/key.pem -out {1} -set_serial {2}".format(CERT_DIR, 
+                                                                                            domain_cert, generate_serial(), domain)
   if not os.path.exists(domain_cert):
     p_req = subprocess.Popen(shlex.split(gen_req_cmd), stdout=subprocess.PIPE, stderr=subprocess.PIPE)
     ss, se = p_req.communicate()
@@ -25,7 +26,7 @@ def generate_ssl_cert(domain):
     ss, se = p_sign.communicate()
     if p_sign.returncode:
       raise Exception("Error while signing the certificate:" + se)
-    os.remove(os.path.join(CERT_DIR, "req.pem"))
+    os.remove(os.path.join(CERT_DIR, "req{0}.pem".format(domain)))
   return domain_cert
 
 def generate_ca_cert():
