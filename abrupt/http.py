@@ -19,7 +19,7 @@ from StringIO import StringIO
 
 from abrupt.conf import conf
 from abrupt.color import *
-from abrupt.utils import make_table, clear_line, ellipsis, \
+from abrupt.utils import make_table, clear_line, \
                          re_space, smart_split, smart_rsplit, \
                          stats, parse_qs
 class AbruptException(Exception):
@@ -44,6 +44,13 @@ class ProxyError(AbruptException):
   pass
 
 class Request():
+  """The Request class is the base of Abrupt. To create an instance, you have
+  two options: either use a socket or a string representing the whole request
+  into the constructor or use the 'create' function.
+
+  The two methods __repr__ and __str__ have been defined to provide
+  user friendly interaction inside the interpreter.
+  """
 
   def __init__(self, fd, hostname=None, port=80, use_ssl=False):
     """Create a request. fd should be either a socket descriptor
@@ -98,9 +105,15 @@ class Request():
     return b
 
   def has_header(self, name, value=None):
+    """Test if the request contained a specific headers (case insensitive).
+    If value is supplied, it is matched (case insensitive) against the first
+    header with the matching name.
+    """
     return _has_header(self.headers, name, value)
 
   def get_header(self, name):
+    """Return the first header of the request matching name (case insensitive).
+    """
     return _get_header(self.headers, name)
 
   def set_headers(self, headers):
@@ -119,7 +132,7 @@ class Request():
       h, v = c
       if h.title() == "Content-Length":
         self.headers[i] = (h, l)
-        # ASSUMPTION: Only one Content-Length header per request
+        # ASSUMPTION: There is only one Content-Length header per request
         break
     else:
       self.headers.append(("Content-Length", l))
@@ -145,6 +158,7 @@ class Request():
     return ("<" + " ".join(fields) + ">").encode("utf-8")
 
   def copy(self):
+    """Copy a request. The response is not duplicated."""
     r_new = copy.copy(self)
     r_new.headers = copy.deepcopy(self.headers)
     r_new.response = None
@@ -171,7 +185,12 @@ class Request():
       return False
     return True
 
-  def __call__(self, conn=None, post_call=None, chunk_callback=None):
+  def __call__(self, conn=None, chunk_callback=None):
+    """Make the request to the server.
+    If conn is supplied, it will be used as connection socket. If
+    chunk_callback is supplied, it will be call for every chunk
+    received, if appplicable.
+    """
     if conn:
       sock = conn
     else:
@@ -180,12 +199,16 @@ class Request():
       history.append(self)
     _send_request(sock, self)
     n1 = datetime.datetime.now()
-    self.response = Response(sock.makefile('rb', 0), self, chunk_callback=chunk_callback)
+    self.response = Response(sock.makefile('rb', 0), self,
+                             chunk_callback=chunk_callback)
     n2 = datetime.datetime.now()
     self.response.time = n2 - n1
-    if post_call: post_call(self)
 
-  def edit(self, options='-c "set noeol" -c "set fileformats=dos" -b'):
+  def edit(self):
+    """Edit the request. The original request is not modified, a new
+    one is returned.
+    """
+    options = conf.editor_args if conf.editor_args else ""
     r_tmp = self.copy()
     if conf.update_content_length:
       r_tmp._remove_content_length()
@@ -202,7 +225,14 @@ class Request():
       os.remove(fname)
       return r_new
 
-  def play(self, options='-o2 -c "set noeol" -b -c "set autoread" -c "autocmd CursorMoved * checktime" -c "autocmd CursorHold * checktime"'):
+  def play(self):
+    """Start your editor with two windows. Each time the request file is saved,
+    the request is made to the server and the response updated. When the editor
+    terminates, the last valid request made is returned.
+    """
+    options = conf.editor_args if conf.editor_args else ""
+    options += " "
+    options += conf.editor_play_args if conf.editor_play_args else ""
     r_tmp = self.copy()
     if conf.update_content_length:
       r_tmp._remove_content_length()
@@ -214,7 +244,8 @@ class Request():
     if self.response:
       with os.fdopen(fdrep, 'w') as f:
         f.write(str(self.response))
-    ret = subprocess.Popen(conf.editor + " " + freqname + " " + frepname + " " + options, shell=True)
+    ret = subprocess.Popen(conf.editor + " " + freqname + " " +
+                           frepname + " " + options, shell=True)
     last_access = os.stat(freqname).st_mtime
     r_new = None
     while ret.poll() != 0:
@@ -240,6 +271,14 @@ class Request():
     return r_new
 
   def extract(self, arg, from_response=None):
+    """Extract a particular field of the request.
+    The field is looked up in:
+      * attributes
+      * URL query
+      * request body
+      * cookies
+      * response
+    """
     if from_response:
       if self.response:
         return self.response.extract(arg)
@@ -265,6 +304,9 @@ class Request():
     return bool(predicate(self))
 
   def follow(self):
+    """Try to follow the request (i.e., generate a new request based
+    on redirection information).
+    """
     if not self.response or not self.response.status in ('301', '302'):
       return
     else:
@@ -276,10 +318,12 @@ class Request():
           elif not url_p.scheme and url_p.path:
             nr = self.copy()
             n_path = urlparse.urljoin(self.url, v)
-            nr.url = urlparse.urlunparse(urlparse.urlparse(self.url)[:2] + urlparse.urlparse(n_path)[2:])
+            nr.url = urlparse.urlunparse(urlparse.urlparse(self.url)[:2] +
+                                         urlparse.urlparse(n_path)[2:])
             return nr
           else:
-            raise Exception("Unknown redirection, please add some code in abrupt/http.py:Request.follow")
+            raise Exception("Unknown redirection, please add some code " \
+                            "in abrupt/http.py:Request.follow")
 
 def create(url):
   """Create a request on the fly, based on a URL"""
@@ -300,7 +344,8 @@ Accept-Charset: ISO-8859-1,utf-8;q=0.7,*;q=0.7
 c = create
 
 class Response():
-
+  """A response object, always associated with a request.
+  """
   def __init__(self, fd, request, chunk_callback=None):
     try:
       banner = read_banner(fd)
@@ -312,7 +357,8 @@ class Response():
     if request.method == "HEAD":
       self.raw_content = self.content = ""
     else:
-      self.raw_content = read_content(fd, self.headers, self.status, chunk_callback=chunk_callback)
+      self.raw_content = read_content(fd, self.headers, self.status,
+                                      chunk_callback=chunk_callback)
       if self.raw_content:
         self.content = _clear_content(self.headers, self.raw_content)
       else:
@@ -325,7 +371,8 @@ class Response():
     flags = []
     if self.content: flags.append(str(len(self.content)))
     if self.has_header("Content-Type"):
-      flags.append(",".join([x.split(";")[0] for x in self.get_header("Content-Type")]))
+      flags.append(",".join([x.split(";")[0] for x in
+                                             self.get_header("Content-Type")]))
     if self.has_header("Transfer-Encoding", "chunked"): flags.append("chunked")
     if self.has_header("Content-Encoding", "gzip"): flags.append("gzip")
     if self.has_header("Content-Encoding", "deflate"): flags.append("deflate")
@@ -334,19 +381,32 @@ class Response():
     return "<" + color_status(self.status, rl) + " " + " ".join(flags) + ">"
 
   def has_header(self, name, value=None):
+    """Test if the response contained a specific headers (case insensitive).
+    If value is supplied, it is matched (case insensitive) against the first
+    header with the matching name.
+    """
     return _has_header(self.headers, name, value)
 
   def get_header(self, name):
+    """Return the first header of the response matching name (case insensitive).
+    """
     return _get_header(self.headers, name)
 
-  def view(self, options='-c "set noeol" -c "set fileformats=dos" -b'):
+  def view(self):
+    """Start your editor on a dump of the response
+    """
+    options = conf.editor_args if conf.editor_args else ""
     fd, fname = tempfile.mkstemp(suffix=".http")
     with os.fdopen(fd, 'w') as f:
       f.write(str(self))
     subprocess.call(conf.editor + " " + fname + " " + options, shell=True)
     os.remove(fname)
 
-  def edit(self, options='-c "set noeol" -c "set fileformats=dos" -b'):
+  def edit(self):
+    """Edit the response through your editor. A new reponse is
+    returned.
+    """
+    options = conf.editor_args if conf.editor_args else ""
     fd, fname = tempfile.mkstemp(suffix=".http")
     with os.fdopen(fd, 'w') as f:
       f.write(self.raw())
@@ -424,7 +484,6 @@ class Response():
     for h, v in self.headers:
       s.write("{}: {}\r\n".format(h, v))
     s.write("\r\n")
-    # XXX clean that
     if hasattr(self, "raw_content") and self.raw_content:
       s.write(self.raw_content)
     return s.getvalue()
@@ -437,12 +496,19 @@ class Response():
         self.headers.append((t, v))
 
   def preview(self):
+    """Preview the reponse in your browser.
+    """
     fd, fname = tempfile.mkstemp()
     with os.fdopen(fd, 'w') as f:
       f.write(self.content)
     webbrowser.open_new_tab(fname)
 
   def extract(self, arg):
+    """Extract a particular field of the response.
+    The field is looked up in:
+      * attributes
+      * cookies
+    """
     if hasattr(self, arg):
       return getattr(self, arg)
     c = self.cookies
@@ -466,6 +532,8 @@ def compare(r1, r2):
 cmp = compare
 
 class RequestSet():
+  """Set of request. This object behave like a list.
+  """
 
   def __init__(self, reqs=None):
     self.reqs = reqs if reqs else []
@@ -583,7 +651,7 @@ class RequestSet():
     for r in self.reqs:
       r.response = None
 
-  def __call__(self, post_call=None, force=False, randomised=False, verbose=False):
+  def __call__(self, post_callback=None, force=False, randomised=False, verbose=False):
     if not self.reqs:
       raise Exception("No request to proceed")
     hostnames = set([r.hostname for r in self.reqs])
@@ -616,7 +684,8 @@ class RequestSet():
       while not next:
         try:
           if verbose: print repr(r)
-          r(conn=conn, post_call=post_call)
+          r(conn=conn)
+          if post_callback: post_callback(r)
           if verbose: print repr(r.response)
           if r.response.closed:
             conn = self._init_connection()
@@ -631,6 +700,9 @@ class RequestSet():
     conn.close()
 
 class History(RequestSet):
+  """History is a singleton class which contains all the
+  requests made through Abrupt.
+  """
 
   def _enabled(self):
     if not conf.history:
@@ -853,7 +925,7 @@ def connect(hostname, port, use_ssl):
     elif p_url.scheme.startswith("socks5"):
       return _socks5_connect(hostname, port, use_ssl)
     else:
-      raise NotImplemented("Available proxy protocols: http(s), socks4a, socks5")
+      raise NotImplementedError("Available proxy protocols: http(s), socks4a, socks5")
   else:
     return _direct_connect(hostname, port, use_ssl)
 
