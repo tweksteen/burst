@@ -8,7 +8,7 @@ setup(
     packages = ['abrupt'],
     scripts = ['bin/abrupt'],
     package_data = {'abrupt': [ 'payloads/*',]},
-    description = 'Abrupt: interactive HTTP(S) tool',
+    description = 'Abrupt: interactive HTTP(S) tool/framework',
     url = "https://github.com/securusglobal/abrupt",
     author = u'Thiébaud Weksteen',
     author_email = "thiebaud.weksteen@securusglobal.com",
