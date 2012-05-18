@@ -5,12 +5,12 @@ abrupt.proxy - HTTP(S) Proxy
 
 To start a proxy, you can use the intercept method also known as p:
 
-.. function:: proxy(port=conf.port, nb=-1, rules=None, default_action='a', alerter=None, persistent=False, verbose=False])
+.. function:: proxy(port=conf.port, rules=None, default_action='a', alerter=None, persistent=False, verbose=False])
   
   aliased `p`
 
-  Start a new proxy server on port `port`. At most, `nb` requests will be 
-  served. If `nb` is `-1`, the proxy will process requests until stopped.
+  Start a new proxy server on port `port`. The proxy will process requests 
+  until stopped with Ctrl-C.
   
   `rules` is a list of pair where the first element is a predicate and the
   second a rule to execute when the predicate is true. If no rules applies,
