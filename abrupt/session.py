@@ -4,6 +4,7 @@ import datetime
 import glob
 import types
 import gzip
+import operator
 import __builtin__
 
 from abrupt.conf import conf, SESSION_DIR, ARCHIVE_DIR
@@ -20,7 +21,7 @@ def reset_last_save():
   last_save = datetime.datetime.now()
 
 def should_save():
-  delta_t = datetime.datetime.now() - last_save 
+  delta_t = datetime.datetime.now() - last_save
   return (delta_t > datetime.timedelta(minutes=20) and not session_readonly)
 
 def clear_session():
@@ -138,8 +139,21 @@ def list_sessions():
 
   See also: ss, save.
   """
-  print "Existing sessions:",
-  print ", ".join(sorted([s for s in os.listdir(SESSION_DIR)
-                            if os.path.isdir(os.path.join(SESSION_DIR, s))]))
+  print "Existing sessions:"
+  sessions = []
+  for s in os.listdir(SESSION_DIR):
+    if os.path.isdir(os.path.join(SESSION_DIR, s)):
+      last_used = sorted(glob.glob(os.path.join(SESSION_DIR, s, "*")))
+      d = ""
+      if last_used:
+        try:
+          d = datetime.datetime.strptime(os.path.basename(last_used[-1]),
+                                         "%Y-%m-%dT%H%M.p")
+        except ValueError:
+          pass
+      sessions.append((s, d))
+  shift = max([len(x[0]) for x in sessions])
+  print "\n".join([ "  " + s.ljust(shift) + " " + str(d) for s,d in
+                         sorted(sessions, key=operator.itemgetter(0))])
 
 lss = list_sessions
