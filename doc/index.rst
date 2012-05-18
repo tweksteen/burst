@@ -7,8 +7,9 @@ Quick start
 ===========
 ::
 
-  $ sudo pip install abrupt
-  $ abrupt
+  $ git clone git://github.com/SecurusGlobal/Abrupt.git abrupt
+  $ cd abrupt
+  $ ./bin/abrupt
   Generating SSL certificate...
   CA certificate : ~/.abrupt/ca.pem
   Abrupt 0.4
