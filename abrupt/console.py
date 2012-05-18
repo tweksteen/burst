@@ -3,7 +3,6 @@ import os
 import sys
 import re
 import code
-import glob
 import atexit
 import getopt
 import pydoc
@@ -148,11 +147,11 @@ def interact(local_dict=None):
         print "Abrupt {}, Copyright (c) 2012 Securus Global".format(abrupt.__version__)
         sys.exit(0)
       elif opt == "-b":
-        banner = "Abrupt {}".version(abrupt.__version__)
+        banner = "Abrupt {}".format(abrupt.__version__)
       elif opt == "-r":
         abrupt.session.session_readonly = True
     if opts[1]:
-        _usage()
+      _usage()
   except getopt.GetoptError:
     _usage()
 
