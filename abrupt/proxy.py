@@ -44,7 +44,7 @@ class ProxyHTTPRequestHandler(SocketServer.StreamRequestHandler):
       return Request(self.rfile, hostname=hostname, port=port, use_ssl=True)
     except ssl.SSLError as e:
       if "alert unknown ca" in str(e) or "alert certificate unknown" in str(e):
-        print warning("Abrupt certificate for {} ".format(hostname) + 
+        print warning("Abrupt certificate for {} ".format(hostname) +
                       "has been rejected by your client.")
       else:
         print warning(str(e))
@@ -240,8 +240,8 @@ class ProxyHTTPRequestHandler(SocketServer.StreamRequestHandler):
       if not hasattr(self, "chunk_written"):
         self.wfile.write(self.r.response.raw())
     except ssl.SSLError as e:
-     self.close_connection = 1 
-     print self.pt, "<" + warning("SSLError") + ": " + str(e) + ">"
+      self.close_connection = 1
+      print self.pt, "<" + warning("SSLError") + ": " + str(e) + ">"
     except NotConnected as e:
       self.close_connection = 1
     except (UnableToConnect, socket.timeout) as e:
@@ -264,28 +264,28 @@ class ProxyHTTPServer(SocketServer.ThreadingMixIn, SocketServer.TCPServer):
       print warning(str(exc_type) + ":" + str(exc_value))
       traceback.print_tb(exc_traceback)
 
-def proxy(port=None, nb=-1, rules=((lambda x: re_images_ext.search(x.path), "f"),),
+def proxy(port=None, rules=((lambda x: re_images_ext.search(x.path), "f"),),
           default_action="a", alerter=None, persistent=True,  pre_func=None,
           decode_func=None, forward_chunked=False, verbose=False):
   """Intercept all HTTP(S) requests on port. Return a RequestSet of all the
   answered requests.
 
-  port           -- port to listen to
-  nb             -- number of request to intercept (-1 for infinite)
-  alerter        -- alerter triggered on each response, by default alerter.Generic
-  rules          -- set of rules for automated actions over requests
-  default_action -- action to execute when no rules matches, by default (a)sk
-  pre_func       -- callback used before processing a request
-  decode_func    -- callback used when (de)coding a request/response content, by
-                    default, decode().
-  persistent     -- keep the connection persistent with your client
-  verbose        -- degree of verbosity:
-                    False  -- Only display requests undergoing default_action
-                    1/True -- Display all requests, including automated ones
-                    2      -- Display all requests with their full content
-                    3      -- Display all requests and responses with their
+  port            -- port to listen to
+  alerter         -- alerter triggered on each response, by default alerter.Generic
+  rules           -- set of rules for automated actions over requests
+  default_action  -- action to execute when no rules matches, by default (a)sk
+  pre_func        -- callback used before processing a request
+  decode_func     -- callback used when (de)coding a request/response content, by
+                     default, decode().
+  forward_chunked -- forward chunked response without waiting for the end of it
+  persistent      -- keep the connection persistent with your client
+  verbose         -- degree of verbosity:
+                     False  -- Only display requests undergoing default_action
+                     1/True -- Display all requests, including automated ones
+                     2      -- Display all requests with their full content
+                     3      -- Display all requests and responses with their
                               full content
-  See also: watch()
+  See also: conf, watch()
   """
   if not port: port = conf.port
   if not alerter: alerter = alert.Generic()
@@ -305,7 +305,6 @@ def proxy(port=None, nb=-1, rules=((lambda x: re_images_ext.search(x.path), "f")
   httpd.forward_chunked = forward_chunked
   httpd.verbose = verbose
   httpd.persistent = persistent
-  e_nb = 0
   while True:
     try:
       httpd.serve_forever()
