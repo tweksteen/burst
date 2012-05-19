@@ -10,77 +10,90 @@ abrupt.conf - Configuration
   
   .. method:: save()
   
-  Save the current configuration. This method should only be called
-  outside a session. Inside a session, simply call :func:`session.save()`.
+    Save the current configuration. This method should only be called
+    outside a session. Inside a session, simply call :func:`session.save()`.
   
   .. attribute:: proxy
   
-  Upstream proxy. By default, None.
+    Upstream proxy. Abrupt supports HTTP(S), Socks4a and Socks5 proxys, without
+    authentication. By default, None.
 
   .. attribute:: ip
 
-  Default proxy ip. Default IP address on which Abrupt will listen. If None,
-  will only listen on 127.0.0.1. By default, None.
+    Default proxy ip. Default IP address on which Abrupt will listen. If None,
+    will only listen on 127.0.0.1. By default, None.
 
   .. attribute:: port
 
-  Default proxy port. See also the `port` parameter of the :func:`proxy.proxy`
-  function. By default, 8080.
+    Default proxy port. See also the `port` parameter of the :func:`proxy.proxy`
+    function. By default, 8080.
 
   .. attribute:: target
      
-  Set a target in case of transparent proxying. If your application is not
-  proxy-aware, use this parameter to set a target. By default, None.
+    Set a target in case of transparent proxying. If your application is not
+    proxy-aware, use this parameter to set a target. By default, None.
+
+  .. attribute:: ssl_hostname
+
+    When using the :attr:`target` attribute, it is possible to set the expected
+    hostname of the SSL certificate through this attribute.
 
   .. attribute:: delay
   
-  Delay between requests when a :class:`~http.RequestSet` is executed. 
-  By default, 0.
+    Delay between requests when a :class:`~http.RequestSet` is executed. 
+    By default, 0.
 
   .. attribute:: autosave 
 
-  Autosave the session when terminating Abrupt or switching to a 
-  new one. By default, True.
+    Autosave the session when terminating Abrupt or switching to a 
+    new one. By default, True.
 
   .. attribute:: history
   
-  Keep a copy of all the requests made in the global :mod:`history`. 
-  By default, True.
+    Keep a copy of all the requests made in the global :mod:`history`. 
+    By default, True.
 
   .. attribute:: ssl_version
   
-  SSL version to use when connecting to the server. Possible values 
-  are: SSLv2, SSLv3, TLSv1 and SSLv23.
+    SSL version to use when connecting to the server. Possible values 
+    are: SSLv2, SSLv3, TLSv1 and SSLv23.
 
   .. attribute:: term_width
 
-  Expected width of the terminal. Abrupt tries to optimise the output
-  whenever possible in regards to the current terminal width. The
-  default "auto" will try to get this information from the system. You
-  can set any arbitrary integer. The value 0 will consider the width
-  as unlimited.
+    Expected width of the terminal. Abrupt tries to optimise the output
+    whenever possible in regards to the current terminal width. The
+    default "auto" will try to get this information from the system. You
+    can set any arbitrary integer. The value 0 will consider the width
+    as unlimited.
 
   .. attribute:: color_enabled
 
-  Boolean to activate or deactivate the colors in the console. 
-  By default, True.
+    Boolean to activate or deactivate the colors in the console. 
+    By default, True.
 
   .. attribute:: editor
     
-  Default editor to use when editing a request or viewing a response.
-  By default, ``/usr/bin/vim``.
-
+    Default editor to use when editing a request or viewing a response.
+    By default, ``/usr/bin/vim``.
 
   .. attribute:: diff_editor
     
-  Default editor to use when comparing requests or responses.
-  By default, ``/usr/bin/vimdiff``.
+    Default editor to use when comparing requests or responses.
+    By default, ``/usr/bin/vimdiff``.
+
+  .. attribute:: editor_args
+
+    Arguments for your editor when using the :meth:`~http.Request.edit` method.
+
+  .. attribute:: editor_play_args
+
+    Extra arguments when using the :meth:`~http.Request.play` method.
 
   .. attribute:: update_content_length
     
-  When editing a Request, Abrupt will automatically update any
-  `Content-Length` header. To disable this feature, set this
-  option to False. By default, True.
+    When editing a Request, Abrupt will automatically update any
+    `Content-Length` header. To disable this feature, set this
+    option to False. By default, True.
 
 .. data:: conf
 

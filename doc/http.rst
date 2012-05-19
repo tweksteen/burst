@@ -66,11 +66,25 @@ abrupt.http - HTTP base classes
     The associated response, once the request has been made to the server.
     For more information, see :class:`~http.Response`.
 
-  .. method:: __call__()
+  .. method:: has_header(name, value=None)
+
+    Test if the request contained a specific headers (case insensitive).
+    If value is supplied, it is matched (case insensitive) against the first
+    header with the matching name.
+  
+  .. method:: get_header(name)
+
+    Return the headers of the request matching name (case insensitive). Note
+    that this method always returns a list.
+
+  .. method:: __call__(conn=None, chunk_callback=None)
     
     Do the request. Includes connect to the server, send the request,
     read the response, create the corresponding :class:`~http.Response` 
     object and add itself to the :data:`~http.history`.
+    If `conn` is supplied, it will be used as connection socket. If 
+    `chunk_callback` is supplied, it will be call for every chunk received,
+    if applicable.
 
   .. method:: follow()
   
@@ -94,12 +108,11 @@ abrupt.http - HTTP base classes
       valid one once the Request has been saved. To disable this option,
       see `conf.Configuration.update_content_length`.
 
-  .. method:: play(options)
+  .. method:: play()
 
     Start your editor with two windows. Each time the request file is saved,
     the request is made to the server and the response updated. When the 
     editor terminates, the last valid request made is returned.
-    By default, `options` is set to configure ``vim``.
 
     Please read the above note about `Content-Length`.
 
@@ -137,10 +150,29 @@ abrupt.http - HTTP base classes
 
     Decoded content, as displayed by your browser. 
 
+  .. attribute:: length
+      
+    Length of the response content.
+
+  .. attribute:: content_type
+
+    Content type of the response, according to the headers.
+
   .. attribute:: cookies
 
     A python cookie, see http://docs.python.org/library/cookie.html. This 
     attribute is read-only, based on the :attr:`headers`
+
+  .. method:: has_header(name, value=None)
+
+    Test if the response contained a specific headers (case insensitive).
+    If value is supplied, it is matched (case insensitive) against the first
+    header with the matching name.
+  
+  .. method:: get_header(name)
+
+    Return the headers of the response matching name (case insensitive). Note
+    that this method always returns a list.
 
   .. method:: raw()
 
@@ -161,7 +193,7 @@ abrupt.http - HTTP base classes
 .. class:: RequestSet([reqs=None])
 
   RequestSet is just an easy way to group some :class:`~http.Request`. It 
-  behave like a list. You can access element at a specific index 
+  behaves like a list. You can access element at a specific index 
   with the `[]` operator. `append`, `extend`, `pop`, `+` will behave as   
   expected. 
 
@@ -182,7 +214,7 @@ abrupt.http - HTTP base classes
     response cookies, in this order. If only the response should be looked
     up, set `from_response` to `True`.
 
-  .. method:: __call__([force=False, randomised=False, post_call=None, verbose=False])
+  .. method:: __call__([force=False, randomised=False, post_callback=None, verbose=False])
   
     Send all the requests contained in the RequestSet. This call is only 
     valid if the requests are all using the same host and port. 
@@ -202,7 +234,7 @@ abrupt.http - HTTP base classes
 
   .. method:: summary()
   
-    Provide a statistical summary based on response length and time.
+    Provide a statistical summary based on responses length and time.
 
   .. method:: cmp(i1, i2)
     

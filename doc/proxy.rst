@@ -5,7 +5,7 @@ abrupt.proxy - HTTP(S) Proxy
 
 To start a proxy, you can use the intercept method also known as p:
 
-.. function:: proxy(port=conf.port, rules=None, default_action='a', alerter=None, persistent=False, verbose=False])
+.. function:: proxy(port=conf.port, rules=None, default_action='a', alerter=None, persistent=True, pre_func=None, forward_chunked=False, verbose=False])
   
   aliased `p`
 
@@ -29,16 +29,19 @@ To start a proxy, you can use the intercept method also known as p:
   after each requests to look up trivial outstanding responses. If `None` is supplied,
   an instance of :class:`alerter.Generic` will be used.
     
-  To keep the connection alive with your client, set `persistent` to `True`. This will
-  increase the performance of the proxy but it is only useful if your client is aware that 
-  only one connection can be establish with the proxy.
-  In Firefox, set ``network.http.max-persistent-connections-per-proxy`` to 1.
-  
+  To only process one request per client connection, set `persistent` to `False`. 
+ 
   `verbose` determine the verbosity degree. If `False`, only the requests undergoing
   the `default_action` will be displayed. If equals to `1`, all the requests,
   including the one automatically processed will be displayed. If `2`, all the requests
   will be displayed, including their full content. If `3`, all the requests and responses
   will be displayed, including their full content.
+
+  If `forward_chunked` is set to `True`, the chuked response will automatically 
+  be forwarded to the client. This is useful in the case of server push.
+
+  More proxy options are also available through the global 
+  :doc:`configuration <configuration>`.
  
   This function return a :class:`RequestSet` of all the successful :class:`Request` made.
 

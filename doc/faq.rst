@@ -9,6 +9,12 @@ of Python. If so, please email tw@securusglobal.com with the details
 of the bugs. If you feel you can patch it yourself, pull requests on 
 github are welcomed.
 
+What are the requirements for running Abrupt?
+---------------------------------------------
+
+You'll need Python 2.7 and OpenSSL. If libxml is installed, Abrupt will use 
+it to improve accuracy of anomaly detection but this is optional.
+
 Can I script Abrupt?
 --------------------
 

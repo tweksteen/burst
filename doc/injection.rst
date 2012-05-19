@@ -54,10 +54,10 @@ abrupt.injection - Request generator
   "payloads" and create the corresponding key.
 
   By default, it contains:
-    * default, a minimal list of standard payload, targeting classic web
-      app vulnerabilities.
-    * full, a larger list of standard payload.
+    * xss, a small list of xss payload.
     * sqli, targeting SQL injection. 
+    * cmd, command execution.
+    * default, the compilation of all the above payloads.
 
 .. function:: encode(x)
 

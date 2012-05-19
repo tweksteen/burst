@@ -7,12 +7,12 @@ Quick start
 ===========
 ::
 
-  $ git clone git://github.com/SecurusGlobal/Abrupt.git abrupt
+  $ git clone git://github.com/securusglobal/abrupt.git
   $ cd abrupt
   $ ./bin/abrupt
   Generating SSL certificate...
   CA certificate : ~/.abrupt/ca.pem
-  Abrupt 0.4
+  Abrupt 0.5
   >>>
   
 .. note:: The first time you start Abrupt, it will generate a CA certificate.
@@ -20,60 +20,68 @@ Quick start
   site with the proxy enabled. You can install this certificate in your
   browser.
 
-If libxml is installed, Abrupt will uses it to improve accuracy of anomaly
-detection. This dependency is optional.
+Abrupt tries to make all day-to-day actions as fast as possible. Most of the
+core functions have an alias (first letter). It is possible to retrieve the
+list of aliases in the :doc:`cheatsheet <cheatsheet>`.
 
 Proxy
 -----
 
 To start, let's grab some HTTP requests. To do so, use the :func:`~proxy.proxy` 
 function or its alias `p`. It will start a new proxy server on the port 8080. 
-This server will catch every HTTP(S) request and prompt the user for 
-directions::
+This server will intercept every HTTP(S) request and prompt for directions::
 
   >>> p()
   Running on port 8080
   Ctrl-C to interrupt the proxy...
 
 You can now configure your browser to use http://localhost:8080 as your proxy.
-All the requests will be captured by Abrupt::
+All the requests will be captured by Abrupt and displayed::
 
-  <GET www.phrack.org /> ? 
+  [1] <GET www.phrack.org /> ? 
 
-For each request, you can decide what to do:
+In this case, a GET request targeted at www.phrack.org arrived. (The number 
+at the beggining of each line represents the thread which is processing the 
+request). You can now decide what to do:
  
   * (v)iew - print the full request
+  * (h)eaders - print the headers
   * (e)dit - manually edit the request in your text editor
   * (d)rop - drop the request
   * (f)orward - forward the request
   * (c)ontinue - forward this request and the followings
+  * (n)ext - put this request on the side and process another one
 
 Forward is the default action if none is passed. Once a request has been made,
-you can see the response status and length::
+you can see the response::
 
-  <GET www.phrack.org /> ? f
-  <200 Gzip 5419>
+  [1] <GET www.phrack.org /> ? f
+  [1] <200 7468 text/html gzip>
 
-Once you're done with your requests, use Ctrl-C to exit. The proxy function 
-returns all the completed requests and associated responses in a 
+The response status, length, content-type and flag are displayed. Once you're 
+done with your requests, use Ctrl-C to exit. The proxy function returns all 
+the completed requests and associated responses in a 
 :class:`~http.RequestSet` object::
 
-  1 request intercepted
+  Waiting for the threads to stop
   {200:1 | www.phrack.org}
   >>> requests = _
   >>> print requests
   Method Path Query Status Length 
-  GET    /          200    5419   
+  GET    /          200    7468
 
   >>> requests[0]
   <GET www.phrack.org />
+
+.. note:: Inside the Python interpreter, the underscore variable ("_") holds 
+   the result of the previous command.
 
 The proxy comes with a powerful rules system to automatically process some 
 requests according to user-defined criteria. For instance::
 
   >>> p(rules=((lambda x: x.hostname != "www.phrack.org", "d"),) )
 
-will automatically drop any request which is not targeting "www.phrack.org".
+will automatically drop any request which is not targeting www.phrack.org.
 If no rule is provided, it will forward image files (.png, .jpg, .jpeg, 
 .ico, .gif) without prompting the user. To see these images, you can increase 
 the verbosity level::
@@ -84,7 +92,8 @@ Or disable the default rules::
 
   >>> p(rules=None)
 
-To learn more about rules and how to make your own, see :func:`~proxy.proxy`. 
+To learn more about rules, how to make your own and how to configure the 
+proxy, see :func:`~proxy.proxy`. 
 
 Request and Response
 --------------------
@@ -108,16 +117,14 @@ headers, path, query, url, content, etc. You can edit the request through your
 editor (default is vim) to create a new request::
 
   >>> new_r = r.edit()
-  
-For interactive edition, see the :meth:`~http.Request.play` method. *Amusement 
-garanti!* 
 
-The request can be executed and the response displayed::
+The request can then be executed and the new response displayed::
 
   >>> new_r()
   >>> new_r.response
-  <200 Gzip 5419>
+  <200 7468 text/html gzip>
 
+For interactive edition, see the :meth:`~http.Request.play` method. 
 :class:`~http.Response` objects have the attributes: status, reason, headers, 
 content, raw_content, etc. You can use the :meth:`~http.Response.preview` 
 method to open a static dump of the response in your browser and the 
@@ -147,14 +154,13 @@ capture session::
 
   >>> p()
   Ctrl-C to interrupt the proxy...
-  <GET www.cryptome.org />
-  <200 49380>
-  1 request intercepted
+  <GET www.cryptome.org /> ? f
+  <200 64184 text/html> ? f
+  Waiting for the threads to stop
   >>> requests += _
   >>> requests
   {200:2 | phrack.org, www.cryptome.org}
   
-
 You can filter the requests by any request attribute using the 
 :meth:`~http.RequestSet.filter` method::
 
@@ -184,7 +190,7 @@ possible values for the payload list name are the keys of the
 default ones::
 
   >>> payloads.keys()
-  ['digits', 'lowercase', 'full', 'default', 'uppercase', 'sqli', 'hexdigits', 'printable']
+  ['xss', 'sqli', 'default', 'cmd', 'misc', 'printable', 'email', 'dir']
 
 You can add your own payload list to your Abrupt or also use a list generated 
 on the fly. Read more about this function in the :mod:`injection` module.

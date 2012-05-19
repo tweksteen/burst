@@ -112,7 +112,8 @@ class Request():
     return _has_header(self.headers, name, value)
 
   def get_header(self, name):
-    """Return the first header of the request matching name (case insensitive).
+    """Return the headers of the request matching name (case insensitive). Note
+    that this method always returns a list. 
     """
     return _get_header(self.headers, name)
 
@@ -305,7 +306,7 @@ class Request():
 
   def follow(self):
     """Try to follow the request (i.e., generate a new request based
-    on redirection information).
+    On redirection information).
     """
     if not self.response or not self.response.status in ('301', '302'):
       return
@@ -388,7 +389,8 @@ class Response():
     return _has_header(self.headers, name, value)
 
   def get_header(self, name):
-    """Return the first header of the response matching name (case insensitive).
+    """Return the headers of the response matching name (case insensitive). Note
+    that this method always returns a list. 
     """
     return _get_header(self.headers, name)
 
@@ -532,7 +534,7 @@ def compare(r1, r2):
 cmp = compare
 
 class RequestSet():
-  """Set of request. This object behave like a list.
+  """Set of request. This object behaves like a list.
   """
 
   def __init__(self, reqs=None):
