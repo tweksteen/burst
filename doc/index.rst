@@ -9,6 +9,7 @@ Quick start
 
   $ git clone git://github.com/securusglobal/abrupt.git
   $ cd abrupt
+  $ export PYTHONPATH=$PWD
   $ ./bin/abrupt
   Generating SSL certificate...
   CA certificate : ~/.abrupt/ca.pem
