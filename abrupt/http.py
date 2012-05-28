@@ -65,6 +65,7 @@ class Request():
       raise NotConnected(' '.join(banner))
     if self.method.upper() == "CONNECT":
       self.hostname, self.port = url.split(":", 1)
+      self.port = int(self.port)
     else:
       p_url = urlparse.urlparse(url)
       self.url = urlparse.urlunparse(("", "") + p_url[2:])
@@ -849,7 +850,15 @@ def _socks5_connect(hostname, port, use_ssl):
   if p_res[3] == "\x01":
     sock.recv(4)
   elif p_res[3] == "\x03":
-    sock.recv(5)
+    p_l = ord(sock.recv(1))
+    sock.recv(p_l)
+  sock.recv(2)
+  if use_ssl:
+    try:
+      sock = ssl.wrap_socket(sock, ssl_version=conf._ssl_version)
+    except socket.error, e:
+      print e
+      raise UnableToConnect("Unable to use SSL with the proxy")
   return sock
 
 def _socks4_connect(hostname, port, use_ssl):
