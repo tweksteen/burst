@@ -241,7 +241,9 @@ class ProxyHTTPRequestHandler(SocketServer.StreamRequestHandler):
         self.wfile.write(self.r.response.raw())
     except ssl.SSLError as e:
       self.close_connection = 1
+      lock.acquire()
       print self.pt, "<" + warning("SSLError") + ": " + str(e) + ">"
+      lock.release()
     except NotConnected as e:
       self.close_connection = 1
     except (UnableToConnect, socket.timeout) as e:
