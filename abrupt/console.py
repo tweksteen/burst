@@ -99,7 +99,7 @@ def help(obj=None):
     print """Welcome to Abrupt!
 
 If this is your first time using Abrupt, you should check the
-quickstart at http://securusglobal.github.com/Abrupt/.
+quickstart at http://securusglobal.github.com/abrupt/.
 
 Here are the basic functions of Abrupt, type 'help(function)'
 for a complete description of these functions:
