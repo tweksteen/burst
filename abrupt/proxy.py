@@ -10,7 +10,7 @@ import time
 
 from abrupt import alert, console
 from abrupt.http import Request, RequestSet, connect, \
-                        BadStatusLine, UnableToConnect, NotConnected
+                        BadStatusLine, UnableToConnect, NotConnected, ProxyError
 from abrupt.conf import conf
 from abrupt.color import *
 from abrupt.cert import generate_ssl_cert, get_key_file
@@ -131,11 +131,12 @@ class ProxyHTTPRequestHandler(SocketServer.StreamRequestHandler):
 
   def handle(self):
     self.close_connection = 1
-    self.handle_one_request()
+    if not self.handle_one_request():
+      return
     while not self.close_connection:
       n = self.poll()
       if not n: break
-      self.handle_one_request()
+      if not self.handle_one_request(): break
 
   def handle_one_request(self):
     """
@@ -239,6 +240,7 @@ class ProxyHTTPRequestHandler(SocketServer.StreamRequestHandler):
       lock.release()
       if not hasattr(self, "chunk_written"):
         self.wfile.write(self.r.response.raw())
+      return True
     except ssl.SSLError as e:
       self.close_connection = 1
       lock.acquire()
@@ -246,12 +248,12 @@ class ProxyHTTPRequestHandler(SocketServer.StreamRequestHandler):
       lock.release()
     except NotConnected as e:
       self.close_connection = 1
-    except (UnableToConnect, socket.timeout) as e:
+    except (UnableToConnect, socket.timeout, ProxyError) as e:
       self.close_connection = 1
       lock.acquire()
       print self.pt, repr(e)
-      self.wfile.write("Abrupt: " + str(e))
       lock.release()
+    return False
 
 class ProxyHTTPServer(SocketServer.ThreadingMixIn, SocketServer.TCPServer):
 
