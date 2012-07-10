@@ -647,6 +647,9 @@ class RequestSet():
   def by_status(self):
     return RequestSet(sorted(self.reqs, key=operator.attrgetter("response.status")))
 
+  def without_payloads(self):
+    return RequestSet([x for x in self.reqs if not hasattr(x, "payload")])
+
   def _init_connection(self):
     return connect(self.hostname, self.port, self.use_ssl)
 
