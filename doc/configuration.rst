@@ -33,6 +33,18 @@ abrupt.conf - Configuration
     Set a target in case of transparent proxying. If your application is not
     proxy-aware, use this parameter to set a target. By default, None.
 
+  .. attribute:: ssl_verify
+
+    Path to the CA chain. If None, no verification or validation is made
+    on the server SSL certificate. By default, /etc/pki/tls/cert.pem.
+    Under Ubuntu/Debian, you may use /etc/ssl/certs/ca-certificates.crt.
+
+  .. attribute:: ssl_reverse
+
+    If True, the proxy will use the SSL hostname gathered by contacting the target server.
+    The server certificate will be validated before beeing used. Therefore, `ssl_verify`
+    should be properly configured.
+
   .. attribute:: ssl_hostname
 
     When using the :attr:`target` attribute, it is possible to set the expected

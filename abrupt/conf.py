@@ -41,12 +41,18 @@ class Configuration(object):
   the 'conf' instance. By default contains the following attributes:
 
     - port: default listening port
-    - proxy: outgoing proxy
+    - ip: default listening IP address
+    - proxy: outgoing proxy (support: http(s), sock4a, socks5)
     - autosave: automatically save the session when exiting
     - history: keep a copy of all the requests made
     - editor, diff_editor: external editors called when editing
     - term_width: expected width of the terminal
-    - ssl_version: ssl version used with the server (ssl.PROTOCOL_*)
+    - ssl_version: ssl version used with the server (SSLv2, SSLv3, SSLv23, TLSv1)
+    - ssl_verify: path to CA certs chain. If None, no verification is made
+    - ssl_reverse: contact the server to determine hostname for the SSL certificate
+    - ssl_hostname: static hostname to use for SSL
+    - target: use to specify the target in case of proxy-unaware application
+    - update_content_length: flag to automatically update the header on edition
   """
   ssl_map = {"SSLv3": ssl.PROTOCOL_SSLv3, "SSLv23": ssl.PROTOCOL_SSLv23,
              "SSLv2": ssl.PROTOCOL_SSLv2, "TLSv1": ssl.PROTOCOL_TLSv1}
@@ -69,6 +75,8 @@ class Configuration(object):
                             '-c "autocmd CursorMoved * checktime" ' \
                             '-c "autocmd CursorHold * checktime"'
     self.ssl_hostname = None
+    self.ssl_reverse = False
+    self.ssl_verify = "/etc/pki/tls/cert.pem"
     self.update_content_length = True
     self._ssl_version = ssl.PROTOCOL_SSLv3
     self._values = {"port": "getint", "proxy": "get", "timeout": "getint",
@@ -78,7 +86,8 @@ class Configuration(object):
                     "editor_play_args": "get", "term_width": "get",
                     "delay": "getint", "color_enabled": "getboolean",
                     "update_content_length": "getboolean", "ip": "get",
-                    "target": "get", "ssl_hostname": "get"}
+                    "target": "get", "ssl_hostname": "get", "ssl_reverse": "get",
+                    "ssl_verify": "get"}
 
   def _get_ssl_version(self):
     for k, v in self.ssl_map.items():

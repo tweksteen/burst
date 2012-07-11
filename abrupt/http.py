@@ -831,6 +831,13 @@ def _clear_content(headers, raw_content):
     return unzipped.read()
   return content
 
+def _wrap_socket(sock):
+  if conf.ssl_verify or conf.ssl_reverse:
+    return ssl.wrap_socket(sock, ssl_version=conf._ssl_version,
+                           cert_reqs=ssl.CERT_REQUIRED, ca_certs=conf.ssl_verify)
+  else:
+    return ssl.wrap_socket(sock, ssl_version=conf._ssl_version)
+
 def _socks5_connect(hostname, port, use_ssl):
   p_url = urlparse.urlparse(conf.proxy)
   p_hostname = p_url.hostname
@@ -858,7 +865,7 @@ def _socks5_connect(hostname, port, use_ssl):
   sock.recv(2)
   if use_ssl:
     try:
-      sock = ssl.wrap_socket(sock, ssl_version=conf._ssl_version)
+      sock = _wrap_socket(sock)
     except socket.error, e:
       print e
       raise UnableToConnect("Unable to use SSL with the proxy")
@@ -884,7 +891,7 @@ def _socks4_connect(hostname, port, use_ssl):
     raise ProxyError("Socks proxy returned: " + repr(p_res))
   if use_ssl:
     try:
-      sock = ssl.wrap_socket(sock, ssl_version=conf._ssl_version)
+      sock = _wrap_socket(sock)
     except socket.error:
       raise UnableToConnect("Unable to use SSL with the proxy")
   return sock
@@ -914,7 +921,7 @@ def _http_connect(hostname, port, use_ssl):
     if s != "200":
       raise ProxyError("Bad status " + s + " " + m)
     _ = read_headers(f)
-    sock = ssl.wrap_socket(sock, ssl_version=conf._ssl_version)
+    sock = _wrap_socket(sock)
   return sock
 
 def _direct_connect(hostname, port, use_ssl):
@@ -924,8 +931,9 @@ def _direct_connect(hostname, port, use_ssl):
     raise UnableToConnect()
   if use_ssl:
     try:
-      sock = ssl.wrap_socket(sock, ssl_version=conf._ssl_version)
-    except socket.error:
+      sock = _wrap_socket(sock)
+    except socket.error, e:
+      print e
       raise UnableToConnect("Unable to use SSL with the server")
   return sock
 

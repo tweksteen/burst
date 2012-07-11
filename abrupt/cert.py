@@ -5,6 +5,12 @@ import subprocess
 
 from abrupt.conf import CERT_DIR
 
+def extract_name(cert):
+  if "subject" in cert and len(cert["subject"]) >= 0:
+    s = cert["subject"]
+    for x in s:
+      if x[0][0] == "commonName":
+        return x[0][1]
 
 def generate_serial():
   return hex(random.getrandbits(64))[:-1]

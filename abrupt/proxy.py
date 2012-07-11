@@ -13,7 +13,7 @@ from abrupt.http import Request, RequestSet, connect, \
                         BadStatusLine, UnableToConnect, NotConnected, ProxyError
 from abrupt.conf import conf
 from abrupt.color import *
-from abrupt.cert import generate_ssl_cert, get_key_file
+from abrupt.cert import generate_ssl_cert, get_key_file, extract_name
 from abrupt.utils import re_images_ext, flush_input, decode
 
 lock = threading.Lock()
@@ -34,7 +34,14 @@ class ProxyHTTPRequestHandler(SocketServer.StreamRequestHandler):
     if proxy_aware:
       self.wfile.write("HTTP/1.1 200 Connection established\r\n\r\n") # yes, sure
     try:
-      if conf.ssl_hostname:
+      if conf.ssl_reverse:
+        s = connect(hostname=hostname, port=port, use_ssl=True)
+        cert = s.getpeercert()
+        if cert:
+          name = extract_name(cert)
+          if name:
+            hostname = name
+      elif conf.ssl_hostname:
         hostname = conf.ssl_hostname
       self.ssl_sock = ssl.wrap_socket(self.request, server_side=True,
                                       certfile=generate_ssl_cert(hostname),
