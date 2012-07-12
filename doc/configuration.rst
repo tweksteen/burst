@@ -42,7 +42,7 @@ abrupt.conf - Configuration
   .. attribute:: ssl_reverse
 
     If True, the proxy will use the SSL hostname gathered by contacting the target server.
-    The server certificate will be validated before beeing used. Therefore, `ssl_verify`
+    The server certificate will be validated before being used. Therefore, :attr:`~conf.Configuration.ssl_verify`
     should be properly configured.
 
   .. attribute:: ssl_hostname
