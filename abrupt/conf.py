@@ -86,7 +86,7 @@ class Configuration(object):
                     "editor_play_args": "get", "term_width": "get",
                     "delay": "getint", "color_enabled": "getboolean",
                     "update_content_length": "getboolean", "ip": "get",
-                    "target": "get", "ssl_hostname": "get", "ssl_reverse": "get",
+                    "target": "get", "ssl_hostname": "get", "ssl_reverse": "getboolean",
                     "ssl_verify": "get"}
 
   def _get_ssl_version(self):

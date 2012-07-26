@@ -8,7 +8,7 @@ try:
 except ImportError:
   has_lxml = False
 
-class Generic:
+class GenericAlerter:
   html_keywords = [r'Error', r'Warning', r'SQL', r'LDAP', r'Failure']
   js_keywords = [r'password', r'credential']
 
@@ -54,10 +54,28 @@ class Generic:
         alerts.append(error("response.content matches " + e.pattern))
     return alerts
 
-  def parse(self, r):
+  def analyse_request(self, r):
+    return []
+
+  def analyse_response(self, r):
     if r.response and r.response.content:
       if r.response.is_html:
         return self.parse_html(r) + self.cookies_in_body(r)
       if r.response.is_javascript:
         return self.parse_javascript(r)
     return []
+
+
+class RequestKeywordAlerter(GenericAlerter):
+
+  def __init__(self, words):
+    GenericAlerter.__init__(self)
+    self.keywords_patterns = [re.compile(s, re.I) for s in words]
+
+  def analyse_request(self, r):
+    alerts = []
+    alerts.extend(GenericAlerter.analyse_request(self, r))
+    for e in self.keywords_patterns:
+      if e.search(r.content):
+        alerts.append(error("request.content matches " + e.pattern))
+    return alerts

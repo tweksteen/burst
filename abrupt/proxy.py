@@ -40,11 +40,14 @@ class ProxyHTTPRequestHandler(SocketServer.StreamRequestHandler):
         if cert:
           name = extract_name(cert)
           if name:
-            hostname = name
+            ssl_hostname = name
       elif conf.ssl_hostname:
         hostname = conf.ssl_hostname
+        ssl_hostname = hostname
+      else:
+        ssl_hostname = hostname
       self.ssl_sock = ssl.wrap_socket(self.request, server_side=True,
-                                      certfile=generate_ssl_cert(hostname),
+                                      certfile=generate_ssl_cert(ssl_hostname),
                                       keyfile=get_key_file())
       self.rfile = self.ssl_sock.makefile('rb', self.rbufsize)
       self.wfile = self.ssl_sock.makefile('wb', self.wbufsize)
@@ -160,20 +163,35 @@ class ProxyHTTPRequestHandler(SocketServer.StreamRequestHandler):
       pre_action, default = self._apply_rules()
       if pre_action == "a":
         flush_input()
-        if console.term_width:
-          e = raw_input(self.pt + " " + self.r.repr(console.term_width - 4 - len(self.pt), rl=True) + " ? ")
+        alerts =  self.server.alerter.analyse_request(self.r)
+        if not alerts:
+          if console.term_width:
+            e = raw_input(self.pt + " " + self.r.repr(console.term_width - 4 - len(self.pt), rl=True) + " ? ")
+          else:
+            e = raw_input(self.pt + " " + self.r.repr(rl=True) + " ? ")
         else:
-          e = raw_input(self.pt + " " + self.r.repr(rl=True) + " ? ")
+          if console.term_width:
+            print self.pt, self.r.repr(console.term_width - len(self.pt))
+          else:
+            print self.pt, self.r.repr()
+          for al in alerts:
+            print " " * len(self.pt), " |", al
+          e = raw_input(" " * len(self.pt) + " ?")
       else:
         e = pre_action
         if default or self.server.verbose:
+          alerts = self.server.alerter.analyse_request(self.r)
           if console.term_width:
             print self.pt, self.r.repr(console.term_width - len(self.pt) - len(e)), e
           else:
             print self.pt, self.r.repr(), e
+          for al in alerts:
+            print " " * len(self.pt), " |", al
       while True:
         if e == "v":
           print  str(self.r)
+        if e == "s":
+          print self.r.repr()
         if e == "h":
           print self.r.__str__(headers_only=True)
         if e == "e":
@@ -214,6 +232,9 @@ class ProxyHTTPRequestHandler(SocketServer.StreamRequestHandler):
           while True:
             if e == "v":
               print str(self.r.response)
+            if e == "s":
+              print self.r.repr()
+              print self.r.response.repr()
             if e == "h":
               print self.r.response.__str__(headers_only=True)
             if e == "e":
@@ -240,7 +261,7 @@ class ProxyHTTPRequestHandler(SocketServer.StreamRequestHandler):
             e = raw_input("(f)orward, (d)rop, (c)ontinue, (v)iew, (h)eaders, (e)dit, (de)code, (n)ext [f]? ")
         else:
           print self.pt, repr(self.r.response)
-        for al in self.server.alerter.parse(self.r):
+        for al in self.server.alerter.analyse_response(self.r):
           print " " * len(self.pt), " |", al
       if self.server.verbose >= 3:
         print self.r.response
@@ -282,7 +303,7 @@ def proxy(port=None, rules=((lambda x: re_images_ext.search(x.path), "f"),),
   answered requests.
 
   port            -- port to listen to
-  alerter         -- alerter triggered on each response, by default alerter.Generic
+  alerter         -- alerter triggered on each response, by default GenericAlerter
   rules           -- set of rules for automated actions over requests
   default_action  -- action to execute when no rules matches, by default (a)sk
   pre_func        -- callback used before processing a request
@@ -299,7 +320,7 @@ def proxy(port=None, rules=((lambda x: re_images_ext.search(x.path), "f"),),
   See also: conf, watch()
   """
   if not port: port = conf.port
-  if not alerter: alerter = alert.Generic()
+  if not alerter: alerter = alert.GenericAlerter()
   if not rules: rules = []
   if not decode_func: decode_func = decode
   if not pre_func: pre_func = lambda x:x

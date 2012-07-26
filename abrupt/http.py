@@ -145,6 +145,12 @@ class Request():
       if h.title() == "Content-Length":
         del self.headers[i]
 
+  def remove_cookies(self):
+    for i, c in enumerate(self.headers):
+      h, v = c
+      if h.title() == "Cookie":
+        del self.headers[i]
+
   def __repr__(self):
     return self.repr(width=None)
 
