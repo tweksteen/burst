@@ -111,7 +111,8 @@ def _inject_at(r, offset, payload, pre_func=encode, choice=None):
     ct = str(r).count(offset)
     if ct > 1:
       if not choice or choice > ct:
-        raise NonUniqueInjectionPoint("The pattern is not unique in the request, use choice<=" + str(ct))
+        raise NonUniqueInjectionPoint("The pattern is not unique in" + \
+                                      " the request, use choice<=" + str(ct))
       else:
         c_off = 0
         for i in range(choice):
@@ -149,11 +150,19 @@ def _inject_to(r, value, payload, pre_func=None):
     raise NoInjectionPointFound()
   return rqs
 
+def _inject_multi(r, method, target, payload, **kwds):
+  if isinstance(r, Request):
+    return method(r, target, payload, **kwds)
+  elif isinstance(r, RequestSet):
+    return RequestSet(reduce(lambda x, y: x + y,
+           [ method(ro, target, payload, **kwds) for ro in r ]))
+
+
 def inject(r, to=None, at=None, payload="default", **kwds):
   """ Inject a request.
 
   This function will create a RequestSet from a Request where a part
-  of the latter is replaced with some payload. There is two ways to use
+  of the request is replaced with some payload. There is two ways to use
   this function, either to inject the value of a parameter or to inject
   at a specific location.
 
@@ -175,26 +184,25 @@ def inject(r, to=None, at=None, payload="default", **kwds):
 
   See also: payloads, inject_all, find_injection_points
   """
+  rqs = RequestSet()
   if not to and not at:
-    print error("I need some help here. Where should I inject? " +\
+    print error("I need some help here. Where should I inject? " + \
                 "Try 'help(inject)'")
-    return
-  # TODO: make to and at possibly an array
-  if to and at:
+  elif to and at:
     print error("Wow, too many parameters. It is either 'to' or 'at'.")
-    return
-  if to:
-    if isinstance(r, Request):
-      return _inject_to(r, to, payload, **kwds)
-    elif isinstance(r, RequestSet):
-      return RequestSet(reduce(lambda x, y: x + y,
-             [_inject_to(ro, to, payload, **kwds) for ro in r]))
-  if at:
-    if isinstance(r, Request):
-      return RequestSet(_inject_at(r, at, payload, **kwds))
-    elif isinstance(r, RequestSet):
-      return RequestSet(reduce(lambda x, y: x + y,
-             [_inject_at(ro, at, payload, **kwds) for ro in r]))
+  elif to:
+    if isinstance(to, (list, tuple)):
+      for t in to:
+        rqs.extend(_inject_multi(r, _inject_to, t, payload, **kwds))
+    else:
+      rqs.extend(_inject_multi(r, _inject_to, to, payload, **kwds))
+  elif at:
+    if isinstance(at, (list, tuple)):
+      for a in at:
+        rqs.extend(_inject_multi(r, _inject_at, a, payload, **kwds))
+    else:
+      rqs.extend(_inject_multi(r, _inject_at, at, payload, **kwds))
+  return rqs
 
 i = inject
 
