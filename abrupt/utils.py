@@ -1,6 +1,7 @@
 import re
 import os
 import sys
+import time
 import math
 import urllib
 import tempfile
@@ -55,12 +56,29 @@ def flush_input():
   if has_termios:
     termios.tcflush(sys.stdin, termios.TCIOFLUSH)
 
-def less(args):
+def view(args):
   fd, fname = tempfile.mkstemp()
   with os.fdopen(fd, 'w') as f:
     f.write(str(args))
   subprocess.call('less' + ' -R ' + fname, shell=True)
   os.remove(fname)
+
+def idle(request, delay=60, predicate=None, verbose=False):
+  if not predicate:
+    predicate = lambda x, y: x.response.status == y.response.status
+  x = request
+  if not x.response:
+    x()
+  while True:
+    y = x.copy()
+    y()
+    if verbose:
+      print repr(y), repr(y.response)
+    if not predicate(x, y):
+      raise Exception("Logged out")
+    x = y
+    time.sleep(delay)
+
 
 def stats(values):
   avg = sum(values) / float(len(values))
