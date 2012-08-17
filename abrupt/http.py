@@ -114,7 +114,7 @@ class Request():
 
   def get_header(self, name):
     """Return the headers of the request matching name (case insensitive). Note
-    that this method always returns a list. 
+    that this method always returns a list.
     """
     return _get_header(self.headers, name)
 
@@ -397,7 +397,7 @@ class Response():
 
   def get_header(self, name):
     """Return the headers of the response matching name (case insensitive). Note
-    that this method always returns a list. 
+    that this method always returns a list.
     """
     return _get_header(self.headers, name)
 
@@ -627,25 +627,42 @@ class RequestSet():
       cols.insert(0, ("Id", lambda r, i: str(i)))
     return make_table(self.reqs, cols)
 
+  def _summary_attr(self, rs, attr, p_str, indent):
+    values = [ attr(r) for r in rs if r.response ]
+    if not values:
+      return False
+    avg, bottom, top = stats(values)
+    if indent:
+      print " ",
+    print p_str.format(bottom, avg, top)
+    outsiders = [ r for r in rs if r.response and (attr(r) < bottom or  attr(r) > top)]
+    if outsiders:
+      if indent:
+        bl = "    | "
+      else:
+        bl = " | "
+      print "\n".join([bl + getattr(r, "payload", "-") + " " + error(str(attr(r))) for r in outsiders])
+      return True
+    return False
+
   def summary(self):
-    lengths = [r.response.length for r in self.reqs if r.response]
-    avg, bottom, top = stats(lengths)
-    print "Length: {:.2f} {:.2f} {:.2f}".format(bottom, avg, top)
-    outsiders = [(i, r) for i, r in enumerate(self.reqs)
-                       if r.response and (r.response.length < bottom or r.response.length > top)]
-    if outsiders:
-      print "\n".join([" |" + str(i) + " " + getattr(r, "payload", "-") + " " + error(str(r.response.length)) for i, r in outsiders])
-
-    print
-    times = [r.response.time.total_seconds() for r in self.reqs if r.response]
-    avg, bottom, top = stats(times)
-    print "Time: {:.2f} {:.2f} {:.2f}".format(bottom, avg, top)
-    outsiders = [(i, r) for i, r in enumerate(self.reqs)
-                        if r.response and (r.response.time.total_seconds() < bottom or
-                         r.response.time.total_seconds() > top)]
-    if outsiders:
-      print "\n".join([" |" + str(i) + " " + getattr(r, "payload", "-") + " " + error(str(r.response.time)) for i, r in outsiders])
-
+    sips = set(self.extract("injection_point"))
+    for ip in sips:
+      if not ip and len(sips) == 1:
+        ors = self
+        split = False
+      else:
+        print "Injection point:", ip
+        ors = self.filter(lambda x: hasattr(x, "injection_point") and x.injection_point == ip)
+        split = True
+      rs = ors
+      if rs:
+        if self._summary_attr(rs, lambda x: x.response.length, "Length: [{:.1f} {:.1f} {:.1f}]", split):
+          print
+      rs = ors.filter(lambda x: hasattr(x.response, "time"))
+      if rs:
+        if self._summary_attr(rs, lambda x: x.response.time.total_seconds(), "Time: [{:.3f} {:.3f} {:.3f}]", split):
+          print
 
   def by_length(self):
     return RequestSet(sorted(self.reqs, key=operator.attrgetter("response.length")))
