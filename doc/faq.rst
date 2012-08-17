@@ -92,6 +92,13 @@ proxy. You could add an exception within it which will bypass this error.
 Other common errors could be the lost of connection during the certificate
 exchange or incompatible SSL version.
 
+While trying to inject a request, I have the error ``TypeError: 'int' object is not callable``
+----------------------------------------------------------------------------------------------
+
+There is a chance that you overwrite the alias ``i`` with an integer. To recreate the
+alias, try::
+
+  >>> i = inject
 
 I'm confused, how do I execute a Request/RequestSet?
 ----------------------------------------------------
