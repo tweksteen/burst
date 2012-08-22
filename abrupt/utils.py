@@ -63,6 +63,13 @@ def view(args):
   subprocess.call('less' + ' -R ' + fname, shell=True)
   os.remove(fname)
 
+def external_view(args):
+  fd, fname = tempfile.mkstemp()
+  with os.fdopen(fd, 'w') as f:
+    f.write(str(args))
+  subprocess.Popen('xterm -e /bin/less -R ' + fname, shell=True)
+  #todo: cleanup
+
 def idle(request, delay=60, predicate=None, verbose=False):
   if not predicate:
     predicate = lambda x, y: x.response.status == y.response.status

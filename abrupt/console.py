@@ -86,12 +86,15 @@ class ColorPrompt(object):
 
 class AbruptInteractiveConsole(code.InteractiveConsole):
   re_print_alias = re.compile(r'^p\s(.*)')
-  re_less_alias = re.compile(r'^v\s(.*)')
+  re_view_alias = re.compile(r'^v\s(.*)')
+  re_extview_alias = re.compile(r'^w\s(.*)')
   def push(self, line):
     if self.re_print_alias.match(line):
       line = self.re_print_alias.sub(r'print \1', line)
-    if self.re_less_alias.match(line):
-      line = self.re_less_alias.sub(r'view(\1)', line)
+    if self.re_view_alias.match(line):
+      line = self.re_view_alias.sub(r'view(\1)', line)
+    if self.re_extview_alias.match(line):
+      line = self.re_extview_alias.sub(r'external_view(\1)', line)
     code.InteractiveConsole.push(self, line)
 
 def help(obj=None):
