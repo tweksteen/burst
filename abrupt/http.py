@@ -381,6 +381,8 @@ class Response():
     if self.has_header("Content-Type"):
       flags.append(",".join([x.split(";")[0] for x in
                                              self.get_header("Content-Type")]))
+    if self.has_header("Location"):
+      flags.append(",".join(self.get_header("Location")))
     if self.has_header("Transfer-Encoding", "chunked"): flags.append("chunked")
     if self.has_header("Content-Encoding", "gzip"): flags.append("gzip")
     if self.has_header("Content-Encoding", "deflate"): flags.append("deflate")
@@ -576,6 +578,9 @@ class RequestSet():
 
   def extract(self, arg, from_response=None):
     return [r.extract(arg, from_response) for r in self.reqs]
+
+  def copy(self):
+    return RequestSet([r.copy() for r in self.reqs])
 
   def cmp(self, i1, i2):
     compare(self[i1], self[i2])
