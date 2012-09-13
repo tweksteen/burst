@@ -132,7 +132,7 @@ This RequestSet is gigantic! How can I have a better overview of it?
 There are few options to solve this issue. If you want, you could
 start a pager on the represenation of the RequestSet::
 
-  >>> less rs
+  >>> view rs
 
 You could also filter the RequestSet::
 
