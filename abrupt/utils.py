@@ -14,11 +14,41 @@ try:
 except ImportError:
   has_termios = False
 
+try:
+  from lxml import etree
+  has_lxml = True
+except ImportError:
+  import xml.dom
+  import xml.dom.minidom
+  has_lxml = False
+
 re_space = re.compile(r'[ \t]+')
 re_ansi_color = re.compile(r"(\x1b\[[;\d]*[A-Za-z])|\x01|\x02").sub
 re_images_ext = re.compile(r'\.(png|jpg|jpeg|ico|gif)$')
 
 ellipsis = u"\u2026"
+
+def pxml(r):
+  if hasattr(r, "content"):
+    s = r.content
+  else:
+    s = r
+  if has_lxml:
+    try:
+      x = etree.fromstring(s)
+      print etree.tostring(x, pretty_print = True)
+    except ValueError:
+      print "Shit Tyrone, get it together!"
+    except etree.XMLSyntaxError:
+      print "Unable to parse the XML. Looking for goat sex?"
+  else:
+    try:
+      x = xml.dom.minidom.parseString(s)
+      print x.toprettyxml()
+    except TypeError:
+      print "Shit Tyrone, get it together!"
+    except (xml.dom.DOMException,xml.parsers.expat.ExpatError):
+      print "Unable to parse the XML. Looking for goat sex?"
 
 def smart_rsplit(s, max_len, sep):
   if len(s) > max_len:
@@ -85,7 +115,6 @@ def idle(request, delay=60, predicate=None, verbose=False):
       raise Exception("Logged out")
     x = y
     time.sleep(delay)
-
 
 def stats(values):
   avg = sum(values) / float(len(values))
