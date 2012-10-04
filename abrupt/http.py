@@ -421,6 +421,7 @@ class Response():
     fd, fname = tempfile.mkstemp(suffix=".http")
     with os.fdopen(fd, 'w') as f:
       f.write(self.raw())
+      f.write("\n")
     ret = subprocess.call(conf.editor + " " + fname + " " + options, shell=True)
     if not ret:
       f = open(fname, 'r')

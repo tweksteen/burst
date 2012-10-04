@@ -227,7 +227,7 @@ def find_injection_points(r):
       ips.extend(i_pts)
   try:
     i_pts = json.loads(r.content)
-    ips.extends(i_pts.keys())
+    ips.extend(i_pts.keys())
   except (ValueError,TypeError):
     pass
   return ips

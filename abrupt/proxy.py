@@ -85,6 +85,7 @@ class ProxyHTTPRequestHandler(SocketServer.StreamRequestHandler):
            self.prev["use_ssl"] != self.r.use_ssl:
       self.conn = self._init_connection()
     done = False
+    tries = 0
     while not done:
       try:
         if self.server.forward_chunked:
@@ -97,8 +98,15 @@ class ProxyHTTPRequestHandler(SocketServer.StreamRequestHandler):
           self.conn.close()
           self.close_connection = 1
         done = True
-      except (socket.error, BadStatusLine):
+      except (socket.error, BadStatusLine), e:
         self.conn = self._init_connection()
+        if tries == 3:
+          lock.acquire()
+          print self.pt + " " + repr(UnableToConnect(message=repr(e)))
+          lock.release()
+          break
+        tries += 1
+    return done
 
   def _read_request(self):
     if conf.target:
@@ -223,7 +231,8 @@ class ProxyHTTPRequestHandler(SocketServer.StreamRequestHandler):
         print self.r
       self.server.reqs.append(self.r)
       lock.release()
-      self._do_connection()
+      if not self._do_connection():
+        return
       lock.acquire()
       if default or self.server.verbose:
         if pre_action == "a" and not self.server.overrided_ask:
