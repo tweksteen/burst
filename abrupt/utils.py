@@ -3,6 +3,7 @@ import os
 import sys
 import time
 import math
+import json
 import urllib
 import tempfile
 import subprocess
@@ -49,6 +50,17 @@ def pxml(r):
       print "Shit Tyrone, get it together!"
     except (xml.dom.DOMException,xml.parsers.expat.ExpatError):
       print "Unable to parse the XML. Looking for goat sex?"
+
+def pjson(r):
+  if hasattr(r, "content"):
+    s = r.content
+  else:
+    s = r
+  try:
+    j = json.loads(s)
+    print json.dumps(j, sort_keys=True, indent=4)
+  except ValueError:
+      print "Unable to parse the JSON. Looking for octopus sex?"
 
 def smart_rsplit(s, max_len, sep):
   if len(s) > max_len:
