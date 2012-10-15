@@ -9,8 +9,9 @@ import threading
 import time
 
 from abrupt import alert, console
-from abrupt.http import Request, RequestSet, connect, \
-                        BadStatusLine, UnableToConnect, NotConnected, ProxyError
+from abrupt.http import Request, RequestSet, connect
+from abrupt.exception import BadStatusLine, UnableToConnect, NotConnected, \
+                             ProxyError
 from abrupt.conf import conf
 from abrupt.color import *
 from abrupt.cert import generate_ssl_cert, get_key_file, extract_name

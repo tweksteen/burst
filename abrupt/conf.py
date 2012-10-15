@@ -70,7 +70,7 @@ class Configuration(object):
     self.term_width = "auto"
     self.editor = "/usr/bin/vim"
     self.diff_editor = "/usr/bin/vimdiff"
-    self.editor_args = '-c "set noeol" -c "set fileformats=dos" -b'
+    self.editor_args = '-c "set eol" -b'
     self.editor_play_args = '-o2 -c "set autoread" ' \
                             '-c "autocmd CursorMoved * checktime" ' \
                             '-c "autocmd CursorHold * checktime"'

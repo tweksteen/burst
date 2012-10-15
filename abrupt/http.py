@@ -19,29 +19,10 @@ from StringIO import StringIO
 
 from abrupt.conf import conf
 from abrupt.color import *
+from abrupt.exception import *
 from abrupt.utils import make_table, clear_line, \
                          re_space, smart_split, smart_rsplit, \
                          stats, parse_qs
-class AbruptException(Exception):
-  def __repr__(self):
-    return "<{}: {}>".format(error(self.__class__.__name__), str(self))
-class UnableToConnect(AbruptException):
-  def __init__(self, message="Unable to connect to the server"):
-    AbruptException.__init__(self, message)
-class NotConnected(AbruptException):
-  def __init__(self, junk):
-    self.junk = junk
-    AbruptException.__init__(self, "Unable to read the request from the client")
-  def __str__(self):
-    return self.message + " [" + str(self.junk) + "]"
-class BadStatusLine(AbruptException):
-  def __init__(self, junk):
-    self.junk = junk
-    AbruptException.__init__(self, "They host did not return a correct banner")
-  def __str__(self):
-    return self.message + " [" + str(self.junk) + "]"
-class ProxyError(AbruptException):
-  pass
 
 class Request():
   """The Request class is the base of Abrupt. To create an instance, you have
@@ -64,7 +45,7 @@ class Request():
     except ValueError:
       raise NotConnected(' '.join(banner))
     if self.method.upper() == "CONNECT":
-      self.hostname, self.port = url.split(":", 1)
+      self.hostname, self.port = url.rsplit(":", 1)
       self.port = int(self.port)
     else:
       p_url = urlparse.urlparse(url)
@@ -206,11 +187,11 @@ class Request():
     if conf.history:
       history.append(self)
     _send_request(sock, self)
-    n1 = datetime.datetime.now()
+    t_start = datetime.datetime.now()
     self.response = Response(sock.makefile('rb', 0), self,
                              chunk_callback=chunk_callback)
-    n2 = datetime.datetime.now()
-    self.response.time = n2 - n1
+    self.response.sent_date = t_start
+    self.response.received_date = datetime.datetime.now()
 
   def edit(self):
     """Edit the request. The original request is not modified, a new
@@ -223,7 +204,6 @@ class Request():
     fd, fname = tempfile.mkstemp(suffix=".http")
     with os.fdopen(fd, 'w') as f:
       f.write(str(r_tmp))
-      f.write("\n")
     ret = subprocess.call(conf.editor + " " + fname + " " + options, shell=True)
     if not ret:
       f = open(fname, 'r')
@@ -248,7 +228,6 @@ class Request():
     fdrep, frepname = tempfile.mkstemp(suffix=".http")
     with os.fdopen(fdreq, 'w') as f:
       f.write(str(r_tmp))
-      f.write("\n")
     if self.response:
       with os.fdopen(fdrep, 'w') as f:
         f.write(str(self.response))
@@ -330,8 +309,8 @@ class Request():
                                          urlparse.urlparse(n_path)[2:])
             return nr
           else:
-            raise Exception("Unknown redirection, please add some code " \
-                            "in abrupt/http.py:Request.follow")
+            raise AbruptException("Unknown redirection, please add some code " \
+                                  "in abrupt/http.py:Request.follow")
 
 def create(url):
   """Create a request on the fly, based on a URL"""
@@ -374,6 +353,10 @@ class Response():
 
   def __repr__(self):
     return self.repr()
+
+  @property
+  def time(self):
+    return self.received_date - self.sent_date
 
   def repr(self, rl=False):
     flags = []
@@ -421,7 +404,6 @@ class Response():
     fd, fname = tempfile.mkstemp(suffix=".http")
     with os.fdopen(fd, 'w') as f:
       f.write(self.raw())
-      f.write("\n")
     ret = subprocess.call(conf.editor + " " + fname + " " + options, shell=True)
     if not ret:
       f = open(fname, 'r')

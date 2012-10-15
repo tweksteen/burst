@@ -6,6 +6,7 @@ import Cookie
 import json
 
 from abrupt.http import Request, RequestSet
+from abrupt.exception import *
 from abrupt.color import *
 from abrupt.utils import encode, parse_qs, urlencode
 
@@ -18,10 +19,6 @@ for f_name in glob.glob(os.path.join(os.path.dirname(__file__), "payloads/*")):
 for k in ('sqli', 'xss', 'cmd', 'dir', 'misc'):
   if k in payloads:
     payloads["default"].extend(payloads[k])
-
-class PayloadNotFound(Exception): pass
-class NoInjectionPointFound(Exception): pass
-class NonUniqueInjectionPoint(Exception): pass
 
 def _get_payload(p):
   try:
