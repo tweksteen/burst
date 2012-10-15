@@ -686,7 +686,8 @@ class RequestSet():
     for r in self.reqs:
       r.response = None
 
-  def __call__(self, post_callback=None, force=False, randomised=False, verbose=False):
+  def __call__(self, force=False, randomised=False, verbose=False,
+               post_callback=None, post_callback_args=None):
     if not self.reqs:
       raise Exception("No request to proceed")
     hostnames = set([r.hostname for r in self.reqs])
@@ -720,7 +721,7 @@ class RequestSet():
         try:
           if verbose: print repr(r)
           r(conn=conn)
-          if post_callback: post_callback(r)
+          if post_callback: post_callback(r, post_callback_args)
           if verbose: print repr(r.response)
           if r.response.closed:
             conn = self._init_connection()
