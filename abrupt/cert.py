@@ -1,9 +1,12 @@
 import os
+import re
 import shlex
 import random
 import subprocess
 
 from abrupt.conf import CERT_DIR
+
+RE_DOMAIN = re.compile(r'^[0-9A-Za-z*-.]*$')
 
 def extract_name(cert):
   if "subject" in cert and len(cert["subject"]) >= 0:
@@ -19,6 +22,8 @@ def get_key_file():
   return os.path.join(CERT_DIR, "key.pem")
 
 def generate_ssl_cert(domain):
+  if not RE_DOMAIN.match(domain):
+    raise Exception("Domain name contains unexpected characters")
   domain_cert = os.path.join(CERT_DIR, "sites", domain + ".pem")
   gen_req_cmd = "openssl req -new -out {0}/req{1}.pem -key {0}/key.pem -subj '/O=Abrupt/CN={1}'".format(CERT_DIR, domain)
   sign_req_cmd = "openssl x509 -req -in {0}/req{3}.pem -CA {0}/ca.pem -CAkey {0}/key.pem -out {1} -set_serial {2}".format(CERT_DIR, 
