@@ -165,7 +165,7 @@ class ProxyHTTPRequestHandler(SocketServer.StreamRequestHandler):
     try:
       self.r = self._read_request()
       if not self.r:
-        return
+        return False
       self.r = self.server.pre_func(self.r)
       lock.acquire()
       pre_action, default = self._apply_rules()
@@ -206,7 +206,7 @@ class ProxyHTTPRequestHandler(SocketServer.StreamRequestHandler):
           self.r = self.r.edit()
         if e == "d":
           lock.release()
-          return
+          return False
         if e == "" or e == "f":
           break
         if e == "c":
@@ -232,7 +232,7 @@ class ProxyHTTPRequestHandler(SocketServer.StreamRequestHandler):
       self.server.reqs.append(self.r)
       lock.release()
       if not self._do_connection():
-        return
+        return False
       lock.acquire()
       if default or self.server.verbose:
         if pre_action == "a" and not self.server.overrided_ask:
@@ -250,7 +250,7 @@ class ProxyHTTPRequestHandler(SocketServer.StreamRequestHandler):
               self.r.response = self.r.response.edit()
             if e == "d":
               lock.release()
-              return
+              return False
             if e == "" or e == "f":
               break
             if e == "c":
