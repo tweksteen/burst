@@ -13,11 +13,11 @@ import tempfile
 import webbrowser
 import subprocess
 import datetime
-import Cookie
 from collections import defaultdict
 from StringIO import StringIO
 
 from abrupt.conf import conf
+from abrupt.cookie import Cookie
 from abrupt.color import *
 from abrupt.exception import *
 from abrupt.utils import make_table, clear_line, \
@@ -78,13 +78,10 @@ class Request():
 
   @property
   def cookies(self):
-    b = Cookie.SimpleCookie()
-    for v in self.get_header("Cookie"):
-      try:
-        b.load(v)
-      except Cookie.CookieError:
-        print "TODO: fix the default cookie library"
-    return b
+    cookies = []
+    for h in self.get_header("Cookie"):
+      cookies.extend(Cookie.parse(h))
+    return cookies
 
   def has_header(self, name, value=None):
     """Test if the request contained a specific headers (case insensitive).
@@ -131,6 +128,17 @@ class Request():
       h, v = c
       if h.title() == "Cookie":
         del self.headers[i]
+
+  def bind(self, r):
+    r_new = self.copy()
+    for c in r.get_header('Cookie'):
+      r_new.headers.append(('Cookie', c))
+    if r.response:
+      cookies = []
+      for c in r.response.get_header('Set-Cookie'):
+        cookies.append(Cookie.parse(c, set_cookie=True))
+      r_new.headers.append(('Cookie', "; ".join([str(x) for x in cookies])))
+    return r_new
 
   def __repr__(self):
     return self.repr(width=None)
@@ -280,10 +288,9 @@ class Request():
       post = parse_qs(self.content)
       if arg in post:
         return post[arg][0]
-    c = self.cookies
-    if c:
-      if arg in c:
-        return c[arg].value
+    for c in self.cookies:
+      if c.name == arg:
+        return c.value
     if from_response is None and self.response:
       return self.response.extract(arg)
 
@@ -425,13 +432,10 @@ class Response():
 
   @property
   def cookies(self):
-    b = Cookie.SimpleCookie()
-    for v in self.get_header("Set-Cookie"):
-      try:
-        b.load(v)
-      except Cookie.CookieError:
-        print "TODO: fix the default cookie library"
-    return b
+    cookies = []
+    for h in self.get_header("Set-Cookie"):
+      cookies.append(Cookie.parse(h, set_cookie=True))
+    return cookies
 
   @property
   def is_javascript(self):
@@ -505,9 +509,9 @@ class Response():
     """
     if hasattr(self, arg):
       return getattr(self, arg)
-    c = self.cookies
-    if arg in c:
-      return c[arg].value
+    for c in self.cookies:
+      if c.name == arg:
+        return c.value
 
   def filter(self, predicate):
     return bool(predicate(self))

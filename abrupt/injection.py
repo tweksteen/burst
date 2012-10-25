@@ -2,12 +2,12 @@ import re
 import urlparse
 import glob
 import os.path
-import Cookie
 import json
 
 from abrupt.http import Request, RequestSet
 from abrupt.exception import *
 from abrupt.color import *
+from abrupt.cookie import Cookie
 from abrupt.utils import encode, parse_qs, urlencode
 
 payloads = { "default": [] }
@@ -82,19 +82,22 @@ def _inject_json(r, value, pds, pre_func):
 
 def _inject_cookie(r, value, pds, pre_func):
   rs = []
-  b = r.cookies
-  n_headers = [(x, v) for x, v in r.headers if x.title() != "Cookie"]
-  if value in b:
-    nb = Cookie.SimpleCookie()
-    nb.load(b.output(header=""))
-    for p in pds:
-      nb[value] = pre_func(p)
-      r_new = r.copy()
-      nbs = nb.output(header="", sep=";").strip()
-      r_new.headers = n_headers + [("Cookie", nbs), ]
-      r_new.injection_point = value
-      r_new.payload = p
-      rs.append(r_new)
+  cookies = r.cookies
+  for i, c in enumerate(cookies):
+    if c.name == value:
+      break
+  else:
+    return rs
+  c = Cookie(value, "")
+  for p in pds:
+    c.value = pre_func(p)
+    cookies[i] = c
+    r_new = r.copy()
+    r_new.headers = [ (h,v) for h,v in r.headers if h != 'Cookie' ]
+    r_new.headers.append(('Cookie', "; ".join([str(x) for x in cookies])))
+    r_new.injection_point = value
+    r_new.payload = p
+    rs.append(r_new)
   return rs
 
 def _inject_at(r, offset, payload, pre_func=encode, choice=None):
@@ -219,7 +222,7 @@ def find_injection_points(r):
     if i_pts:
       ips.extend(i_pts)
   if r.cookies:
-    i_pts = r.cookies.keys()
+    i_pts = [ c.name for c in r.cookies]
     if i_pts:
       ips.extend(i_pts)
   try:

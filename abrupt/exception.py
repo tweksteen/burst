@@ -37,4 +37,6 @@ class NoInjectionPointFound(AbruptException):
 class NonUniqueInjectionPoint(AbruptException): 
   pass
 
+class CookieException(AbruptException):
+  pass
 
