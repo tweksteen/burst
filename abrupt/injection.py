@@ -180,7 +180,7 @@ def inject(r, to=None, at=None, payload="default", **kwds):
   of the global dictionnary 'payloads'.
 
   Before being injected, each payload pass through the pre_func function
-  which is by default encode.
+  which is by default 'encode'.
 
   See also: payloads, inject_all, find_injection_points
   """

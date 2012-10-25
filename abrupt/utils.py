@@ -4,6 +4,7 @@ import sys
 import time
 import math
 import json
+import base64
 import urllib
 import tempfile
 import subprocess
@@ -179,6 +180,15 @@ def decode(s):
   return urllib.unquote_plus(s)
 
 d = decode
+
+def dd(s):
+  return d(d(s))
+
+def d64(s):
+  return base64.standard_b64decode(s)
+
+def e64(s):
+  return base64.standard_b64encode(s)
 
 def remove_color(s):
   return  re_ansi_color("", s)
