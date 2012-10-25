@@ -1,7 +1,12 @@
 #!/usr/bin/env python
+import os
+import sys
 
-import abrupt.console
+try:
+  import abrupt.console
+except ImportError:
+  sys.path.append(os.path.dirname(os.path.dirname(__file__)))
+  import abrupt.console
 
 if __name__ == "__main__":
     abrupt.console.interact()
-
