@@ -90,7 +90,11 @@ def save(force=False):
   n = datetime.datetime.now().strftime("%Y-%m-%dT%H%M.p")
   print "Saving session..."
   f = open(os.path.join(d, n), "wb")
-  cPickle.dump(to_save, f, -1)
+  try:
+    cPickle.dump(to_save, f, -1)
+  except cPickle.PicklingError, e:
+    print "Unable to save the session:"
+    print e
   reset_last_save()
   f.close()
 
