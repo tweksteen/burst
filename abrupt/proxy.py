@@ -17,7 +17,7 @@ from abrupt.color import *
 from abrupt.cert import generate_ssl_cert, get_key_file, extract_name
 from abrupt.utils import re_images_ext, flush_input, decode
 
-lock = threading.Lock()
+ui_lock = threading.Lock()
 
 class ProxyHTTPRequestHandler(SocketServer.StreamRequestHandler):
 
@@ -102,9 +102,9 @@ class ProxyHTTPRequestHandler(SocketServer.StreamRequestHandler):
       except (socket.error, BadStatusLine), e:
         self.conn = self._init_connection()
         if tries == 3:
-          lock.acquire()
+          ui_lock.acquire()
           print self.pt + " " + repr(UnableToConnect(message=repr(e)))
-          lock.release()
+          ui_lock.release()
           break
         tries += 1
     return done
@@ -168,7 +168,7 @@ class ProxyHTTPRequestHandler(SocketServer.StreamRequestHandler):
       if not self.r:
         return False
       self.r = self.server.pre_func(self.r)
-      lock.acquire()
+      ui_lock.acquire()
       pre_action, default = self._apply_rules()
       if pre_action == "a":
         flush_input()
@@ -206,7 +206,7 @@ class ProxyHTTPRequestHandler(SocketServer.StreamRequestHandler):
         if e == "e":
           self.r = self.r.edit()
         if e == "d":
-          lock.release()
+          ui_lock.release()
           return False
         if e == "" or e == "f":
           break
@@ -219,9 +219,9 @@ class ProxyHTTPRequestHandler(SocketServer.StreamRequestHandler):
           else:
             print "no content to decode"
         if e == "n":
-          lock.release()
+          ui_lock.release()
           time.sleep(1)
-          lock.acquire()
+          ui_lock.acquire()
           if console.term_width:
             print self.pt, self.r.repr(console.term_width - 5), e
           else:
@@ -231,10 +231,10 @@ class ProxyHTTPRequestHandler(SocketServer.StreamRequestHandler):
       if self.server.verbose >= 2:
         print self.r
       self.server.reqs.append(self.r)
-      lock.release()
+      ui_lock.release()
       if not self._do_connection():
         return False
-      lock.acquire()
+      ui_lock.acquire()
       if default or self.server.verbose:
         if pre_action == "a" and not self.server.overrided_ask:
           flush_input()
@@ -250,7 +250,7 @@ class ProxyHTTPRequestHandler(SocketServer.StreamRequestHandler):
             if e == "e":
               self.r.response = self.r.response.edit()
             if e == "d":
-              lock.release()
+              ui_lock.release()
               return False
             if e == "" or e == "f":
               break
@@ -263,9 +263,9 @@ class ProxyHTTPRequestHandler(SocketServer.StreamRequestHandler):
               else:
                 print "no content to decode"
             if e == "n":
-              lock.release()
+              ui_lock.release()
               time.sleep(1)
-              lock.acquire()
+              ui_lock.acquire()
               print self.pt, self.r.response.repr()
             flush_input()
             e = raw_input("(f)orward, (d)rop, (c)ontinue, (v)iew, (h)eaders, (e)dit, (de)code, (n)ext [f]? ")
@@ -275,22 +275,22 @@ class ProxyHTTPRequestHandler(SocketServer.StreamRequestHandler):
           print " " * len(self.pt), " |", al
       if self.server.verbose >= 3:
         print self.r.response
-      lock.release()
+      ui_lock.release()
       if not hasattr(self, "chunk_written"):
         self.wfile.write(self.r.response.raw())
       return True
     except ssl.SSLError as e:
       self.close_connection = 1
-      lock.acquire()
+      ui_lock.acquire()
       print self.pt, "<" + warning("SSLError") + ": " + str(e) + ">"
-      lock.release()
+      ui_lock.release()
     except NotConnected as e:
       self.close_connection = 1
     except (UnableToConnect, socket.timeout, ProxyError) as e:
       self.close_connection = 1
-      lock.acquire()
+      ui_lock.acquire()
       print self.pt, repr(e)
-      lock.release()
+      ui_lock.release()
     return False
 
 class ProxyHTTPServer(SocketServer.ThreadingMixIn, SocketServer.TCPServer):
