@@ -41,10 +41,13 @@ class Request():
       fd = StringIO(fd)
     try:
       banner = read_banner(fd)
+      # ASSUMPTION: The request line contains three elements seperated by
+      #             a space.
       self.method, url, self.http_version = banner
     except ValueError:
       raise NotConnected(' '.join(banner))
     if self.method.upper() == "CONNECT":
+      # ASSUMPTION: CONNECT method needs a hostname and port
       self.hostname, self.port = url.rsplit(":", 1)
       self.port = int(self.port)
     else:
@@ -117,16 +120,10 @@ class Request():
     else:
       self.headers.append(("Content-Length", l))
 
-  def _remove_content_length(self):
+  def remove_header(self, name):
     for i, c in enumerate(self.headers):
       h, v = c
-      if h.title() == "Content-Length":
-        del self.headers[i]
-
-  def remove_cookies(self):
-    for i, c in enumerate(self.headers):
-      h, v = c
-      if h.title() == "Cookie":
+      if h.title() == name:
         del self.headers[i]
 
   def bind(self, r):
@@ -208,7 +205,7 @@ class Request():
     options = conf.editor_args if conf.editor_args else ""
     r_tmp = self.copy()
     if conf.update_content_length:
-      r_tmp._remove_content_length()
+      r_tmp.remove_header("Content-Length")
     fd, fname = tempfile.mkstemp(suffix=".http")
     with os.fdopen(fd, 'w') as f:
       f.write(str(r_tmp))
@@ -231,7 +228,7 @@ class Request():
     options += conf.editor_play_args if conf.editor_play_args else ""
     r_tmp = self.copy()
     if conf.update_content_length:
-      r_tmp._remove_content_length()
+      r_tmp.remove_header("Content-Length")
     fdreq, freqname = tempfile.mkstemp(suffix=".http")
     fdrep, frepname = tempfile.mkstemp(suffix=".http")
     with os.fdopen(fdreq, 'w') as f:
@@ -343,6 +340,8 @@ class Response():
   def __init__(self, fd, request, chunk_callback=None):
     try:
       banner = read_banner(fd)
+      # ASSUMPTION: A response status line contains three elements
+      #             seperated by a space
       self.http_version, self.status, self.reason = banner
     except ValueError:
       raise BadStatusLine(banner)
@@ -409,8 +408,13 @@ class Response():
     """
     options = conf.editor_args if conf.editor_args else ""
     fd, fname = tempfile.mkstemp(suffix=".http")
+    res = self
+    if self.content != self.raw_content:
+      print warning("The response is currently encoded. It will be decoded before edition."),
+      raw_input()
+      res = self.normalise()
     with os.fdopen(fd, 'w') as f:
-      f.write(self.raw())
+      f.write(res.raw())
     ret = subprocess.call(conf.editor + " " + fname + " " + options, shell=True)
     if not ret:
       f = open(fname, 'r')
@@ -419,6 +423,26 @@ class Response():
         res_new._update_content_length()
       os.remove(fname)
       return res_new
+
+  def copy(self):
+    res_new = copy.copy(self)
+    res_new.headers = copy.deepcopy(self.headers)
+    return res_new
+
+  def normalise(self):
+    res_new = self.copy()
+    if self.content == self.raw_content:
+      return res_new
+    res_new.raw_content = res_new.content
+    res_new.remove_header("Transfer-Encoding")
+    res_new.remove_header("Content-Encoding")
+    return res_new
+
+  def remove_header(self, name):
+    for i, c in enumerate(self.headers):
+      h, v = c
+      if h.title() == name:
+        del self.headers[i]
 
   def _update_content_length(self):
     l = str(len(self.raw_content)) if self.raw_content else "0"
