@@ -436,6 +436,7 @@ class Response():
     res_new.raw_content = res_new.content
     res_new.remove_header("Transfer-Encoding")
     res_new.remove_header("Content-Encoding")
+    res_new._update_content_length()
     return res_new
 
   def remove_header(self, name):
