@@ -125,7 +125,7 @@ def idle(request, delay=60, predicate=None, verbose=False):
     if verbose:
       print repr(y), repr(y.response)
     if not predicate(x, y):
-      raise Exception("Logged out")
+      return
     x = y
     time.sleep(delay)
 
