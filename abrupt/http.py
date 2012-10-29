@@ -874,7 +874,8 @@ def _clear_content(headers, raw_content):
 def _wrap_socket(sock):
   if conf.ssl_verify or conf.ssl_reverse:
     return ssl.wrap_socket(sock, ssl_version=conf._ssl_version,
-                           cert_reqs=ssl.CERT_REQUIRED, ca_certs=conf.ssl_verify)
+                           cert_reqs=ssl.CERT_REQUIRED,
+                           ca_certs=conf.ssl_verify)
   else:
     return ssl.wrap_socket(sock, ssl_version=conf._ssl_version)
 

@@ -54,11 +54,14 @@ class ProxyHTTPRequestHandler(SocketServer.StreamRequestHandler):
       self.wfile = self.ssl_sock.makefile('wb', self.wbufsize)
       return Request(self.rfile, hostname=hostname, port=port, use_ssl=True)
     except ssl.SSLError as e:
+      ui_lock.acquire()
       if "alert unknown ca" in str(e) or "alert certificate unknown" in str(e):
-        print warning("Abrupt certificate for {} ".format(hostname) +
-                      "has been rejected by your client.")
+        print self.pt, "<" + warning("SSLError") + ": " + \
+                       "Abrupt certificate for {} ".format(hostname) + \
+                       "has been rejected by your client. >"
       else:
         print warning(str(e))
+      ui_lock.release()
 
   def _init_connection(self):
     """
@@ -282,7 +285,11 @@ class ProxyHTTPRequestHandler(SocketServer.StreamRequestHandler):
     except ssl.SSLError as e:
       self.close_connection = 1
       ui_lock.acquire()
-      print self.pt, "<" + warning("SSLError") + ": " + str(e) + ">"
+      if "certificate verify failed" in str(e):
+        print self.pt, "<" + warning("SSLError") + ": Unable to verify the CA " + \
+              "chain. Is conf.ssl_verify set properly? >"
+      else:
+        print self.pt, "<" + warning("SSLError") + ": " + str(e) + ">"
       ui_lock.release()
     except NotConnected as e:
       self.close_connection = 1
