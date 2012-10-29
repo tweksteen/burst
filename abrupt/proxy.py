@@ -307,7 +307,7 @@ class ProxyHTTPServer(SocketServer.ThreadingMixIn, SocketServer.TCPServer):
       traceback.print_tb(exc_traceback)
 
 def proxy(port=None, rules=((lambda x: re_images_ext.search(x.path), "f"),),
-          default_action="a", alerter=None, persistent=True,  pre_func=None,
+          default_action="a", alerter=None, persistent=True, pre_func=None,
           decode_func=None, forward_chunked=False, verbose=False):
   """Intercept all HTTP(S) requests on port. Return a RequestSet of all the
   answered requests.

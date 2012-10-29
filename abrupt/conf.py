@@ -78,7 +78,7 @@ class Configuration(object):
     self.ssl_reverse = False
     self.ssl_verify = "/etc/pki/tls/cert.pem"
     self.update_content_length = True
-    self._ssl_version = ssl.PROTOCOL_SSLv3
+    self._ssl_version = ssl.PROTOCOL_SSLv23
     self._values = {"port": "getint", "proxy": "get", "timeout": "getint",
                     "ssl_version": "get", "autosave": "getboolean",
                     "history": "getboolean", "editor": "get",
