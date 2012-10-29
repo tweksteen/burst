@@ -228,6 +228,7 @@ Reference
   injection
   session
   configuration
+  utils
   faq
   cheatsheet
 

@@ -4,9 +4,9 @@ abrupt.injection - Request generator
 .. module:: injection
 
 .. function:: inject(request, to=None, at=None, payload="default")
-  
+
   aliased `i`
-  
+
   This function will create a RequestSet from a Request where a part
   of the latter is replaced with some payload. There is two way to use
   this function, either to inject the value of a parameter or to inject
@@ -17,10 +17,13 @@ abrupt.injection - Request generator
   then replace the value of the parameter with the payloads. If no
   valid injection point is found, an error is raised.
 
-  When used with the `at` parameter, Abrupt will look up the string in the 
+  When used with the `at` parameter, Abrupt will look up the string in the
   whole request text and replace it with the payloads. If no valid injection
   point is found, an error is raised. If the string is found more than
   once, the function will suggest to provide the 'choice' integer keyword.
+
+  In both case, the `to` or `at` parameter can be a list. The same logic
+  described above will then be applied for each element of that list.
 
   `payload` could either be a list of the payloads to inject or a key
   of the global dictionary :data:`payloads`.
@@ -32,21 +35,36 @@ abrupt.injection - Request generator
     Host: www.phrack.com
     Cookie: PHPSESSID=4592a21fc9fd6b1e0afcc931eb74b28a
 
-    >>> i(r, to="id")  
-    {unknown:9 | www.phrack.com}
+    >>> i(r, to="id")
+    {unknown:188 | www.phrack.com}
 
     >>> i(r, to="PHPSESSID", payload=["1234","0000","31337-abcd"])
-    {unknown:3 | www.phrack.com}    
+    {unknown:3 | www.phrack.com}
 
     >>> i(r, to="issue", payload="sqli")
-    {unknown:106 | www.phrack.com}    
+    {unknown:106 | www.phrack.com}
 
     >>> i(r, at="4592a21fc9fd6b1e0afcc931eb74b28a", payload="sqli")
-    {unknown:106 | www.phrack.com}    
+    {unknown:106 | www.phrack.com}
+
+    >>> i(r, to=["issue", "id"])
+    {unknown:376 | www.phrack.com}
 
   The `pre_func` parameter is a function to apply to each payload before
-  being injected. By default, it urlencode the payload.
-  
+  being injected. By default, it urlencodes the payload.
+
+.. function:: find_injection_point(request)
+
+  alias `fip`
+
+  This function returns a list of all the injection point found by Abrupt.
+  It can be used to inject only on a subset of them::
+
+    >>> fip(r)
+    ['issue', 'id', 'PHPSESSID']
+    >>> i(r, to=fip(r)[:2])
+    {unknown:212 | www.phrack.com}
+
 .. data:: payloads
 
   Dictionary containing all the payloads. Each value is a list of
@@ -55,19 +73,6 @@ abrupt.injection - Request generator
 
   By default, it contains:
     * xss, a small list of xss payload.
-    * sqli, targeting SQL injection. 
+    * sqli, targeting SQL injection.
     * cmd, command execution.
     * default, the compilation of all the above payloads.
-
-.. function:: encode(x)
-
-  aliased `e`  
-
-  urlquote(x)
-
-.. function:: decode(x)
-
-  aliased `d` 
-
-  urlunquote(x)
-
