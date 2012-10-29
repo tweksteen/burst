@@ -18,10 +18,9 @@ class GenericAlerter:
 
   def cookies_in_body(self, r):
     alerts = []
-    if r.response.cookies:
-      for k in r.response.cookies:
-        if r.response.cookies[k].value in r.response.content:
-          alerts.append(error("response.content matches the cookie " + k))
+    for c in r.response.cookies:
+      if c.value in r.response.content:
+        alerts.append(error("response.content matches the cookie " + c.value))
     return alerts
 
   def parse_html(self, r):
@@ -79,3 +78,23 @@ class RequestKeywordAlerter(GenericAlerter):
       if e.search(r.content):
         alerts.append(error("request.content matches " + e.pattern))
     return alerts
+
+
+class InjectedAlerter(GenericAlerter):
+
+  def analyse_response(self, r):
+    alerts = []
+    if not hasattr(r, "payload"):
+      return alerts
+    if "<b>abrupt</b>" in r.payload and r.response.is_html and \
+       "<b>abrupt</b>" in r.response.content:
+      alerts.append(error("response.content includes <b>abrupt</b>"))
+
+def scan(rs):
+  a = InjectedAlerter()
+  for i,r in enumerate(rs):
+    alerts = a.analyse_response(r)
+    if alerts:
+      print i, repr(r), repr(r.response)
+      for alert in alerts:
+        print "  " +  alert
