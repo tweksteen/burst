@@ -42,7 +42,7 @@ def generate_ssl_cert(domain):
   return domain_cert
 
 def generate_ca_cert():
-  gen_key_cmd = "openssl genrsa -out {}/key.pem 2048".format(CERT_DIR)
+  gen_key_cmd = "openssl genrsa -out {0}/key.pem 2048".format(CERT_DIR)
   gen_ca_cert_cmd = "openssl req -new -x509 -extensions v3_ca -days 3653 " + \
                     "-subj '/O=Abrupt/CN=Abrupt Proxy' " + \
                     "-out {0}/ca.pem -key {0}/key.pem".format(CERT_DIR)
