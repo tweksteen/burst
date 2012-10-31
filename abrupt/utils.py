@@ -37,7 +37,7 @@ def pxml(r):
   if has_lxml:
     try:
       x = etree.fromstring(s)
-      print etree.tostring(x, pretty_print = True)
+      return etree.tostring(x, pretty_print = True)
     except ValueError:
       print "Shit Tyrone, get it together!"
     except etree.XMLSyntaxError:
@@ -45,7 +45,7 @@ def pxml(r):
   else:
     try:
       x = xml.dom.minidom.parseString(s)
-      print x.toprettyxml()
+      return x.toprettyxml()
     except TypeError:
       print "Shit Tyrone, get it together!"
     except (xml.dom.DOMException,xml.parsers.expat.ExpatError):
@@ -58,7 +58,7 @@ def pjson(r):
     s = r
   try:
     j = json.loads(s)
-    print json.dumps(j, sort_keys=True, indent=4)
+    return json.dumps(j, sort_keys=True, indent=4)
   except ValueError:
       print "Unable to parse the JSON. Looking for octopus sex?"
 
@@ -109,7 +109,7 @@ def external_view(args):
   fd, fname = tempfile.mkstemp()
   with os.fdopen(fd, 'w') as f:
     f.write(str(args))
-  subprocess.Popen('xterm -e /bin/less -R ' + fname, shell=True)
+  subprocess.Popen('xterm -e /bin/less -R ' + fname, shell=True, preexec_fn=os.setpgrp)
   #todo: cleanup
 
 def idle(request, delay=60, predicate=None, verbose=False):

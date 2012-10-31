@@ -238,7 +238,7 @@ class ProxyHTTPRequestHandler(SocketServer.StreamRequestHandler):
           else:
             print self.pt, self.r.repr(), e
         flush_input()
-        e = raw_input("(f)orward, (d)rop, (c)ontinue, (v)iew, (h)eaders, (e)dit, (de)code, (n)ext [f]? ")
+        e = raw_input("[f]orward, (d)rop, (c)ontinue, (v)iew, (h)eaders, (e)dit, (de)code, (n)ext? ")
       if self.server.verbose >= 2:
         print self.r
       self.server.reqs.append(self.r)
@@ -279,7 +279,7 @@ class ProxyHTTPRequestHandler(SocketServer.StreamRequestHandler):
               ui_lock.acquire()
               print self.pt, self.r.response.repr()
             flush_input()
-            e = raw_input("(f)orward, (d)rop, (c)ontinue, (v)iew, (h)eaders, (e)dit, (de)code, (n)ext [f]? ")
+            e = raw_input("[f]orward, (d)rop, (c)ontinue, (v)iew, (h)eaders, (e)dit, (de)code, (n)ext? ")
         else:
           print self.pt, repr(self.r.response)
         for al in self.server.alerter.analyse_response(self.r):
