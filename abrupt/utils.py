@@ -26,7 +26,6 @@ except ImportError:
 
 re_space = re.compile(r'[ \t]+')
 re_ansi_color = re.compile(r"(\x1b\[[;\d]*[A-Za-z])|\x01|\x02").sub
-re_images_ext = re.compile(r'\.(png|jpg|jpeg|ico|gif)$')
 
 ellipsis = u"\u2026"
 

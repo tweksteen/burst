@@ -1,3 +1,4 @@
+import re
 import sys
 import traceback
 import socket
@@ -15,9 +16,16 @@ from abrupt.exception import BadStatusLine, UnableToConnect, NotConnected, \
 from abrupt.conf import conf
 from abrupt.color import *
 from abrupt.cert import generate_ssl_cert, get_key_file, extract_name
-from abrupt.utils import re_images_ext, flush_input, decode
+from abrupt.utils import flush_input, decode
 
 ui_lock = threading.Lock()
+
+re_images_ext = re.compile(r'\.(png|jpg|jpeg|ico|gif)$')
+re_js_ext = re.compile(r'\.js$')
+re_css_ext = re.compile(r'\.css$')
+ru_forward_images = (lambda x: re_images_ext.search(x.path), "f")
+ru_forward_js = (lambda x: re_js_ext.search(x.path), "f")
+ru_forward_css = (lambda x: re_css_ext.search(x.path), "f")
 
 class ProxyHTTPRequestHandler(SocketServer.StreamRequestHandler):
 
@@ -313,7 +321,7 @@ class ProxyHTTPServer(SocketServer.ThreadingMixIn, SocketServer.TCPServer):
       print warning(str(exc_type) + ":" + str(exc_value))
       traceback.print_tb(exc_traceback)
 
-def proxy(port=None, rules=((lambda x: re_images_ext.search(x.path), "f"),),
+def proxy(port=None, rules=(ru_forward_images,),
           default_action="a", alerter=None, persistent=True, pre_func=None,
           decode_func=None, forward_chunked=False, verbose=False):
   """Intercept all HTTP(S) requests on port. Return a RequestSet of all the
