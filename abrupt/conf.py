@@ -106,7 +106,8 @@ class Configuration(object):
     return str(self)
 
   def __str__(self):
-    return "\n".join(sorted([s + ": " + str(getattr(self, s)) for s in self._values]))
+    max_l = max([len(x) for x in self._values.keys()])
+    return "\n".join(sorted([(s+":").ljust(max_l) + str(getattr(self, s)) for s in self._values]))
 
   def import_env(self):
     if "http_proxy" in os.environ:
