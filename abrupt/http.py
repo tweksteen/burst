@@ -258,6 +258,8 @@ class Request():
           frep.write(str(e))
         frep.close()
         last_access = os.stat(freqname).st_mtime
+      # hack to avoid 100% CPU usage. Should be replaced by pyinotify.
+      time.sleep(0.1)
     os.remove(freqname)
     os.remove(frepname)
     return r_new
