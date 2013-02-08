@@ -5,7 +5,7 @@ import sys
 try:
   import abrupt.console
 except ImportError:
-  sys.path.append(os.path.dirname(os.path.dirname(__file__)))
+  sys.path.append(os.path.dirname(os.path.dirname(os.path.realpath(sys.argv[0]))))
   import abrupt.console
 
 if __name__ == "__main__":
