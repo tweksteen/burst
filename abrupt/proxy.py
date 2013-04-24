@@ -23,9 +23,10 @@ ui_lock = threading.Lock()
 re_images_ext = re.compile(r'\.(png|jpg|jpeg|ico|gif)$')
 re_js_ext = re.compile(r'\.js$')
 re_css_ext = re.compile(r'\.css$')
-ru_forward_images = (lambda x: re_images_ext.search(x.path), "f")
+ru_forward_images = (lambda x: hasattr(x, "path") and re_images_ext.search(x.path), "f")
 ru_forward_js = (lambda x: re_js_ext.search(x.path), "f")
 ru_forward_css = (lambda x: re_css_ext.search(x.path), "f")
+ru_bypass_ssl = (lambda x: x.method == "CONNECT", "b")
 
 class ProxyHTTPRequestHandler(SocketServer.StreamRequestHandler):
 
@@ -57,7 +58,7 @@ class ProxyHTTPRequestHandler(SocketServer.StreamRequestHandler):
         ssl_hostname = hostname
       self.ssl_sock = ssl.wrap_socket(self.request, server_side=True,
                                       certfile=generate_ssl_cert(ssl_hostname),
-                                      keyfile=get_key_file())
+                                      keyfile=get_key_file(), ssl_version=conf._ssl_version)
       self.rfile = self.ssl_sock.makefile('rb', self.rbufsize)
       self.wfile = self.ssl_sock.makefile('wb', self.wbufsize)
       return Request(self.rfile, hostname=hostname, port=port, use_ssl=True)
@@ -67,8 +68,40 @@ class ProxyHTTPRequestHandler(SocketServer.StreamRequestHandler):
         print self.pt, "<" + warning("SSLError") + ": " + \
                        "Abrupt certificate for {} ".format(hostname) + \
                        "has been rejected by your client. >"
+      elif "EOF occurred in violation of protocol" in str(e):
+        print self.pt, "<" + warning("SSLError") + ": " + \
+                       "Connection to {} has been dropped by the client. ".format(hostname) + \
+                       "Fake certificate may have been refused? >"
       else:
         print warning(str(e))
+      ui_lock.release()
+
+  def _forward_ssl(self, hostname, port):
+    client = self.request
+    server = connect(hostname, port, False)
+    self.wfile.write("HTTP/1.1 200 Connection established\r\n\r\n")
+    ui_lock.acquire()
+    print self.pt, "<" + info("CONNECT"), hostname + ">"
+    ui_lock.release()
+    if not server:
+      raise UnableToConnect()
+    try:
+      while not self.server._BaseServer__shutdown_request:
+        ready, _, excpt = select.select([client, server], [], [], 2)
+        if ready:
+          for s in ready:
+            data = s.recv(4096)
+            if len(data) == 0:
+              ui_lock.acquire()
+              print self.pt, "<" + info("CONNECT"), hostname + "> ended"
+              ui_lock.release()
+              return
+            for d in [client, server]:
+              if d != s:
+                d.send(data)
+    except socket.error:
+      ui_lock.acquire()
+      print self.pt, "<" + info("CONNECT"), hostname + "> died"
       ui_lock.release()
 
   def _init_connection(self):
@@ -132,24 +165,53 @@ class ProxyHTTPRequestHandler(SocketServer.StreamRequestHandler):
     else:
       if not hasattr(self, 'prev') or not self.prev or not self.prev["use_ssl"]:
         r = Request(self.rfile)
-        if r.method == "CONNECT":
-          r = self._bypass_ssl(r.hostname, r.port, proxy_aware=True)
       else:
-        r = Request(self.rfile, hostname=self.prev["hostname"], port=self.prev["port"], use_ssl=self.prev["use_ssl"])
+        r = Request(self.rfile, hostname=self.prev["hostname"],
+                    port=self.prev["port"], use_ssl=self.prev["use_ssl"])
     return r
 
-  def _apply_rules(self):
+  def _str_request(self, extra="", rl=False):
+    if console.term_width:
+      return self.pt + " " + self.r.repr(console.term_width - len(extra) - len(self.pt), rl=rl) + extra
+    else:
+      return self.pt + " " + self.r.repr(rl=rl) + extra
+
+  def _apply_rules(self, r):
     for rule, action in self.server.rules:
-      if bool(rule(self.r)):
+      if bool(rule(r)):
         pre_action = action
-        default = False
+        automated = True
         break
     else:
-      pre_action = self.server.default_action
-      default = True
-    if self.server.overrided_ask and pre_action == "a":
-      pre_action = self.server.overrided_ask
-    return pre_action, default
+      pre_action = "a"
+      automated = False
+      if self.server.auto and pre_action == "a":
+        pre_action = ""
+    return pre_action, automated
+
+  def _request_prologue(self):
+      self.r = self.server.pre_func(self.r)
+      ui_lock.acquire() # before apply rules to allow auto forward
+      if self.server._BaseServer__shutdown_request:
+        return "d", "d", True
+      pre_action, automated = self._apply_rules(self.r)
+      alerts = self.server.alerter.analyse_request(self.r)
+      if pre_action == "a":
+        flush_input()
+        if not alerts:
+          e = raw_input(self._str_request(extra=" ? ", rl=True))
+        else:
+          print self._str_request()
+          for al in alerts:
+            print " " * len(self.pt), " |", al
+          e = raw_input(" " * len(self.pt) + " ?")
+      else:
+        e = pre_action
+        if not automated or self.server.verbose:
+          print self._str_request(extra=" " + e)
+          for al in alerts:
+            print " " * len(self.pt), " |", al
+      return pre_action, e, automated
 
   def poll(self):
     while True:
@@ -178,36 +240,18 @@ class ProxyHTTPRequestHandler(SocketServer.StreamRequestHandler):
       self.r = self._read_request()
       if not self.r:
         return False
-      self.r = self.server.pre_func(self.r)
-      ui_lock.acquire()
-      pre_action, default = self._apply_rules()
-      if pre_action == "a":
-        flush_input()
-        alerts =  self.server.alerter.analyse_request(self.r)
-        if not alerts:
-          if console.term_width:
-            e = raw_input(self.pt + " " + self.r.repr(console.term_width - 4 - len(self.pt), rl=True) + " ? ")
-          else:
-            e = raw_input(self.pt + " " + self.r.repr(rl=True) + " ? ")
-        else:
-          if console.term_width:
-            print self.pt, self.r.repr(console.term_width - len(self.pt))
-          else:
-            print self.pt, self.r.repr()
-          for al in alerts:
-            print " " * len(self.pt), " |", al
-          e = raw_input(" " * len(self.pt) + " ?")
-      else:
-        e = pre_action
-        if default or self.server.verbose:
-          alerts = self.server.alerter.analyse_request(self.r)
-          if console.term_width:
-            print self.pt, self.r.repr(console.term_width - len(self.pt) - len(e)), e
-          else:
-            print self.pt, self.r.repr(), e
-          for al in alerts:
-            print " " * len(self.pt), " |", al
+      pre_action, e, automated = self._request_prologue()
       while True:
+        if self.r.method == "CONNECT" and (self.server.auto or (e == "" or e == "b")):
+          ui_lock.release()
+          self.r = self._bypass_ssl(self.r.hostname, self.r.port, proxy_aware=True)
+          if not self.r: return False
+          pre_action, e, automated = self._request_prologue()
+          continue
+        if self.r.method == "CONNECT" and e == "l":
+          ui_lock.release()
+          self._forward_ssl(self.r.hostname, self.r.port)
+          return False
         if e == "v":
           print  str(self.r)
         if e == "s":
@@ -219,11 +263,14 @@ class ProxyHTTPRequestHandler(SocketServer.StreamRequestHandler):
         if e == "d":
           ui_lock.release()
           return False
-        if e == "" or e == "f":
+        if self.server.auto or e == "" or e == "f":
           break
         if e == "c":
-          self.server.overrided_ask = "f"
-          break
+          self.server.auto = True
+          if self.r.method == "CONNECT":
+            continue
+          else:
+            break
         if e == "de":
           if self.r.content:
             print self.server.decode_func(self.r.content)
@@ -233,12 +280,12 @@ class ProxyHTTPRequestHandler(SocketServer.StreamRequestHandler):
           ui_lock.release()
           time.sleep(1)
           ui_lock.acquire()
-          if console.term_width:
-            print self.pt, self.r.repr(console.term_width - 5), e
-          else:
-            print self.pt, self.r.repr(), e
+          print self._str_request()
         flush_input()
-        e = raw_input("[f]orward, (d)rop, (c)ontinue, (v)iew, (h)eaders, (e)dit, (de)code, (n)ext? ")
+        if self.r.method == "CONNECT":
+          e = raw_input("[b]ypass, (l)ink, (d)rop, (c)ontinue, (v)iew, (h)eaders, (e)dit, (n)ext? ")
+        else:
+          e = raw_input("[f]orward, (d)rop, (c)ontinue, (v)iew, (h)eaders, (e)dit, (de)code, (n)ext? ")
       if self.server.verbose >= 2:
         print self.r
       self.server.reqs.append(self.r)
@@ -246,8 +293,8 @@ class ProxyHTTPRequestHandler(SocketServer.StreamRequestHandler):
       if not self._do_connection():
         return False
       ui_lock.acquire()
-      if default or self.server.verbose:
-        if pre_action == "a" and not self.server.overrided_ask:
+      if not automated or self.server.verbose:
+        if pre_action == "a" and not self.server.auto:
           flush_input()
           e = raw_input(self.pt + " " + self.r.response.repr(rl=True) + " ? ")
           while True:
@@ -266,7 +313,7 @@ class ProxyHTTPRequestHandler(SocketServer.StreamRequestHandler):
             if e == "" or e == "f":
               break
             if e == "c":
-              self.server.overrided_ask = "f"
+              self.server.auto = True
               break
             if e == "de":
               if self.r.response.content:
@@ -318,19 +365,23 @@ class ProxyHTTPServer(SocketServer.ThreadingMixIn, SocketServer.TCPServer):
     if exc_type == KeyboardInterrupt:
       raise KeyboardInterrupt()
     else:
-      print warning(str(exc_type) + ":" + str(exc_value))
-      traceback.print_tb(exc_traceback)
+      if exc_type == socket.error and "Broken pipe" in exc_value:
+        pass
+      elif exc_type == ssl.SSLError and "bad write retry" in exc_value:
+        pass
+      else:
+        print warning(str(exc_type) + ": " + str(exc_value))
+        traceback.print_tb(exc_traceback)
 
-def proxy(port=None, rules=(ru_forward_images,),
-          default_action="a", alerter=None, persistent=True, pre_func=None,
-          decode_func=None, forward_chunked=False, verbose=False):
+def proxy(port=None, rules=(ru_bypass_ssl, ru_forward_images,), alerter=None,
+          persistent=True, pre_func=None, decode_func=None,
+          forward_chunked=False, verbose=False):
   """Intercept all HTTP(S) requests on port. Return a RequestSet of all the
   answered requests.
 
   port            -- port to listen to
   alerter         -- alerter triggered on each response, by default GenericAlerter
   rules           -- set of rules for automated actions over requests
-  default_action  -- action to execute when no rules matches, by default (a)sk
   pre_func        -- callback used before processing a request
   decode_func     -- callback used when (de)coding a request/response content, by
                      default, decode().
@@ -353,8 +404,7 @@ def proxy(port=None, rules=(ru_forward_images,),
   print "Ctrl-C to interrupt the proxy..."
   httpd = ProxyHTTPServer((conf.ip, port), ProxyHTTPRequestHandler)
   httpd.rules = rules
-  httpd.default_action = default_action
-  httpd.overrided_ask = None
+  httpd.auto = False
   httpd.pre_func = pre_func
   httpd.decode_func = decode_func
   httpd.alerter = alerter
@@ -379,9 +429,3 @@ def proxy(port=None, rules=(ru_forward_images,),
 
 p = proxy
 
-def watch(**kwds):
-  """Run a proxy without user interaction, all the requests are forwarded.
-     See also proxy()"""
-  return proxy(default_action="f", **kwds)
-
-w = watch

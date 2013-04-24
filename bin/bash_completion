@@ -1,0 +1,23 @@
+#!/bin/bash
+
+_abrupt()
+{
+  local cur prev opts
+    COMPREPLY=()
+    cur="${COMP_WORDS[COMP_CWORD]}"
+    prev="${COMP_WORDS[COMP_CWORD-1]}"
+    opts="-b -h -l -v -s -r"
+
+    if [[ ${cur} == -* ]] ; then
+        COMPREPLY=( $(compgen -W "${opts}" -- ${cur}) )
+        return 0
+    fi
+
+    if [[ ${prev} == -s ]]; then
+        local sessions=$(ls ~/.abrupt/sessions)
+        COMPREPLY=( $(compgen -W "${sessions}" -- ${cur}) )
+        return 0
+    fi
+}
+
+complete -F _abrupt abrupt

@@ -33,7 +33,7 @@ class Request():
   user friendly interaction inside the interpreter.
   """
 
-  def __init__(self, fd, hostname=None, port=80, use_ssl=False):
+  def __init__(self, fd, hostname=None, port=None, use_ssl=False):
     """Create a request. fd should be either a socket descriptor
        or a string. In both case, it should contain a full request.
        To generate a request from a URL, see c()"""
@@ -50,19 +50,25 @@ class Request():
       # ASSUMPTION: CONNECT method needs a hostname and port
       self.hostname, self.port = url.rsplit(":", 1)
       self.port = int(self.port)
+      self.url = ""
+      self.use_ssl = False
+    elif hostname:
+      self.hostname = hostname
+      self.port = port if port else 80
+      self.use_ssl = use_ssl
+      self.url = url
     else:
       p_url = urlparse.urlparse(url)
       self.url = urlparse.urlunparse(("", "") + p_url[2:])
-      self.hostname = p_url.hostname or hostname
+      self.hostname = p_url.hostname
       if not self.hostname:
         raise AbruptException("No hostname: " + str(url))
+      if p_url.scheme == 'https':
+        self.use_ssl = True
+        self.port = int(p_url.port) if p_url.port else 443
       else:
-        if p_url.scheme == 'https':
-          self.use_ssl = True
-          self.port = int(p_url.port) if p_url.port else 443
-        else:
-          self.port = int(p_url.port) if p_url.port else port
-          self.use_ssl = use_ssl
+        self.port = int(p_url.port) if p_url.port else 80
+        self.use_ssl = use_ssl
     self.set_headers(read_headers(fd))
     self.raw_content = read_content(fd, self.headers, method=self.method)
     if self.raw_content:
@@ -160,7 +166,10 @@ class Request():
 
   def __str__(self, headers_only=False):
     s = StringIO()
-    s.write("{s.method} {s.url} {s.http_version}\r\n".format(s=self))
+    if self.method == "CONNECT":
+      s.write("{s.method} {s.hostname}:{s.port} {s.http_version}\r\n".format(s=self))
+    else:
+      s.write("{s.method} {s.url} {s.http_version}\r\n".format(s=self))
     for h, v in self.headers:
       s.write("{}: {}\r\n".format(h, v))
     s.write("\r\n")
@@ -213,15 +222,20 @@ class Request():
     if not ret:
       f = open(fname, 'r')
       r_new = Request(f, self.hostname, self.port, self.use_ssl)
-      if r_new.method in ('POST', 'PUT'):
+      if r_new.method in ('POST', 'PUT') and conf.update_content_length:
         r_new._update_content_length()
       os.remove(fname)
       return r_new
 
-  def play(self):
+  def play(self, onwrite=None):
     """Start your editor with two windows. Each time the request file is saved,
     the request is made to the server and the response updated. When the editor
     terminates, the last valid request made is returned.
+
+    If onwrite is provided, it will be called every time the request is saved.
+    The corresponding Request object is passed as an argument to this callback.
+    If something is returned, it will be displayed in the response window,
+    otherwise the response of the original request is displayed.
     """
     options = conf.editor_args if conf.editor_args else ""
     options += " "
@@ -245,13 +259,19 @@ class Request():
         freq = open(freqname, 'r')
         try:
           r_new = Request(freq, self.hostname, self.port, self.use_ssl)
-          if r_new.method in ('POST', 'PUT'):
+          if r_new.method in ('POST', 'PUT') and conf.update_content_length:
             r_new._update_content_length()
           freq.close()
-          r_new()
-          if r_new.response:
+          if onwrite:
+            res_text = onwrite(r_new)
+            if not res_text:
+              res_text = r_new.response
+          else:
+            r_new()
+            res_text = r_new.response
+          if res_text:
             frep = open(frepname, 'w')
-            frep.write(str(r_new.response))
+            frep.write(str(res_text))
         except Exception, e:
           frep = open(frepname, 'w')
           frep.write("Error:\n")
@@ -279,6 +299,9 @@ class Request():
       return None
     if hasattr(self, arg):
       return getattr(self, arg)
+    h = self.get_header(arg)
+    if h:
+      return h[0]
     if self.query:
       query = parse_qs(self.query)
       if arg in query:
@@ -287,9 +310,12 @@ class Request():
       post = parse_qs(self.content)
       if arg in post:
         return post[arg][0]
-    for c in self.cookies:
-      if c.name == arg:
-        return c.value
+    try:
+      for c in self.cookies:
+        if c.name == arg:
+          return c.value
+    except CookieException:
+      pass
     if from_response is None and self.response:
       return self.response.extract(arg)
 
@@ -629,7 +655,7 @@ class RequestSet():
 
     cols = [
             ("Method", lambda r, i: info(r.method)),
-            ("Path", lambda r, i: smart_split(r.path, 30, "/")),
+            ("Path", lambda r, i: smart_split(r.path, 40, "/")),
             ("Status", lambda r, i: color_status(r.response.status) if r.response else "-"),
             ("Length", n_length)]
 
@@ -665,7 +691,7 @@ class RequestSet():
     return False
 
   def summary(self):
-    sips = set(self.extract("injection_point"))
+    sips = set([ x.injection_point for x in self.reqs if hasattr(x, "injection_point")])
     for ip in sips:
       if not ip and len(sips) == 1:
         ors = self
@@ -814,7 +840,7 @@ def read_content(fp, headers, status=None, method=None, chunk_callback=None):
     if length < 0:
       raise AbruptException("Invalid Content-Length")
     return _read_content(fp, length).getvalue()
-  elif status == "200" or method == "POST":
+  elif (status and status != "204") or method == "POST" or method == "PUT":
     # ASSUMPTION: In case we have no indication on what to read, if the method
     #             is POST or the status 200, we read until EOF
     return fp.read()
@@ -977,7 +1003,6 @@ def _direct_connect(hostname, port, use_ssl):
     try:
       sock = _wrap_socket(sock)
     except socket.error, e:
-      print e
       raise UnableToConnect("Unable to use SSL with the server")
   return sock
 

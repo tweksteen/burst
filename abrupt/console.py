@@ -147,7 +147,7 @@ def interact(local_dict=None):
         abrupt.session.list_sessions()
         sys.exit(0)
       elif opt == "-v":
-        print "Abrupt {}, Copyright (c) 2012 Securus Global".format(abrupt.__version__)
+        print "Abrupt {}, Copyright (c) 2013 Securus Global".format(abrupt.__version__)
         sys.exit(0)
       elif opt == "-b":
         banner = "Abrupt {}".format(abrupt.__version__)
@@ -199,7 +199,7 @@ def interact(local_dict=None):
         return matches
 
       def attr_matches(self, text):
-        m = re.match(r"([\w\[\]]+(\.[\w\[\]]+)*)\.(\w*)", text)
+        m = re.match(r"([\w\[\]\-]+(\.[\w\[\]]+)*)\.(\w*)", text)
         if m:
           expr, attr = m.group(1, 3)
         else:
@@ -218,7 +218,7 @@ def interact(local_dict=None):
             matches.append("{}.{}".format(expr, word))
         return matches
 
-    readline.set_completer_delims(" \t\n`~!@#$%^&*()-=+{}\\|;:'\",<>/?")
+    readline.set_completer_delims(" \t\n`~!@#$%^&*()=+{}\\|;:'\",<>/?")
     readline.set_completer(AbruptCompleter().complete)
     readline.parse_and_bind("tab: complete")
     _load_history()

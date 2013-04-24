@@ -252,6 +252,8 @@ def fuzz_headers(r, payload="default"):
       r_new = r.copy()
       h_new = (k, p)
       r_new.headers[i] = h_new
+      r_new.injection_point = k
+      r_new.payload = p
       rs.append(r_new)
   return RequestSet(rs)
 
