@@ -750,7 +750,7 @@ class RequestSet():
     for i in indices:
       r = self.reqs[i]
       if not verbose:
-        print "Running {} requests...{}%".format(todo, done * 100 / todo),
+        print "Running {} requests...{:.2f}%".format(todo, done * 100. / todo),
         clear_line()
       next = False
       if r.response and not force:
@@ -1033,6 +1033,6 @@ def _send_request(sock, request):
     buf = [" ".join([request.method, request.url, request.http_version]), ]
   buf += ["{}: {}".format(h, v) for h, v in request.headers] + ["", ""]
   data = "\r\n".join(buf)
-  if request.content:
-    data += request.content
+  if request.raw_content:
+    data += request.raw_content
   sock.sendall(data)
