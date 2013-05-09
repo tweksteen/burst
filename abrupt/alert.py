@@ -8,6 +8,12 @@ try:
 except ImportError:
   has_lxml = False
 
+class NullAlerter:
+  def analyse_request(self, r):
+    return []
+  def analyse_response(self, r):
+    return []
+
 class GenericAlerter:
   html_keywords = [r'Error', r'Warning', r'SQL', r'LDAP', r'Failure']
   js_keywords = [r'password', r'credential']

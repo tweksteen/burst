@@ -12,4 +12,4 @@ from abrupt.utils     import encode, e, ee, decode, d, dd, parse_qs, \
                              urlencode, view, idle, external_view, pxml, \
                              pjson, d64, e64
 from abrupt.spider    import spider, s
-from abrupt.alert     import GenericAlerter, RequestKeywordAlerter
+from abrupt.alert     import NullAlerter, GenericAlerter, RequestKeywordAlerter
