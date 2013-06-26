@@ -55,6 +55,7 @@ def _inject_post(r, value, pds, pre_func):
       nc[value] = [pre_func(p), ]
       n_content = urlencode(nc)
       r_new = r.copy()
+      r_new.raw_content = n_content
       r_new.content = n_content
       r_new.injection_point = value
       r_new.payload = p
@@ -73,7 +74,8 @@ def _inject_json(r, value, pds, pre_func):
     for p in pds:
       n_json[value] = pre_func(p)
       r_new = r.copy()
-      r_new.content = json.dumps(n_json)
+      r_new.raw_content = json.dumps(n_json)
+      r_new.content = r_new.raw_content
       r_new.injection_point = value
       r_new.payload = p
       r_new._update_content_length()

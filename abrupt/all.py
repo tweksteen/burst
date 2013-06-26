@@ -10,6 +10,6 @@ from abrupt.session   import switch_session, ss, save, list_sessions, \
                              lss, archive
 from abrupt.utils     import encode, e, ee, decode, d, dd, parse_qs, \
                              urlencode, view, idle, external_view, pxml, \
-                             pjson, d64, e64
+                             pjson, d64, e64, bg, jobs
 from abrupt.spider    import spider, s
 from abrupt.alert     import NullAlerter, GenericAlerter, RequestKeywordAlerter

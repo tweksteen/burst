@@ -11,18 +11,20 @@ import operator
 import random
 import tempfile
 import webbrowser
+import threading
 import subprocess
 import datetime
 from collections import defaultdict
 from StringIO import StringIO
 
+from abrupt import console
 from abrupt.conf import conf
 from abrupt.cookie import Cookie
 from abrupt.color import *
 from abrupt.exception import *
 from abrupt.utils import make_table, clear_line, \
                          re_space, smart_split, smart_rsplit, \
-                         stats, parse_qs
+                         truncate, stats, parse_qs
 
 class Request():
   """The Request class is the base of Abrupt. To create an instance, you have
@@ -199,7 +201,9 @@ class Request():
     else:
       sock = connect(self.hostname, self.port, self.use_ssl)
     if conf.history:
+      history_lock.acquire()
       history.append(self)
+      history_lock.release()
     _send_request(sock, self)
     t_start = datetime.datetime.now()
     self.response = Response(sock.makefile('rb', 0), self,
@@ -441,6 +445,8 @@ class Response():
       print warning("The response is currently encoded. It will be decoded before edition."),
       raw_input()
       res = self.normalise()
+    if conf.update_content_length:
+      res.remove_header("Content-Length")
     with os.fdopen(fd, 'w') as f:
       f.write(res.raw())
     ret = subprocess.call(conf.editor + " " + fname + " " + options, shell=True)
@@ -642,7 +648,7 @@ class RequestSet():
   def __str__(self):
     return unicode(self).encode('utf-8')
 
-  def __unicode__(self):
+  def __unicode__(self, width=None):
 
     def n_length(r, i):
       if r.response and r.response.content:
@@ -654,23 +660,23 @@ class RequestSet():
         return "-"
 
     cols = [
-            ("Method", lambda r, i: info(r.method)),
-            ("Path", lambda r, i: smart_split(r.path, 40, "/")),
-            ("Status", lambda r, i: color_status(r.response.status) if r.response else "-"),
-            ("Length", n_length)]
+            ("Method", lambda r, i: info(r.method), None),
+            ("Path", lambda r, i: r.path, (9, smart_rsplit, "/")),
+            ("Status", lambda r, i: color_status(r.response.status) if r.response else "-", None),
+            ("Length", n_length, None)]
 
     if any([hasattr(x, "payload") for x in self.reqs]):
-      cols.insert(2, ("Injection Point", lambda r, i: getattr(r, "injection_point", "-")[:20]))
-      cols.insert(3, ("Payload", lambda r, i: getattr(r, "payload", "-")[:20]))
+      cols.insert(2, ("Point", lambda r, i: getattr(r, "injection_point", "-"), (2, truncate)))
+      cols.insert(3, ("Payload", lambda r, i: getattr(r, "payload", "-"), (3, truncate)))
       cols.append(("Time", lambda r, i: "{:.4f}".format(r.response.time.total_seconds()) if
-                                        (r.response and hasattr(r.response, "time")) else "-"))
+                                        (r.response and hasattr(r.response, "time")) else "-", None))
     else:
-      cols.insert(2, ("Query", lambda r, i: smart_rsplit(r.query, 30, "&")))
+      cols.insert(2, ("Query", lambda r, i: r.query, (3, smart_rsplit, "&")))
     if len(set([r.hostname for r in self.reqs])) > 1:
-      cols.insert(1, ("Host", lambda r, i: smart_rsplit(r.hostname, 20, ".")))
+      cols.insert(1, ("Host", lambda r, i: r.hostname, (2, smart_rsplit, ".")))
     if len(self.reqs) > 5:
-      cols.insert(0, ("Id", lambda r, i: str(i)))
-    return make_table(self.reqs, cols)
+      cols.insert(0, ("Id", lambda r, i: str(i), None))
+    return make_table(self.reqs, cols, console.term_width)
 
   def _summary_attr(self, rs, attr, p_str, indent):
     values = [ attr(r) for r in rs if r.response ]
@@ -725,8 +731,8 @@ class RequestSet():
     for r in self.reqs:
       r.response = None
 
-  def __call__(self, force=False, randomised=False, verbose=False,
-               post_callback=None, post_callback_args=None):
+  def __call__(self, force=False, randomised=False, verbose=1,
+               post_callback=None, post_callback_args=[]):
     if not self.reqs:
       raise Exception("No request to proceed")
     hostnames = set([r.hostname for r in self.reqs])
@@ -737,19 +743,20 @@ class RequestSet():
     self.hostname = hostnames.pop()
     self.port = ports.pop()
     self.use_ssl = use_ssls.pop()
-    if force:
+    if force and verbose:
       print "Clearing previous responses..."
       self.clear()
     conn = self._init_connection()
-    print "Running {} requests...".format(len(self.reqs)),
-    clear_line()
+    if verbose:
+      print "Running {} requests...".format(len(self.reqs)),
+      clear_line()
     indices = range(len(self.reqs))
     if randomised: random.shuffle(indices)
     done = 0
     todo = len(self.reqs)
     for i in indices:
       r = self.reqs[i]
-      if not verbose:
+      if verbose:
         print "Running {} requests...{:.2f}%".format(todo, done * 100. / todo),
         clear_line()
       next = False
@@ -758,10 +765,10 @@ class RequestSet():
         next = True
       while not next:
         try:
-          if verbose: print repr(r)
+          if verbose == 2: print repr(r)
           r(conn=conn)
-          if post_callback: post_callback(r, post_callback_args)
-          if verbose: print repr(r.response)
+          if post_callback: post_callback(r, *post_callback_args)
+          if verbose == 2: print repr(r.response)
           if r.response.closed:
             conn = self._init_connection()
           done += 1
@@ -771,7 +778,8 @@ class RequestSet():
           next = False
         if conf.delay:
           time.sleep(conf.delay)
-    print "Running {} requests...done.".format(len(self.reqs))
+    if verbose:
+      print "Running {} requests...done.".format(len(self.reqs))
     conn.close()
 
 class History(RequestSet):
@@ -794,6 +802,7 @@ class History(RequestSet):
   def clear(self):
     self.reqs = []
 
+history_lock = threading.RLock()
 history = History()
 
 # Following, internal function used by Request and Response

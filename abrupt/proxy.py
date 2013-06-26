@@ -35,6 +35,7 @@ class ProxyHTTPRequestHandler(SocketServer.StreamRequestHandler):
   def __init__(self, request, client_address, server):
     self.delay = 1
     self.pt = "[" + threading.current_thread().name.replace("Thread-", "") + "]"
+    threading.current_thread().name = "proxy_" + self.pt
     SocketServer.StreamRequestHandler.__init__(self, request, client_address, server)
 
   def _bypass_ssl(self, hostname, port, proxy_aware=False):
@@ -365,9 +366,9 @@ class ProxyHTTPServer(SocketServer.ThreadingMixIn, SocketServer.TCPServer):
     if exc_type == KeyboardInterrupt:
       raise KeyboardInterrupt()
     else:
-      if exc_type == socket.error and "Broken pipe" in exc_value:
+      if exc_type == socket.error and "Broken pipe" in str(exc_value):
         pass
-      elif exc_type == ssl.SSLError and "bad write retry" in exc_value:
+      elif exc_type == ssl.SSLError and "bad write retry" in str(exc_value):
         pass
       else:
         print warning(str(exc_type) + ": " + str(exc_value))
@@ -422,7 +423,7 @@ def proxy(port=None, rules=(ru_bypass_ssl, ru_forward_images,), alerter=None,
       print "Waiting for the threads to stop"
       httpd.shutdown()
       for t in threading.enumerate():
-        if t != threading.current_thread():
+        if t.name.startswith("proxy"):
           t.join()
       break
   return RequestSet(httpd.reqs)
