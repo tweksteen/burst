@@ -23,6 +23,7 @@ ui_lock = threading.Lock()
 re_images_ext = re.compile(r'\.(png|jpg|jpeg|ico|gif)$')
 re_js_ext = re.compile(r'\.js$')
 re_css_ext = re.compile(r'\.css$')
+ru_forward_all = (lambda x: True, "f")
 ru_forward_images = (lambda x: hasattr(x, "path") and re_images_ext.search(x.path), "f")
 ru_forward_js = (lambda x: re_js_ext.search(x.path), "f")
 ru_forward_css = (lambda x: re_css_ext.search(x.path), "f")
@@ -135,7 +136,7 @@ class ProxyHTTPRequestHandler(SocketServer.StreamRequestHandler):
     while not done:
       try:
         if self.server.forward_chunked:
-          self.r(conn=self.conn, chunk_callback=self._update_chunk)
+          self.r(conn=self.conn, chunk_func=self._update_chunk)
         else:
           self.r(conn=self.conn)
         if not self.r.response.closed:
@@ -260,7 +261,7 @@ class ProxyHTTPRequestHandler(SocketServer.StreamRequestHandler):
         if e == "h":
           print self.r.__str__(headers_only=True)
         if e == "e":
-          self.r = self.r.edit()
+          self.r.edit()
         if e == "d":
           ui_lock.release()
           return False
@@ -307,7 +308,7 @@ class ProxyHTTPRequestHandler(SocketServer.StreamRequestHandler):
             if e == "h":
               print self.r.response.__str__(headers_only=True)
             if e == "e":
-              self.r.response = self.r.response.edit()
+              self.r.response.edit()
             if e == "d":
               ui_lock.release()
               return False
@@ -366,21 +367,22 @@ class ProxyHTTPServer(SocketServer.ThreadingMixIn, SocketServer.TCPServer):
     if exc_type == KeyboardInterrupt:
       raise KeyboardInterrupt()
     else:
-      if exc_type == socket.error and "Broken pipe" in str(exc_value):
+      if exc_type == socket.error and "Broken pipe" in str(exc_value) and not self.verbose:
         pass
-      elif exc_type == ssl.SSLError and "bad write retry" in str(exc_value):
+      elif exc_type == ssl.SSLError and "bad write retry" in str(exc_value) and not self.verbose:
         pass
       else:
         print warning(str(exc_type) + ": " + str(exc_value))
         traceback.print_tb(exc_traceback)
 
-def proxy(port=None, rules=(ru_bypass_ssl, ru_forward_images,), alerter=None,
-          persistent=True, pre_func=None, decode_func=None,
+def proxy(ip=None, port=None, rules=(ru_bypass_ssl, ru_forward_images,),
+          alerter=None, persistent=True, pre_func=None, decode_func=None,
           forward_chunked=False, verbose=False):
   """Intercept all HTTP(S) requests on port. Return a RequestSet of all the
   answered requests.
 
-  port            -- port to listen to
+  ip              -- ip to listen to, by default conf.ip
+  port            -- port to listen to, by default conf.port
   alerter         -- alerter triggered on each response, by default GenericAlerter
   rules           -- set of rules for automated actions over requests
   pre_func        -- callback used before processing a request
@@ -394,16 +396,17 @@ def proxy(port=None, rules=(ru_bypass_ssl, ru_forward_images,), alerter=None,
                      2      -- Display all requests with their full content
                      3      -- Display all requests and responses with their
                               full content
-  See also: conf, watch()
+  See also: conf
   """
+  if not ip: ip = conf.ip
   if not port: port = conf.port
   if not alerter: alerter = alert.GenericAlerter()
   if not rules: rules = []
   if not decode_func: decode_func = decode
   if not pre_func: pre_func = lambda x:x
-  print "Running on", conf.ip + ":" + str(port)
+  print "Running on", ip + ":" + str(port)
   print "Ctrl-C to interrupt the proxy..."
-  httpd = ProxyHTTPServer((conf.ip, port), ProxyHTTPRequestHandler)
+  httpd = ProxyHTTPServer((ip, port), ProxyHTTPRequestHandler)
   httpd.rules = rules
   httpd.auto = False
   httpd.pre_func = pre_func
