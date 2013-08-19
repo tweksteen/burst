@@ -2,12 +2,13 @@ import re
 import urlparse
 from collections import deque
 
-from abrupt.http import RequestSet
+from abrupt.http import Request, RequestSet
 from abrupt.utils import e, clear_line
 from abrupt.color import *
 
 try:
   import lxml.html
+  import lxml.etree
   has_lxml = True
 except ImportError:
   has_lxml = False
@@ -36,7 +37,11 @@ def _get_links(r):
         l = e(l.encode('utf-8'), safe='/')
       url_p = urlparse.urlparse(l)
       if url_p.scheme in ('http', 'https'):
-        new_reqs.append(c(l))
+        try:
+          new_reqs.append(create(l))
+        except:
+          print "Invalid link:", l
+          continue
       elif url_p.scheme in ('javascript', 'mailto') or l.startswith("#"):
         continue
       elif url_p.scheme == '' and url_p.path:
@@ -47,24 +52,30 @@ def _get_links(r):
       else:
         if url_p.scheme not in ("ftp", "irc", "xmpp", "mms"):
           print "UNKNOWN PROTOCOL Miam!?:" + l, url_p.scheme
-  except XMLSyntaxError:
+  except lxml.etree.XMLSyntaxError:
     pass
   return RequestSet(new_reqs)
 
-def spider(r_init, max=-1, post_func=None, hosts=None):
+def spider(init, max=-1, ignore_qs=False, post_func=None, hosts=None):
   """
   Spider a request by following some links.
 
-  r_init    - The initial request
+  init    - The initial request(s)
   max       - The maximum of request to execute
   post_func - A hook to be executed after each new page fetched
-  hosts     - A lists of authorised hosts to spider on. By default,
+  hosts     - A lists of authorised hosts to spider on. By default
               only the hostname of r_init is allowed.
   """
-  q = deque([r_init, ])
-  checked = []
   nb = 0
-  hs = [r_init.hostname, ]
+  checked = []
+  if isinstance(init, Request):
+    q = deque([init, ])
+    hs = [ init.hostname, ]
+  elif isinstance(init, RequestSet):
+    q = deque(init)
+    hs = list(set(init.extract("hostname")))
+  else:
+    raise TypeError("init must be a Request or a RequestSet")
   if hosts:
     hs += hosts
   try:
@@ -73,7 +84,8 @@ def spider(r_init, max=-1, post_func=None, hosts=None):
       r = q.popleft()
       print str(len(checked)) + "/" + str(len(q)),
       clear_line()
-      r()
+      if not r.response:
+        r()
       if r.response.content_type:
         if re.match(r'text/html', r.response.content_type):
           to_add += _follow_redirect(r)
@@ -86,12 +98,14 @@ def spider(r_init, max=-1, post_func=None, hosts=None):
       for nr in to_add:
         if nr.hostname not in hs:
           continue
-        if any(nr == rc for rc in checked + list(q)):
+        if not ignore_qs and any(nr == rc for rc in checked + list(q)):
+          continue
+        if ignore_qs and any(nr.similar(rc) for rc in checked + list(q)):
           continue
         q.append(nr)
       nb += 1
   except KeyboardInterrupt:
-    pass
+    print str(len(checked)) + "/" + str(len(q))
   return RequestSet(checked)
 
 s = spider
