@@ -106,7 +106,7 @@ class Configuration(object):
     return str(self)
 
   def __str__(self):
-    max_l = max([len(x) for x in self._values.keys()])
+    max_l = max([len(x) for x in self._values.keys()]) + 1
     return "\n".join(sorted([(s+":").ljust(max_l) + str(getattr(self, s)) for s in self._values]))
 
   def import_env(self):
