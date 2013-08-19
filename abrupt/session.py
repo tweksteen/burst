@@ -67,9 +67,13 @@ def save(force=False):
 
   See also: ss, lss, conf.autosave.
   """
+  if not isinstance(force, bool):
+    print error("""The force parameter should be a boolean. """
+                """Are you looking for switch_session?""")
+    return
   if session_name == "default" and not force:
-    print error("""It is a bad idea to save your data in the default session,\n"""
-                """you should create another session with ss('my_session').\n"""
+    print error("""It is usually a bad idea to save your data in the default session,\n"""
+                """you should create another session with switch_session('my_session').\n"""
                 """If you are sure, use save(force=True)""")
     return
   if session_readonly and not force:
@@ -153,6 +157,7 @@ def list_sessions():
         try:
           d = datetime.datetime.strptime(os.path.basename(last_used[-1]),
                                          "%Y-%m-%dT%H%M.p")
+          # TODO, add size (os.stat().st_size)
         except ValueError:
           pass
       sessions.append((s, d))
