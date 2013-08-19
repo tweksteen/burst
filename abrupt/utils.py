@@ -255,7 +255,7 @@ def make_table(requests, fields, width=80):
       v = _ljust(v, final_len[cname] + 1)
       line.append(v)
     line.append("\n")
-  output += "".join(line)
+  output += u"".join(line)
   return output
 
 def clear_line():
