@@ -32,7 +32,7 @@ class Request():
   into the constructor or use the 'create' function.
 
   The two methods __repr__ and __str__ have been defined to provide
-  user friendly interaction inside the interpreter.
+  user-friendly interaction within the interpreter.
   """
 
   def __init__(self, fd, hostname=None, port=None, use_ssl=False):
@@ -95,15 +95,15 @@ class Request():
     return cookies
 
   def has_header(self, name, value=None):
-    """Test if the request contained a specific headers (case insensitive).
+    """Test if the request contains a specific header (case insensitive).
     If value is supplied, it is matched (case insensitive) against the first
     header with the matching name.
     """
     return _has_header(self.headers, name, value)
 
   def get_header(self, name):
-    """Return the headers of the request matching name (case insensitive). Note
-    that this method always returns a list.
+    """Return the headers of the request matching name (case insensitive).
+    This method always returns a list.
     """
     return _get_header(self.headers, name)
 
@@ -117,8 +117,10 @@ class Request():
         t, v = [q.strip() for q in l.split(":", 1)]
         self.headers.append((t, v))
 
-  def _update_content_length(self):
-    l = str(len(self.content)) if self.content else "0"
+  def update_content_length(self):
+    """Update the Content-Length header according to the content of the
+    request"""
+    l = str(len(self.raw_content)) if self.raw_content else "0"
     for i, c in enumerate(self.headers):
       h, v = c
       if h.title() == "Content-Length":
@@ -129,12 +131,15 @@ class Request():
       self.headers.append(("Content-Length", l))
 
   def remove_header(self, name):
+    """Remove all the headers matching the specified name"""
     for i, c in enumerate(self.headers):
       h, v = c
       if h.title() == name:
         del self.headers[i]
 
   def bind(self, r):
+    """Bind the Request to another one. This method will copy the supplied
+    request's cookies and response set-cookies to the Request."""
     r_new = self.copy()
     for c in r.get_header('Cookie'):
       r_new.headers.append(('Cookie', c))
@@ -180,6 +185,8 @@ class Request():
     return s.getvalue()
 
   def __eq__(self, r):
+    """Compare two requests based on the host, port, use of ssl, url, headers
+    and content (if present)"""
     if self.hostname != r.hostname or \
        self.port != r.port or \
        self.use_ssl != r.use_ssl or \
@@ -190,11 +197,19 @@ class Request():
       return False
     return True
 
-  def __call__(self, conn=None, chunk_callback=None):
-    """Make the request to the server.
-    If conn is supplied, it will be used as connection socket. If
-    chunk_callback is supplied, it will be call for every chunk
-    received, if appplicable.
+  def similar(self, r):
+    """Compare two requests based on the host, port, use of ssl and path"""
+    if self.hostname != r.hostname or \
+       self.port != r.port or \
+       self.use_ssl != r.use_ssl or \
+       self.path != r.path:
+      return False
+    return True
+
+  def __call__(self, conn=None, chunk_func=None):
+    """Make the request to the server. If conn is supplied, it will be used
+    as connection socket. If chunk_func is supplied, it will be call for
+    every chunk received, if appplicable.
     """
     if conn:
       sock = conn
@@ -206,40 +221,44 @@ class Request():
       history_lock.release()
     _send_request(sock, self)
     t_start = datetime.datetime.now()
-    self.response = Response(sock.makefile('rb', 0), self,
-                             chunk_callback=chunk_callback)
+    self.response = Response(sock.makefile('rb', 0), self, chunk_func=chunk_func)
     self.response.sent_date = t_start
     self.response.received_date = datetime.datetime.now()
 
   def edit(self):
-    """Edit the request. The original request is not modified, a new
-    one is returned.
+    """Edit the request. The original request is modified.
     """
     options = conf.editor_args if conf.editor_args else ""
-    r_tmp = self.copy()
     if conf.update_content_length:
-      r_tmp.remove_header("Content-Length")
+      self.remove_header("Content-Length")
     fd, fname = tempfile.mkstemp(suffix=".http")
     with os.fdopen(fd, 'w') as f:
-      f.write(str(r_tmp))
+      f.write(str(self))
     ret = subprocess.call(conf.editor + " " + fname + " " + options, shell=True)
     if not ret:
       f = open(fname, 'r')
-      r_new = Request(f, self.hostname, self.port, self.use_ssl)
-      if r_new.method in ('POST', 'PUT') and conf.update_content_length:
-        r_new._update_content_length()
+      self.__init__(f, self.hostname, self.port, self.use_ssl)
+      if self.method in ('POST', 'PUT') and conf.update_content_length:
+        self.update_content_length()
       os.remove(fname)
-      return r_new
 
-  def play(self, onwrite=None):
-    """Start your editor with two windows. Each time the request file is saved,
-    the request is made to the server and the response updated. When the editor
-    terminates, the last valid request made is returned.
+  def play(self, call_func=None, pre_func=None, post_func=None):
+    """Start your editor with a dump of the Request and its Response.
+    Every time the request file is saved, the request is made to the server and
+    the response updated. When the editor terminates, the last valid request
+    made is returned. The original request is not modified.
 
-    If onwrite is provided, it will be called every time the request is saved.
+    If call_func is provided, it will be called every time the request is saved.
     The corresponding Request object is passed as an argument to this callback.
-    If something is returned, it will be displayed in the response window,
-    otherwise the response of the original request is displayed.
+
+    If pre_func is provided, it will be called before the request is sent.
+    A Request is passed as argument, it should return a Request.
+
+    If post_func is provided, it will be called once the response has been read.
+    A Response is passed as argument, it should return a Response.
+
+    The behaviour of your editor can be modified via the conf.editor_args and
+    conf.editor_play_args parameters.
     """
     options = conf.editor_args if conf.editor_args else ""
     options += " "
@@ -264,14 +283,17 @@ class Request():
         try:
           r_new = Request(freq, self.hostname, self.port, self.use_ssl)
           if r_new.method in ('POST', 'PUT') and conf.update_content_length:
-            r_new._update_content_length()
+            r_new.update_content_length()
           freq.close()
-          if onwrite:
-            res_text = onwrite(r_new)
-            if not res_text:
-              res_text = r_new.response
+          if pre_func:
+            r_new = pre_func(r_new)
+          if call_func:
+            call_func(r_new)
           else:
             r_new()
+          if post_func:
+            res_text = post_func(r_new.response)
+          else:
             res_text = r_new.response
           if res_text:
             frep = open(frepname, 'w')
@@ -324,12 +346,12 @@ class Request():
       return self.response.extract(arg)
 
   def filter(self, predicate):
+    """Filter the Request according to a predicate. This method is used by
+    RequestSet.filter"""
     return bool(predicate(self))
 
   def follow(self):
-    """Try to follow the request (i.e., generate a new request based
-    On redirection information).
-    """
+    """Generate a new request based on the Location header."""
     if not self.response or not self.response.status in ('301', '302'):
       return
     else:
@@ -369,7 +391,7 @@ c = create
 class Response():
   """A response object, always associated with a request.
   """
-  def __init__(self, fd, request, chunk_callback=None):
+  def __init__(self, fd, request, chunk_func=None):
     try:
       banner = read_banner(fd)
       # ASSUMPTION: A response status line contains three elements
@@ -383,7 +405,7 @@ class Response():
       self.raw_content = self.content = ""
     else:
       self.raw_content = read_content(fd, self.headers, self.status,
-                                      chunk_callback=chunk_callback)
+                                      chunk_func=chunk_func)
       if self.raw_content:
         self.content = _clear_content(self.headers, self.raw_content)
       else:
@@ -412,74 +434,63 @@ class Response():
     return "<" + color_status(self.status, rl) + " " + " ".join(flags) + ">"
 
   def has_header(self, name, value=None):
-    """Test if the response contained a specific headers (case insensitive).
+    """Test if the response contains a specific header (case insensitive).
     If value is supplied, it is matched (case insensitive) against the first
     header with the matching name.
     """
     return _has_header(self.headers, name, value)
 
   def get_header(self, name):
-    """Return the headers of the response matching name (case insensitive). Note
-    that this method always returns a list.
+    """Return the headers of the response matching name (case insensitive).
+    This method always returns a list.
     """
     return _get_header(self.headers, name)
 
-  def view(self):
-    """Start your editor on a dump of the response
-    """
-    options = conf.editor_args if conf.editor_args else ""
-    fd, fname = tempfile.mkstemp(suffix=".http")
-    with os.fdopen(fd, 'w') as f:
-      f.write(str(self))
-    subprocess.call(conf.editor + " " + fname + " " + options, shell=True)
-    os.remove(fname)
-
   def edit(self):
-    """Edit the response through your editor. A new reponse is
-    returned.
+    """Edit the response through your editor. The original response is modified.
     """
     options = conf.editor_args if conf.editor_args else ""
     fd, fname = tempfile.mkstemp(suffix=".http")
-    res = self
     if self.content != self.raw_content:
-      print warning("The response is currently encoded. It will be decoded before edition."),
+      print warning("The response is currently encoded. It will be decoded " \
+                    "before edition."),
       raw_input()
-      res = self.normalise()
+      self.normalise()
     if conf.update_content_length:
-      res.remove_header("Content-Length")
+      self.remove_header("Content-Length")
     with os.fdopen(fd, 'w') as f:
-      f.write(res.raw())
+      f.write(self.raw())
     ret = subprocess.call(conf.editor + " " + fname + " " + options, shell=True)
     if not ret:
       f = open(fname, 'r')
-      res_new = Response(f, self.request)
-      if res_new.content:
-        res_new._update_content_length()
+      self.__init__(f, self.request)
+      if self.content:
+        self.update_content_length()
       os.remove(fname)
-      return res_new
 
   def copy(self):
+    """Copy a Response. Both response will have the same request."""
     res_new = copy.copy(self)
     res_new.headers = copy.deepcopy(self.headers)
     return res_new
 
   def normalise(self):
-    res_new = self.copy()
-    if self.content == self.raw_content:
-      return res_new
-    res_new.raw_content = res_new.content
-    res_new.remove_header("Transfer-Encoding")
-    res_new.remove_header("Content-Encoding")
-    res_new._update_content_length()
-    return res_new
+    """Normalise the response content by dropping any extra encoding"""
+    self.raw_content = res_new.content
+    self.remove_header("Transfer-Encoding")
+    self.remove_header("Content-Encoding")
+    self.update_content_length()
 
   def remove_header(self, name):
+    """Remove all the headers matching the specified name"""
     for i, c in enumerate(self.headers):
       h, v = c
       if h.title() == name:
         del self.headers[i]
 
-  def _update_content_length(self):
+  def update_content_length(self):
+    """Update the Content-Length header according to the content of the
+    response"""
     l = str(len(self.raw_content)) if self.raw_content else "0"
     for i, c in enumerate(self.headers):
       h, v = c
@@ -667,7 +678,7 @@ class RequestSet():
 
     if any([hasattr(x, "payload") for x in self.reqs]):
       cols.insert(2, ("Point", lambda r, i: getattr(r, "injection_point", "-"), (2, truncate)))
-      cols.insert(3, ("Payload", lambda r, i: getattr(r, "payload", "-"), (3, truncate)))
+      cols.insert(3, ("Payload", lambda r, i: getattr(r, "payload", "-").decode("utf8"), (3, truncate)))
       cols.append(("Time", lambda r, i: "{:.4f}".format(r.response.time.total_seconds()) if
                                         (r.response and hasattr(r.response, "time")) else "-", None))
     else:
@@ -721,6 +732,9 @@ class RequestSet():
   def by_status(self):
     return RequestSet(sorted(self.reqs, key=operator.attrgetter("response.status")))
 
+  def by_path(self):
+    return RequestSet(sorted(self.reqs, key=operator.attrgetter("path")))
+
   def without_payloads(self):
     return RequestSet([x for x in self.reqs if not hasattr(x, "payload")])
 
@@ -732,14 +746,14 @@ class RequestSet():
       r.response = None
 
   def __call__(self, force=False, randomised=False, verbose=1,
-               post_callback=None, post_callback_args=[]):
+               post_func=None, post_args=[]):
     if not self.reqs:
       raise Exception("No request to proceed")
     hostnames = set([r.hostname for r in self.reqs])
     ports = set([r.port for r in self.reqs])
     use_ssls = set([r.use_ssl for r in self.reqs])
     if len(hostnames) > 1 or len(ports) > 1 or len(use_ssls) > 1:
-      raise Exception("Only one host per request set to run them")
+      raise Exception("Only one host per request set to run it")
     self.hostname = hostnames.pop()
     self.port = ports.pop()
     self.use_ssl = use_ssls.pop()
@@ -767,7 +781,7 @@ class RequestSet():
         try:
           if verbose == 2: print repr(r)
           r(conn=conn)
-          if post_callback: post_callback(r, *post_callback_args)
+          if post_func: post_func(r, *post_args)
           if verbose == 2: print repr(r.response)
           if r.response.closed:
             conn = self._init_connection()
@@ -835,11 +849,11 @@ def _has_header(headers, name, value=None):
 def _get_header(headers, name):
   return [v for h, v in headers if h.lower() == name.lower()]
 
-def read_content(fp, headers, status=None, method=None, chunk_callback=None):
+def read_content(fp, headers, status=None, method=None, chunk_func=None):
   if status == "304":
     return None
   elif _has_header(headers, "Transfer-Encoding", "chunked"):
-    return _chunked_read_content(fp, chunk_callback=chunk_callback).getvalue()
+    return _chunked_read_content(fp, chunk_func=chunk_func).getvalue()
   elif _has_header(headers, "Content-Length"):
     # ASSUMPTION: The first Content-Length header will be use to
     #             read the response
@@ -855,7 +869,7 @@ def read_content(fp, headers, status=None, method=None, chunk_callback=None):
     return fp.read()
   return None
 
-def _chunked_read_content(fp, chunk_callback=None):
+def _chunked_read_content(fp, chunk_func=None):
   buffer = StringIO()
   while True:
     diff = ""
@@ -865,14 +879,14 @@ def _chunked_read_content(fp, chunk_callback=None):
     if s == 0:
       diff += fp.readline()
       buffer.write(diff)
-      if chunk_callback:
-        chunk_callback(diff)
+      if chunk_func:
+        chunk_func(diff)
       return buffer
     diff += _read_content(fp, s).getvalue()
     diff += fp.readline()
     buffer.write(diff)
-    if chunk_callback:
-      chunk_callback(diff)
+    if chunk_func:
+      chunk_func(diff)
 
 def _read_content(fp, length):
   buffer = StringIO()
@@ -1044,4 +1058,6 @@ def _send_request(sock, request):
   data = "\r\n".join(buf)
   if request.raw_content:
     data += request.raw_content
+  # if request.footers:
+  #   data += ["{}: {}".format (h, v) for h, v in request.footers] + ["",""]
   sock.sendall(data)
