@@ -6,7 +6,7 @@ style_success = "\033[32m"
 style_error = "\033[1;31m"
 style_warning = "\033[1;33m"
 style_info = "\033[1;34m"
-style_stealthy = "\033[37m"
+style_stealthy = "\033[1;37m"
 
 def __generic_style(c):
   def _x(s, rl=False):

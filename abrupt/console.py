@@ -76,12 +76,16 @@ def _update_term_width(snum, frame):
 class ColorPrompt(object):
   def __str__(self):
     session_name = abrupt.session.session_name
+    read_only = abrupt.session.session_readonly
     prompt = '\001{}\002'.format(info('\002>>> \001'))
     if session_name != "default":
-      if abrupt.session.should_save():
-        prompt = '\001{}\002 '.format(error('\002' + session_name + '\001')) + prompt
+      if read_only:
+        c = stealthy
+      elif abrupt.session.should_save():
+        c = error
       else:
-        prompt = '\001{}\002 '.format(warning('\002' + session_name + '\001')) + prompt
+        c = warning
+      prompt = '\001{}\002 '.format(c('\002' + session_name + '\001')) + prompt
     return prompt
 
 class AbruptInteractiveConsole(code.InteractiveConsole):
