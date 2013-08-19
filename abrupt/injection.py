@@ -59,7 +59,7 @@ def _inject_post(r, value, pds, pre_func):
       r_new.content = n_content
       r_new.injection_point = value
       r_new.payload = p
-      r_new._update_content_length()
+      r_new.update_content_length()
       rs.append(r_new)
   return rs
 
@@ -78,7 +78,7 @@ def _inject_json(r, value, pds, pre_func):
       r_new.content = r_new.raw_content
       r_new.injection_point = value
       r_new.payload = p
-      r_new._update_content_length()
+      r_new.update_content_length()
       rs.append(r_new)
   return rs
 
@@ -102,10 +102,10 @@ def _inject_cookie(r, value, pds, pre_func):
     rs.append(r_new)
   return rs
 
-def _inject_at(r, offset, payload, pre_func=encode, choice=None):
+def _inject_at(r, offset, payloads, pre_func=encode, choice=None):
   rs = []
   orig = str(r)
-  pds = _get_payload(payload)
+  pds = _get_payload(payloads)
   if not pre_func: pre_func = lambda x: x
   if isinstance(offset, (list, tuple)):
     off_b, off_e = offset
@@ -132,14 +132,14 @@ def _inject_at(r, offset, payload, pre_func=encode, choice=None):
     ct = orig[:off_b] + pre_func(p) + orig[off_e:]
     ct = re.sub("Content-Length:.*\n", "", ct)
     r_new = Request(ct, hostname=r.hostname, port=r.port, use_ssl=r.use_ssl)
-    r_new._update_content_length()
+    r_new.update_content_length()
     r_new.injection_point = "@" + str(offset)
     r_new.payload = p
     rs.append(r_new)
   return rs
 
-def _inject_to(r, value, payload, pre_func=None):
-  pds = _get_payload(payload)
+def _inject_to(r, value, payloads, pre_func=None):
+  pds = _get_payload(payloads)
   if not pre_func:
     pre_func = lambda x: encode(x)
   rqs = RequestSet(_inject_query(r, value, pds, pre_func))
@@ -152,15 +152,15 @@ def _inject_to(r, value, payload, pre_func=None):
     raise NoInjectionPointFound()
   return rqs
 
-def _inject_multi(r, method, target, payload, **kwds):
+def _inject_multi(r, method, target, payloads, **kwds):
   if isinstance(r, Request):
-    return method(r, target, payload, **kwds)
+    return method(r, target, payloads, **kwds)
   elif isinstance(r, RequestSet):
     return RequestSet(reduce(lambda x, y: x + y,
-           [ method(ro, target, payload, **kwds) for ro in r ]))
+           [ method(ro, target, payloads, **kwds) for ro in r ]))
 
 
-def inject(r, to=None, at=None, payload="default", **kwds):
+def inject(r, to=None, at=None, payloads="default", **kwds):
   """ Inject a request.
 
   This function will create a RequestSet from a Request where a part
@@ -178,7 +178,7 @@ def inject(r, to=None, at=None, payload="default", **kwds):
   point is found, an error is raised. If the string is found more than
   once, the function will suggest to provide the 'choice' integer keyword.
 
-  payload could either be a list of the payloads to inject or a key
+  payloads could either be a list of the payloads to inject or a key
   of the global dictionnary 'payloads'.
 
   Before being injected, each payload pass through the pre_func function
@@ -195,15 +195,15 @@ def inject(r, to=None, at=None, payload="default", **kwds):
   elif to:
     if isinstance(to, (list, tuple)):
       for t in to:
-        rqs.extend(_inject_multi(r, _inject_to, t, payload, **kwds))
+        rqs.extend(_inject_multi(r, _inject_to, t, payloads, **kwds))
     else:
-      rqs.extend(_inject_multi(r, _inject_to, to, payload, **kwds))
+      rqs.extend(_inject_multi(r, _inject_to, to, payloads, **kwds))
   elif at:
     if isinstance(at, (list, tuple)):
       for a in at:
-        rqs.extend(_inject_multi(r, _inject_at, a, payload, **kwds))
+        rqs.extend(_inject_multi(r, _inject_at, a, payloads, **kwds))
     else:
-      rqs.extend(_inject_multi(r, _inject_at, at, payload, **kwds))
+      rqs.extend(_inject_multi(r, _inject_at, at, payloads, **kwds))
   return rqs
 
 i = inject
@@ -236,20 +236,20 @@ def find_injection_points(r):
 
 fip = find_injection_points
 
-def inject_all(r, payload="default"):
+def inject_all(r, payloads="default"):
   ips = find_injection_points(r)
   if ips:
-    return reduce(lambda x, y: x + y, [i(r, to=ip, payload=payload) for ip in ips])
+    return reduce(lambda x, y: x + y, [i(r, to=ip, payloads=payloads) for ip in ips])
   return RequestSet()
 
 i_all = inject_all
 
-def fuzz_headers(r, payload="default"):
-  print "TODO: adapt payload for each header tested"
+def fuzz_headers(r, payloads="default"):
+  print "TODO: adapt payloads for each header tested"
   rs = []
   for i, e in enumerate(r.headers):
     k, v = e
-    pds = _get_payload(payload)
+    pds = _get_payload(payloads)
     for p in pds:
       r_new = r.copy()
       h_new = (k, p)
