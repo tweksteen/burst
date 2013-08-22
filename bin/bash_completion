@@ -15,7 +15,7 @@ _abrupt()
 
     if [[ ${prev} == -s ]]; then
         local sessions=$(ls ~/.abrupt/sessions)
-        COMPREPLY=( $(compgen -W "${sessions}" -- ${cur}) )
+        COMPREPLY=( $(compgen -o filenames -W '${sessions}' -- ${cur}) )
         return 0
     fi
 }
