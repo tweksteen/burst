@@ -471,7 +471,7 @@ class Response():
 
   def normalise(self):
     """Normalise the response content by dropping any extra encoding"""
-    self.raw_content = res_new.content
+    self.raw_content = self.content
     self.remove_header("Transfer-Encoding")
     self.remove_header("Content-Encoding")
     self.update_content_length()
