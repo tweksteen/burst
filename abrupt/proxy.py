@@ -213,6 +213,8 @@ class ProxyHTTPRequestHandler(SocketServer.StreamRequestHandler):
           print self._str_request(extra=" " + e)
           for al in alerts:
             print " " * len(self.pt), " |", al
+      if not automated:
+        self.server.reqs.append(self.r)
       return pre_action, e, automated
 
   def poll(self):
@@ -247,7 +249,8 @@ class ProxyHTTPRequestHandler(SocketServer.StreamRequestHandler):
         if self.r.method == "CONNECT" and (self.server.auto or (e == "" or e == "b")):
           ui_lock.release()
           self.r = self._bypass_ssl(self.r.hostname, self.r.port, proxy_aware=True)
-          if not self.r: return False
+          if not self.r:
+            return False
           pre_action, e, automated = self._request_prologue()
           continue
         if self.r.method == "CONNECT" and e == "l":
@@ -290,7 +293,6 @@ class ProxyHTTPRequestHandler(SocketServer.StreamRequestHandler):
           e = raw_input("[f]orward, (d)rop, (c)ontinue, (v)iew, (h)eaders, (e)dit, (de)code, (n)ext? ")
       if self.server.verbose >= 2:
         print self.r
-      self.server.reqs.append(self.r)
       ui_lock.release()
       if not self._do_connection():
         return False
