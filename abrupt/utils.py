@@ -114,14 +114,14 @@ def view(args):
   fd, fname = tempfile.mkstemp()
   with os.fdopen(fd, 'w') as f:
     f.write(str(args))
-  subprocess.call('less' + ' -R ' + fname, shell=True)
+  subprocess.call(conf.viewer.format(fname), shell=True)
   os.remove(fname)
 
 def external_view(args):
   fd, fname = tempfile.mkstemp()
   with os.fdopen(fd, 'w') as f:
     f.write(str(args))
-  subprocess.Popen('xterm -e /bin/less -R ' + fname, shell=True, preexec_fn=os.setpgrp)
+  subprocess.Popen(conf.external_viewer.format(fname), shell=True, preexec_fn=os.setpgrp)
   #todo: cleanup
 
 def idle(request, delay=60, predicate=None, verbose=False):

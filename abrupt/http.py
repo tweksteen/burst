@@ -113,7 +113,7 @@ class Request():
     for l in headers.splitlines():
       if l:
         # ASSUMPTION: Each header is composed of two fields seperated by
-        #             a semi-colon.
+        #             a colon.
         t, v = [q.strip() for q in l.split(":", 1)]
         self.headers.append((t, v))
 
@@ -228,13 +228,12 @@ class Request():
   def edit(self):
     """Edit the request. The original request is modified.
     """
-    options = conf.editor_args if conf.editor_args else ""
     if conf.update_content_length:
       self.remove_header("Content-Length")
     fd, fname = tempfile.mkstemp(suffix=".http")
     with os.fdopen(fd, 'w') as f:
       f.write(str(self))
-    ret = subprocess.call(conf.editor + " " + fname + " " + options, shell=True)
+    ret = subprocess.call(conf.editor.format(fname), shell=True)
     if not ret:
       f = open(fname, 'r')
       self.__init__(f, self.hostname, self.port, self.use_ssl)
@@ -257,12 +256,9 @@ class Request():
     If post_func is provided, it will be called once the response has been read.
     A Response is passed as argument, it should return a Response.
 
-    The behaviour of your editor can be modified via the conf.editor_args and
-    conf.editor_play_args parameters.
+    The behaviour of your editor can be modified via the conf.editor_play 
+    parameters.
     """
-    options = conf.editor_args if conf.editor_args else ""
-    options += " "
-    options += conf.editor_play_args if conf.editor_play_args else ""
     r_tmp = self.copy()
     if conf.update_content_length:
       r_tmp.remove_header("Content-Length")
@@ -273,9 +269,8 @@ class Request():
     if self.response:
       with os.fdopen(fdrep, 'w') as f:
         f.write(str(self.response))
-    ret = subprocess.Popen(conf.editor + " " + freqname + " " +
-                           frepname + " " + options, shell=True)
     last_access = os.stat(freqname).st_mtime
+    ret = subprocess.Popen(conf.editor_play.format(freqname,frepname), shell=True)
     r_new = None
     while ret.poll() != 0:
       if os.stat(freqname).st_mtime != last_access:
@@ -314,6 +309,7 @@ class Request():
     """Extract a particular field of the request.
     The field is looked up in:
       * attributes
+      * headers
       * URL query
       * request body
       * cookies
@@ -449,7 +445,6 @@ class Response():
   def edit(self):
     """Edit the response through your editor. The original response is modified.
     """
-    options = conf.editor_args if conf.editor_args else ""
     fd, fname = tempfile.mkstemp(suffix=".http")
     if self.content != self.raw_content:
       print warning("The response is currently encoded. It will be decoded " \
@@ -460,7 +455,7 @@ class Response():
       self.remove_header("Content-Length")
     with os.fdopen(fd, 'w') as f:
       f.write(self.raw())
-    ret = subprocess.call(conf.editor + " " + fname + " " + options, shell=True)
+    ret = subprocess.call(conf.editor.format(fname), shell=True)
     if not ret:
       f = open(fname, 'r')
       self.__init__(f, self.request)
@@ -575,10 +570,14 @@ class Response():
     """Extract a particular field of the response.
     The field is looked up in:
       * attributes
+      * headers
       * cookies
     """
     if hasattr(self, arg):
       return getattr(self, arg)
+    h = self.get_header(arg)
+    if h:
+      return h[0]
     for c in self.cookies:
       if c.name == arg:
         return c.value
@@ -593,7 +592,7 @@ def compare(r1, r2):
     f.write(str(r1))
   with os.fdopen(fd2, 'w') as f:
     f.write(str(r2))
-  subprocess.call(conf.diff_editor + " " + f1name + " " + f2name, shell=True)
+  subprocess.call(conf.diff_editor.format(f1name, f2name), shell=True)
   os.remove(f1name)
   os.remove(f2name)
 

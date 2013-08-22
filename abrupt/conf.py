@@ -45,6 +45,7 @@ class Configuration(object):
     - proxy: outgoing proxy (support: http(s), sock4a, socks5)
     - autosave: automatically save the session when exiting
     - history: keep a copy of all the requests made
+    - viewer, external_viewer: command used for v and w aliases
     - editor, diff_editor: external editors called when editing
     - term_width: expected width of the terminal
     - ssl_version: ssl version used with the server (SSLv2, SSLv3, SSLv23, TLSv1)
@@ -68,22 +69,23 @@ class Configuration(object):
     self.history = True
     self.color_enabled = True
     self.term_width = "auto"
-    self.editor = "/usr/bin/vim"
-    self.diff_editor = "/usr/bin/vimdiff"
-    self.editor_args = '-c "set eol" -b'
-    self.editor_play_args = '-o2 -c "set autoread" ' \
+    self.viewer = '/bin/less -R {}'
+    self.external_viewer = '/usr/bin/xterm -e /bin/less -R {}'
+    self.editor = '/usr/bin/vim -b {}'
+    self.editor_play = '/usr/bin/vim -b -o2 -c "set autoread" ' \
                             '-c "autocmd CursorMoved * checktime" ' \
-                            '-c "autocmd CursorHold * checktime"'
+                            '-c "autocmd CursorHold * checktime" {} {}'
+    self.diff_editor = "/usr/bin/vimdiff {} {}"
     self.ssl_hostname = None
     self.ssl_reverse = False
     self.ssl_verify = "/etc/pki/tls/cert.pem"
     self.update_content_length = True
     self._ssl_version = ssl.PROTOCOL_SSLv23
     self._values = {"port": "getint", "proxy": "get", "timeout": "getint",
-                    "ssl_version": "get", "autosave": "getboolean",
-                    "history": "getboolean", "editor": "get",
-                    "diff_editor": "get", "editor_args": "get",
-                    "editor_play_args": "get", "term_width": "get",
+                    "ssl_version": "get", "autosave": "getboolean", "viewer": "get",
+                    "external_viewer": "get", "history": "getboolean",
+                    "editor": "get", "diff_editor": "get",
+                    "editor_play": "get", "term_width": "get",
                     "delay": "getint", "color_enabled": "getboolean",
                     "update_content_length": "getboolean", "ip": "get",
                     "target": "get", "ssl_hostname": "get", "ssl_reverse": "getboolean",
@@ -113,8 +115,6 @@ class Configuration(object):
     if "http_proxy" in os.environ:
       conf.proxy = os.environ["http_proxy"]
       print "Using", conf.proxy, "as proxy"
-    if "EDITOR" in os.environ:
-      conf.editor = os.environ["EDITOR"]
 
   def import_dict(self, d):
     for v in self._values:
