@@ -256,7 +256,7 @@ class Request():
     If post_func is provided, it will be called once the response has been read.
     A Response is passed as argument, it should return a Response.
 
-    The behaviour of your editor can be modified via the conf.editor_play 
+    The behaviour of your editor can be modified via the conf.editor_play
     parameters.
     """
     r_tmp = self.copy()
