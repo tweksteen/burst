@@ -1,2 +1,2 @@
-__all__ = ['console', 'http', 'proxy', 'injection', 'color', 'conf', 'utils', 'cert', 'sessions', 'alert']
+__all__ = ['alert', 'cert', 'color', 'conf', 'cookie', 'exception', 'console', 'http', 'injection', 'proxy', 'sessions', 'utils']
 __version__ = "0.6"
