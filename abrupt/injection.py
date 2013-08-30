@@ -95,8 +95,8 @@ def _inject_cookie(r, value, pds, pre_func):
     c.value = pre_func(p)
     cookies[i] = c
     r_new = r.copy()
-    r_new.headers = [ (h,v) for h,v in r.headers if h != 'Cookie' ]
-    r_new.headers.append(('Cookie', "; ".join([str(x) for x in cookies])))
+    r_new.remove_header('Cookie')
+    r_new.add_header('Cookie', "; ".join([str(x) for x in cookies]))
     r_new.injection_point = value
     r_new.payload = p
     rs.append(r_new)

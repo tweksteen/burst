@@ -71,10 +71,10 @@ class Request():
       else:
         self.port = int(p_url.port) if p_url.port else 80
         self.use_ssl = use_ssl
-    self.set_headers(read_headers(fd))
-    self.raw_content = read_content(fd, self.headers, method=self.method)
+    self.raw_headers = read_headers(fd)
+    self.raw_content = read_content(fd, parse_headers(self.raw_headers), method=self.method)
     if self.raw_content:
-      self.content = _clear_content(self.headers, self.raw_content)
+      self.content = _clear_content(parse_headers(self.raw_headers), self.raw_content)
     else:
       self.content = ""
     self.response = None
@@ -94,60 +94,51 @@ class Request():
       cookies.extend(Cookie.parse(h))
     return cookies
 
+  @property
+  def headers(self):
+    return parse_headers(self.raw_headers)
+
   def has_header(self, name, value=None):
     """Test if the request contains a specific header (case insensitive).
     If value is supplied, it is matched (case insensitive) against the first
     header with the matching name.
     """
-    return _has_header(self.headers, name, value)
+    return _has_header(parse_headers(self.raw_headers), name, value)
 
   def get_header(self, name):
     """Return the headers of the request matching name (case insensitive).
     This method always returns a list.
     """
-    return _get_header(self.headers, name)
-
-  def set_headers(self, headers):
-    self.headers = []
-    # ASSUMPTION: Headers are seperated by a newline character
-    for l in headers.splitlines():
-      if l:
-        # ASSUMPTION: Each header is composed of two fields seperated by
-        #             a colon.
-        t, v = [q.strip() for q in l.split(":", 1)]
-        self.headers.append((t, v))
+    return _get_header(parse_headers(self.raw_headers), name)
 
   def update_content_length(self):
     """Update the Content-Length header according to the content of the
     request"""
     l = str(len(self.raw_content)) if self.raw_content else "0"
-    for i, c in enumerate(self.headers):
-      h, v = c
-      if h.title() == "Content-Length":
-        self.headers[i] = (h, l)
-        # ASSUMPTION: There is only one Content-Length header per request
-        break
-    else:
-      self.headers.append(("Content-Length", l))
+    self.remove_header('Content-Length')
+    self.add_header('Content-Length', l)
+
+  def add_header(self, name, value):
+    new_headers = parse_headers(self.raw_headers)
+    new_headers.append((name, value))
+    self.raw_headers = build_headers(new_headers)
 
   def remove_header(self, name):
     """Remove all the headers matching the specified name"""
-    for i, c in enumerate(self.headers):
-      h, v = c
-      if h.title() == name:
-        del self.headers[i]
+    new_headers = [ (h, v) for (h, v) in parse_headers(self.raw_headers) if not h.title() == name ]
+    self.raw_headers = build_headers(new_headers)
 
   def bind(self, r):
     """Bind the Request to another one. This method will copy the supplied
     request's cookies and response set-cookies to the Request."""
     r_new = self.copy()
     for c in r.get_header('Cookie'):
-      r_new.headers.append(('Cookie', c))
+      r_new.add_header('Cookie', c)
     if r.response:
       cookies = []
       for c in r.response.get_header('Set-Cookie'):
         cookies.append(Cookie.parse(c, set_cookie=True))
-      r_new.headers.append(('Cookie', "; ".join([str(x) for x in cookies])))
+      r_new.add_header('Cookie', "; ".join([str(x) for x in cookies]))
     return r_new
 
   def __repr__(self):
@@ -161,13 +152,16 @@ class Request():
       hostname = self.hostname
       path = self.path
     fields = [info(self.method, rl=rl), hostname, path]
+    if self.use_ssl and self.port != 443:
+      fields.insert(2, str(self.port))
+    elif not self.use_ssl and self.port != 80:
+      fields.insert(2, str(self.port))
     if self.use_ssl: fields.append(warning("SSL", rl=rl))
     return ("<" + " ".join(fields) + ">").encode("utf-8")
 
   def copy(self):
     """Copy a request. The response is not duplicated."""
     r_new = copy.copy(self)
-    r_new.headers = copy.deepcopy(self.headers)
     r_new.response = None
     return r_new
 
@@ -177,8 +171,7 @@ class Request():
       s.write("{s.method} {s.hostname}:{s.port} {s.http_version}\r\n".format(s=self))
     else:
       s.write("{s.method} {s.url} {s.http_version}\r\n".format(s=self))
-    for h, v in self.headers:
-      s.write("{}: {}\r\n".format(h, v))
+    s.write(build_headers(parse_headers(self.raw_headers)))
     s.write("\r\n")
     if not headers_only and self.content:
       s.write(self.content)
@@ -351,19 +344,19 @@ class Request():
     if not self.response or not self.response.status in ('301', '302'):
       return
     else:
-      for h, v in self.response.headers:
-        if h == "Location":
-          url_p = urlparse.urlparse(v)
-          if url_p.scheme in ('http', 'https'):
-            return c(v)
-          elif not url_p.scheme and url_p.path:
-            nr = self.copy()
-            n_path = urlparse.urljoin(self.url, v)
-            nr.url = urlparse.urlunparse(urlparse.urlparse(self.url)[:2] +
-                                         urlparse.urlparse(n_path)[2:])
-            return nr
-          else:
-            raise AbruptException("Unknown redirection, please add some code " \
+      to = self.response.get_header('Location')
+      if to:
+        url_p = urlparse.urlparse(to[0])
+        if url_p.scheme in ('http', 'https'):
+          return create(to[0])
+        elif not url_p.scheme and url_p.path:
+          nr = self.copy()
+          n_path = urlparse.urljoin(self.url, to[0])
+          nr.url = urlparse.urlunparse(urlparse.urlparse(self.url)[:2] +
+                                       urlparse.urlparse(n_path)[2:])
+          return nr
+        else:
+          raise AbruptException("Unknown redirection, please add some code " \
                                   "in abrupt/http.py:Request.follow")
 
 def create(url):
@@ -372,14 +365,14 @@ def create(url):
   host = p_url.hostname
   if not p_url.path:
     url += "/"
-  return Request("""GET {} HTTP/1.1
-Host: {}
-User-Agent: Mozilla/5.0 (Windows; U; MSIE 9.0; Windows NT 0.9; en-US)
-Accept: text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8
-Accept-Language: en;q=0.5
-Accept-Encoding: gzip, deflate
-Accept-Charset: ISO-8859-1,utf-8;q=0.7,*;q=0.7
-
+  return Request("""GET {} HTTP/1.1\r
+Host: {}\r
+User-Agent: Mozilla/5.0 (Windows; U; MSIE 9.0; Windows NT 0.9; en-US)\r
+Accept: text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8\r
+Accept-Language: en;q=0.5\r
+Accept-Encoding: gzip, deflate\r
+Accept-Charset: ISO-8859-1,utf-8;q=0.7,*;q=0.7\r
+\r
 """.format(url, host))
 
 c = create
@@ -395,15 +388,15 @@ class Response():
       self.http_version, self.status, self.reason = banner
     except ValueError:
       raise BadStatusLine(banner)
-    self.set_headers(read_headers(fd))
+    self.raw_headers = read_headers(fd)
     self.request = request
     if request.method == "HEAD":
       self.raw_content = self.content = ""
     else:
-      self.raw_content = read_content(fd, self.headers, self.status,
+      self.raw_content = read_content(fd, parse_headers(self.raw_headers), self.status,
                                       chunk_func=chunk_func)
       if self.raw_content:
-        self.content = _clear_content(self.headers, self.raw_content)
+        self.content = _clear_content(parse_headers(self.raw_headers), self.raw_content)
       else:
         self.content = ""
 
@@ -413,6 +406,10 @@ class Response():
   @property
   def time(self):
     return self.received_date - self.sent_date
+
+  @property
+  def headers(self):
+    return parse_headers(self.raw_headers)
 
   def repr(self, rl=False):
     flags = []
@@ -434,13 +431,13 @@ class Response():
     If value is supplied, it is matched (case insensitive) against the first
     header with the matching name.
     """
-    return _has_header(self.headers, name, value)
+    return _has_header(parse_headers(self.raw_headers), name, value)
 
   def get_header(self, name):
     """Return the headers of the response matching name (case insensitive).
     This method always returns a list.
     """
-    return _get_header(self.headers, name)
+    return _get_header(parse_headers(self.raw_headers), name)
 
   def edit(self):
     """Edit the response through your editor. The original response is modified.
@@ -466,7 +463,6 @@ class Response():
   def copy(self):
     """Copy a Response. Both response will have the same request."""
     res_new = copy.copy(self)
-    res_new.headers = copy.deepcopy(self.headers)
     return res_new
 
   def normalise(self):
@@ -476,24 +472,22 @@ class Response():
     self.remove_header("Content-Encoding")
     self.update_content_length()
 
+  def add_header(self, name, value):
+    new_headers = parse_headers(self.raw_headers)
+    new_headers.append((name, value))
+    self.raw_headers = build_headers(new_headers)
+
   def remove_header(self, name):
     """Remove all the headers matching the specified name"""
-    for i, c in enumerate(self.headers):
-      h, v = c
-      if h.title() == name:
-        del self.headers[i]
+    new_headers = [ (h, v) for (h, v) in parse_headers(self.raw_headers) if not h.title() == name ]
+    self.raw_headers = build_headers(new_headers)
 
   def update_content_length(self):
     """Update the Content-Length header according to the content of the
     response"""
     l = str(len(self.raw_content)) if self.raw_content else "0"
-    for i, c in enumerate(self.headers):
-      h, v = c
-      if h.title() == "Content-Length":
-        self.headers[i] = (h, l)
-        break
-    else:
-      self.headers.append(("Content-Length", l))
+    self.remove_header('Content-Length')
+    self.add_header('Content-Length', l)
 
   @property
   def cookies(self):
@@ -534,8 +528,7 @@ class Response():
   def __str__(self, headers_only=False):
     s = StringIO()
     s.write("{s.http_version} {s.status} {s.reason}\r\n".format(s=self))
-    for h, v in self.headers:
-      s.write("{}: {}\r\n".format(h, v))
+    s.write(build_headers(parse_headers(self.raw_headers)))
     s.write("\r\n")
     if not headers_only and self.content:
       s.write(self.content)
@@ -544,19 +537,11 @@ class Response():
   def raw(self):
     s = StringIO()
     s.write("{s.http_version} {s.status} {s.reason}\r\n".format(s=self))
-    for h, v in self.headers:
-      s.write("{}: {}\r\n".format(h, v))
+    s.write(self.raw_headers)
     s.write("\r\n")
     if hasattr(self, "raw_content") and self.raw_content:
       s.write(self.raw_content)
     return s.getvalue()
-
-  def set_headers(self, headers):
-    self.headers = []
-    for l in headers.splitlines():
-      if l:
-        t, v = [q.strip() for q in l.split(":", 1)]
-        self.headers.append((t, v))
 
   def preview(self):
     """Preview the reponse in your browser.
@@ -829,10 +814,24 @@ def read_headers(fp):
   headers = ""
   while True:
     l = fp.readline()
-    headers += l
     if l == "\r\n" or l == "\n":
       break
+    headers += l
   return headers
+
+def parse_headers(raw_headers):
+  headers = []
+  # ASSUMPTION: Headers are seperated by a newline character
+  for l in raw_headers.splitlines():
+    if l:
+      # ASSUMPTION: Each header is composed of two fields seperated by
+      #             a colon.
+      t, v = [q.strip() for q in l.split(":", 1)]
+      headers.append((t, v))
+  return headers
+
+def build_headers(headers):
+  return "\r\n".join(["{}: {}".format(h, v) for h, v in headers] + ["",])
 
 def _has_header(headers, name, value=None):
   for h, v in headers:
@@ -1048,13 +1047,12 @@ def _send_request(sock, request):
     if p_url.scheme == "http":
       p_url = urlparse.urlparse(request.url)
       url = urlparse.urlunparse(("http", request.hostname + ":" + str(request.port)) + p_url[2:])
-      buf = [" ".join([request.method, url, request.http_version]), ]
+      buf = " ".join([request.method, url, request.http_version])
     else:
-      buf = [" ".join([request.method, request.url, request.http_version]), ]
+      buf = " ".join([request.method, request.url, request.http_version])
   else:
-    buf = [" ".join([request.method, request.url, request.http_version]), ]
-  buf += ["{}: {}".format(h, v) for h, v in request.headers] + ["", ""]
-  data = "\r\n".join(buf)
+    buf = " ".join([request.method, request.url, request.http_version])
+  data = "\r\n".join([buf, request.raw_headers, ""])
   if request.raw_content:
     data += request.raw_content
   # if request.footers:
