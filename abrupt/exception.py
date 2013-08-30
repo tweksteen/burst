@@ -18,7 +18,7 @@ class NotConnected(AbruptException):
 class BadStatusLine(AbruptException):
   def __init__(self, junk):
     self.junk = junk
-    AbruptException.__init__(self, "They host did not return a correct banner")
+    AbruptException.__init__(self, "The host did not return a correct banner")
   def __str__(self):
     return self.message + " [" + str(self.junk) + "]"
 
