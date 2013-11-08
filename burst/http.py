@@ -661,8 +661,12 @@ class RequestSet():
             ("Length", n_length, None)]
 
     if any([hasattr(x, "payload") for x in self.reqs]):
-      cols.insert(2, ("Point", lambda r, i: getattr(r, "injection_point", "-"), (2, truncate)))
-      cols.insert(3, ("Payload", lambda r, i: getattr(r, "payload", "-").decode("utf8"), (3, truncate)))
+      cols.insert(2, 
+                  ("Point", lambda r, i: getattr(r, "injection_point", "-"),
+                  (2, truncate)))
+      cols.insert(3, 
+                  ("Payload", lambda r, i: getattr(r, "payload", "-").encode('string_escape'), 
+                  (3, truncate)))
       cols.append(("Time", lambda r, i: "{:.4f}".format(r.response.time.total_seconds()) if
                                         (r.response and hasattr(r.response, "time")) else "-", None))
     else:
