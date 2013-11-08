@@ -132,11 +132,10 @@ def interact(local_dict=None):
   __builtin__.__dict__["help"] = help
   __builtin__.__dict__["python_help"] = pydoc.help
 
-  banner = """  ____                 _   
- | __ ) _   _ _ __ ___| |_ 
- |  _ \| | | | '__/ __| __|
- | |_) | |_| | |  \__ \ |_ 
- |____/ \__,_|_|  |___/\__|
+  banner = """  _                _   
+ | |__ _  _ _ _ __| |_ 
+ | '_ \ || | '_(_-<  _|
+ |_.__/\_,_|_| /__/\__|
 """
   # Parse arguments
   try:
