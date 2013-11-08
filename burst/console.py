@@ -1,3 +1,5 @@
+# -*- coding: utf-8 -*-
+
 import __builtin__
 import os
 import sys
@@ -8,9 +10,9 @@ import getopt
 import pydoc
 import signal
 
-import abrupt
-from abrupt.conf import CONF_DIR
-from abrupt.color import *
+import burst
+from burst.conf import CONF_DIR
+from burst.color import *
 
 try:
   import readline
@@ -30,7 +32,7 @@ except ImportError:
 term_width = None
 
 def _usage():
-  print """Usage: abrupt [-bhlrv] [-s session_name]
+  print """Usage: burst [-bhlrv] [-s session_name]
     -b: no graphical banner
     -h: print this help message
     -l: list existing sessions
@@ -75,20 +77,20 @@ def _update_term_width(snum, frame):
 
 class ColorPrompt(object):
   def __str__(self):
-    session_name = abrupt.session.session_name
-    read_only = abrupt.session.session_readonly
+    session_name = burst.session.session_name
+    read_only = burst.session.session_readonly
     prompt = '\001{}\002'.format(info('\002>>> \001'))
     if session_name != "default":
       if read_only:
         c = stealthy
-      elif abrupt.session.should_save():
+      elif burst.session.should_save():
         c = error
       else:
         c = warning
       prompt = '\001{}\002 '.format(c('\002' + session_name + '\001')) + prompt
     return prompt
 
-class AbruptInteractiveConsole(code.InteractiveConsole):
+class BurstInteractiveConsole(code.InteractiveConsole):
   re_print_alias = re.compile(r'^p\s(.*)')
   re_view_alias = re.compile(r'^v\s(.*)')
   re_extview_alias = re.compile(r'^w\s(.*)')
@@ -103,18 +105,15 @@ class AbruptInteractiveConsole(code.InteractiveConsole):
 
 def help(obj=None):
   if not obj:
-    print """Welcome to Abrupt!
+    print """Welcome to Burst!
 
-If this is your first time using Abrupt, you should check the
-quickstart at http://securusglobal.github.com/abrupt/.
-
-Here are the basic functions of Abrupt, type 'help(function)'
+Here are the basic functions of Burst, type 'help(function)'
 for a complete description of these functions:
-  * proxy: Start a HTTP proxy on port 8080.
+  * proxy: Start a HTTP proxy (port 8080 by default).
   * create: Create a HTTP request based on a URL.
   * inject: Inject or fuzz a request.
 
-Abrupt have few classes which worth having a look at, typing 'help(class)':
+Burst have few classes which worth having a look at, typing 'help(class)':
   * Request
   * Response
   * RequestSet
@@ -123,22 +122,22 @@ There are also few interesting global objects, 'help(object)':
   * conf
   * history
 
-Please, report any bug or comment to tw@securusglobal.com"""
+Please, report any bug or comment to thiebaud@weksteen.fr"""
   else:
     pydoc.help(obj)
 
 def interact(local_dict=None):
-  abrupt_builtins = __import__("all", globals(), locals(), ".").__dict__
-  __builtin__.__dict__.update(abrupt_builtins)
+  burst_builtins = __import__("all", globals(), locals(), ".").__dict__
+  __builtin__.__dict__.update(burst_builtins)
   __builtin__.__dict__["help"] = help
   __builtin__.__dict__["python_help"] = pydoc.help
 
-  banner = """   _   _                  _
-  /_\ | |__ _ _ _  _ _ __| |_
- / _ \| '_ \ '_| || | '_ \  _|
-/_/ \_\_.__/_|  \_,_| .__/\__|
-""" + " " * (20 - len(abrupt.__version__)) + abrupt.__version__ + """|_|"""
-
+  banner = """  ____                 _   
+ | __ ) _   _ _ __ ___| |_ 
+ |  _ \| | | | '__/ __| __|
+ | |_) | |_| | |  \__ \ |_ 
+ |____/ \__,_|_|  |___/\__|
+"""
   # Parse arguments
   try:
     opts = getopt.getopt(sys.argv[1:], "s:bhlvr")
@@ -146,34 +145,34 @@ def interact(local_dict=None):
       if opt == "-h":
         _usage()
       elif opt == "-s":
-        abrupt.session.session_name = param
+        burst.session.session_name = param
       elif opt == "-l":
-        abrupt.session.list_sessions()
+        burst.session.list_sessions()
         sys.exit(0)
       elif opt == "-v":
-        print "Abrupt {}, Copyright (c) 2013 Securus Global".format(abrupt.__version__)
+        print "Burst {}, Copyright (c) 2013 Thiébaud Weksteen".format(burst.__version__)
         sys.exit(0)
       elif opt == "-b":
-        banner = "Abrupt {}".format(abrupt.__version__)
+        banner = "Burst {}".format(burst.__version__)
       elif opt == "-r":
-        abrupt.session.session_readonly = True
+        burst.session.session_readonly = True
     if opts[1]:
       _usage()
   except getopt.GetoptError:
     _usage()
 
   # First time setup
-  if not abrupt.conf.check_config_dir():
+  if not burst.conf.check_config_dir():
     print "Generating SSL certificate..."
-    abrupt.cert.generate_ca_cert()
-    banner += "\nWelcome to Abrupt, type help() for more information"
+    burst.cert.generate_ca_cert()
+    banner += "\nWelcome to Burst, type help() for more information"
 
   # Load user plugins
-  abrupt.conf.load_plugins()
+  burst.conf.load_plugins()
 
   # Could we find the payloads?
-  if not abrupt.injection.payloads:
-    print warning("No payload found for the injection, check abrupt/payloads")
+  if not burst.injection.payloads:
+    print warning("No payload found for the injection, check burst/payloads")
 
   # Load user default configuration, if any
   conf.load()
@@ -184,20 +183,20 @@ def interact(local_dict=None):
   # Load the session, session configuration takes precedence
   # over global configuration. There is no condition, by default,
   # load the "default" session.
-  abrupt.session.load_session()
+  burst.session.load_session()
 
   # Experimental: Insert provided local variables 
   # (only used when scripted)
   if local_dict:
-    abrupt.session.session_dict.update(local_dict)
+    burst.session.session_dict.update(local_dict)
 
   # Setup autocompletion if readline
   if has_readline:
-    class AbruptCompleter(rlcompleter.Completer):
+    class BurstCompleter(rlcompleter.Completer):
       def global_matches(self, text):
         matches = []
         n = len(text)
-        for word in dir(__builtin__) + abrupt.session.session_dict.keys():
+        for word in dir(__builtin__) + burst.session.session_dict.keys():
           if word[:n] == text and word != "__builtins__":
             matches.append(word)
         return matches
@@ -211,7 +210,7 @@ def interact(local_dict=None):
         try:
           thisobject = eval(expr)
         except:
-          thisobject = eval(expr, abrupt.session.session_dict)
+          thisobject = eval(expr, burst.session.session_dict)
         words = dir(thisobject)
         if hasattr(thisobject, "__class__"):
           words = words + rlcompleter.get_class_members(thisobject.__class__)
@@ -223,7 +222,7 @@ def interact(local_dict=None):
         return matches
 
     readline.set_completer_delims(" \t\n`~!@#$%^&*()=+{}\\|;:'\",<>/?")
-    readline.set_completer(AbruptCompleter().complete)
+    readline.set_completer(BurstCompleter().complete)
     readline.parse_and_bind("tab: complete")
     _load_history()
 
@@ -233,6 +232,6 @@ def interact(local_dict=None):
 
   # And run the interpreter!
   sys.ps1 = ColorPrompt()
-  atexit.register(abrupt.session.autosave_session)
-  aci = AbruptInteractiveConsole(abrupt.session.session_dict)
+  atexit.register(burst.session.autosave_session)
+  aci = BurstInteractiveConsole(burst.session.session_dict)
   aci.interact(banner)

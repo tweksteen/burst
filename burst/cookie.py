@@ -1,4 +1,4 @@
-from abrupt.exception import CookieException
+from burst.exception import CookieException
 
 class Cookie:
 

@@ -4,11 +4,11 @@ import glob
 import os.path
 import json
 
-from abrupt.http import Request, RequestSet
-from abrupt.exception import *
-from abrupt.color import *
-from abrupt.cookie import Cookie
-from abrupt.utils import encode, parse_qs, urlencode
+from burst.http import Request, RequestSet
+from burst.exception import *
+from burst.color import *
+from burst.cookie import Cookie
+from burst.utils import encode, parse_qs, urlencode
 
 payloads = { "default": [] }
 for f_name in glob.glob(os.path.join(os.path.dirname(__file__), "payloads/*")):
@@ -168,12 +168,12 @@ def inject(r, to=None, at=None, payloads="default", **kwds):
   this function, either to inject the value of a parameter or to inject
   at a specific location.
 
-  When used with the 'to' parameter, Abrupt will lookup the value
+  When used with the 'to' parameter, Burst will lookup the value
   in the query string, the request content and the cookies. It will
   then replace the value of the parameter with the payloads. If no
   valid injection point is found, an error is raised.
 
-  When used with the 'at' parameter, Abrupt will lookup the string in the
+  When used with the 'at' parameter, Burst will lookup the string in the
   whole request text and replace it with the payloads. If no valid injection
   point is found, an error is raised. If the string is found more than
   once, the function will suggest to provide the 'choice' integer keyword.

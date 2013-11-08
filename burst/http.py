@@ -17,17 +17,17 @@ import datetime
 from collections import defaultdict
 from StringIO import StringIO
 
-from abrupt import console
-from abrupt.conf import conf
-from abrupt.cookie import Cookie
-from abrupt.color import *
-from abrupt.exception import *
-from abrupt.utils import make_table, clear_line, \
+from burst import console
+from burst.conf import conf
+from burst.cookie import Cookie
+from burst.color import *
+from burst.exception import *
+from burst.utils import make_table, clear_line, \
                          re_space, smart_split, smart_rsplit, \
                          truncate, stats, parse_qs
 
 class Request():
-  """The Request class is the base of Abrupt. To create an instance, you have
+  """The Request class is the base of Burst. To create an instance, you have
   two options: either use a socket or a string representing the whole request
   into the constructor or use the 'create' function.
 
@@ -64,7 +64,7 @@ class Request():
       self.url = urlparse.urlunparse(("", "") + p_url[2:])
       self.hostname = p_url.hostname
       if not self.hostname:
-        raise AbruptException("No hostname: " + str(url))
+        raise BurstException("No hostname: " + str(url))
       if p_url.scheme == 'https':
         self.use_ssl = True
         self.port = int(p_url.port) if p_url.port else 443
@@ -356,8 +356,8 @@ class Request():
                                        urlparse.urlparse(n_path)[2:])
           return nr
         else:
-          raise AbruptException("Unknown redirection, please add some code " \
-                                  "in abrupt/http.py:Request.follow")
+          raise BurstException("Unknown redirection, please add some code " \
+                                  "in burst/http.py:Request.follow")
 
 def create(url):
   """Create a request on the fly, based on a URL"""
@@ -782,7 +782,7 @@ class RequestSet():
 
 class History(RequestSet):
   """History is a singleton class which contains all the
-  requests made through Abrupt.
+  requests made through Burst.
   """
 
   def _enabled(self):
@@ -859,7 +859,7 @@ def read_content(fp, headers, status=None, method=None, chunk_func=None):
     # ASSUMPTION: The value of Content-Length can be converted to an integer
     length = int(length_str)
     if length < 0:
-      raise AbruptException("Invalid Content-Length")
+      raise BurstException("Invalid Content-Length")
     return _read_content(fp, length).getvalue()
   elif (status and status != "204") or method == "POST" or method == "PUT":
     # ASSUMPTION: In case we have no indication on what to read, if the method

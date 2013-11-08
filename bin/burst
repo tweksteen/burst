@@ -3,10 +3,10 @@ import os
 import sys
 
 try:
-  import abrupt.console
+  import burst.console
 except ImportError:
   sys.path.append(os.path.dirname(os.path.dirname(os.path.realpath(sys.argv[0]))))
-  import abrupt.console
+  import burst.console
 
 if __name__ == "__main__":
-    abrupt.console.interact()
+    burst.console.interact()

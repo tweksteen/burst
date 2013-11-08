@@ -7,9 +7,9 @@ import gzip
 import operator
 import __builtin__
 
-from abrupt.conf import conf, SESSION_DIR, ARCHIVE_DIR
-from abrupt.http import Request, RequestSet, history
-from abrupt.color import *
+from burst.conf import conf, SESSION_DIR, ARCHIVE_DIR
+from burst.http import Request, RequestSet, history
+from burst.color import *
 
 session_name = "default"
 session_dict = {}
@@ -62,7 +62,7 @@ def autosave_session():
 def save(force=False):
   """ Save the current session.
   By default, this function is automatically called when the session
-  is terminated (either by switching session (ss) or exiting Abrupt)
+  is terminated (either by switching session (ss) or exiting Burst)
   except is the session is "default" or if conf.autosave is False.
 
   See also: ss, lss, conf.autosave.

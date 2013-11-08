@@ -1,0 +1,5 @@
+burst_xss__
+burst_xss__%00"<>'
+</b>
+<b>burst</b>
+<script>alert(1)</script>

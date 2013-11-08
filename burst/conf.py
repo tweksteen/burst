@@ -6,7 +6,7 @@ import glob
 import ConfigParser
 import ssl
 
-CONF_DIR = os.path.expanduser("~/.abrupt/")
+CONF_DIR = os.path.expanduser("~/.burst/")
 CERT_DIR = os.path.join(CONF_DIR, "certs")
 SESSION_DIR = os.path.join(CONF_DIR, "sessions")
 ARCHIVE_DIR = os.path.join(CONF_DIR, "archives")
@@ -37,7 +37,7 @@ def load_plugins():
     
 class Configuration(object):
   """
-  Class representing the configuration of Abrupt. You should use
+  Class representing the configuration of Burst. You should use
   the 'conf' instance. By default contains the following attributes:
 
     - port: default listening port
@@ -122,30 +122,30 @@ class Configuration(object):
         setattr(self, v, getattr(d, v))
 
   def load(self):
-    if os.path.exists(os.path.join(CONF_DIR, "abrupt.conf")):
+    if os.path.exists(os.path.join(CONF_DIR, "burst.conf")):
       c = ConfigParser.RawConfigParser()
-      c.read(os.path.join(CONF_DIR, "abrupt.conf"))
-      if not c.has_section("abrupt"):
+      c.read(os.path.join(CONF_DIR, "burst.conf"))
+      if not c.has_section("burst"):
         raise Exception("Configuration file corrupted")
       for k, v in self._values.items():
-        if c.has_option("abrupt", k):
-          setattr(self, k, getattr(c, v).__call__("abrupt", k))
+        if c.has_option("burst", k):
+          setattr(self, k, getattr(c, v).__call__("burst", k))
 
   def save(self, force=False):
-    import abrupt.session
-    if abrupt.session.session_name != "default" and not force:
-      from abrupt.color import error
+    import burst.session
+    if burst.session.session_name != "default" and not force:
+      from burst.color import error
       print error("""The current configuration is automatically saved when
 your session is saved (see save() and conf.autosave).
 To make this configuration global, use conf.save(force=True)""")
       return
     c = ConfigParser.RawConfigParser()
-    c.add_section('abrupt')
+    c.add_section('burst')
     for s in self._values:
       p = getattr(self, s)
       if not p is None:
-        c.set('abrupt', s, p)
-    with open(os.path.join(CONF_DIR, "abrupt.conf"), "w") as f:
+        c.set('burst', s, p)
+    with open(os.path.join(CONF_DIR, "burst.conf"), "w") as f:
       c.write(f)
 
 conf = Configuration()

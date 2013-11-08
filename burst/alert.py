@@ -1,6 +1,6 @@
 import re
 
-from abrupt.color import *
+from burst.color import *
 
 try:
   import lxml.html
@@ -92,9 +92,9 @@ class InjectedAlerter(GenericAlerter):
     alerts = []
     if not hasattr(r, "payload"):
       return alerts
-    if "<b>abrupt</b>" in r.payload and r.response.is_html and \
-       "<b>abrupt</b>" in r.response.content:
-      alerts.append(error("response.content includes <b>abrupt</b>"))
+    if "<b>burst</b>" in r.payload and r.response.is_html and \
+       "<b>burst</b>" in r.response.content:
+      alerts.append(error("response.content includes <b>burst</b>"))
 
 def scan(rs):
   a = InjectedAlerter()

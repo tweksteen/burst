@@ -1,5 +1,0 @@
-abrupt_xss__
-abrupt_xss__%00"<>'
-</b>
-<b>abrupt</b>
-<script>alert(1)</script>

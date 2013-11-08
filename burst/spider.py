@@ -2,9 +2,9 @@ import re
 import urlparse
 from collections import deque
 
-from abrupt.http import Request, RequestSet
-from abrupt.utils import e, clear_line
-from abrupt.color import *
+from burst.http import Request, RequestSet
+from burst.utils import e, clear_line
+from burst.color import *
 
 try:
   import lxml.html

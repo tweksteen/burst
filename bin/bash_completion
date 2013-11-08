@@ -1,6 +1,6 @@
 #!/bin/bash
 
-_abrupt()
+_burst()
 {
   local cur prev opts
     COMPREPLY=()
@@ -14,10 +14,10 @@ _abrupt()
     fi
 
     if [[ ${prev} == -s ]]; then
-        local sessions=$(ls ~/.abrupt/sessions)
+        local sessions=$(ls ~/.burst/sessions)
         COMPREPLY=( $(compgen -o filenames -W '${sessions}' -- ${cur}) )
         return 0
     fi
 }
 
-complete -F _abrupt abrupt
+complete -F _burst burst

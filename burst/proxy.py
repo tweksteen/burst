@@ -9,14 +9,14 @@ import urlparse
 import threading
 import time
 
-from abrupt import alert, console
-from abrupt.http import Request, RequestSet, connect
-from abrupt.exception import BadStatusLine, UnableToConnect, NotConnected, \
+from burst import alert, console
+from burst.http import Request, RequestSet, connect
+from burst.exception import BadStatusLine, UnableToConnect, NotConnected, \
                              ProxyError
-from abrupt.conf import conf
-from abrupt.color import *
-from abrupt.cert import generate_ssl_cert, get_key_file, extract_name
-from abrupt.utils import flush_input, decode
+from burst.conf import conf
+from burst.color import *
+from burst.cert import generate_ssl_cert, get_key_file, extract_name
+from burst.utils import flush_input, decode
 
 ui_lock = threading.Lock()
 
@@ -68,7 +68,7 @@ class ProxyHTTPRequestHandler(SocketServer.StreamRequestHandler):
       ui_lock.acquire()
       if "alert unknown ca" in str(e) or "alert certificate unknown" in str(e):
         print self.pt, "<" + warning("SSLError") + ": " + \
-                       "Abrupt certificate for {} ".format(hostname) + \
+                       "Burst certificate for {} ".format(hostname) + \
                        "has been rejected by your client. >"
       elif "EOF occurred in violation of protocol" in str(e):
         print self.pt, "<" + warning("SSLError") + ": " + \

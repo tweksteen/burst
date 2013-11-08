@@ -3,15 +3,15 @@
 from distutils.core import setup
 
 setup(
-    name = 'abrupt',
+    name = 'burst',
     version = '0.6',
-    packages = ['abrupt'],
-    scripts = ['bin/abrupt'],
-    package_data = {'abrupt': [ 'payloads/*',]},
-    description = 'Abrupt: interactive HTTP(S) tool/framework',
-    url = "https://github.com/securusglobal/abrupt",
+    packages = ['burst'],
+    scripts = ['bin/burst'],
+    package_data = {'burst': [ 'payloads/*',]},
+    description = 'Burst: interactive HTTP(S) tool/framework',
+    url = "https://github.com/tweksteen/burst",
     author = u'Thiébaud Weksteen',
-    author_email = "thiebaud.weksteen@securusglobal.com",
+    author_email = "thiebaud@weksteen.fr",
     classifiers = [
         "Programming Language :: Python",
         "Development Status :: 4 - Beta",
