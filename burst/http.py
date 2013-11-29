@@ -22,7 +22,7 @@ from burst.conf import conf
 from burst.cookie import Cookie
 from burst.color import *
 from burst.exception import *
-from burst.utils import make_table, clear_line, \
+from burst.utils import make_table, clear_line, chunks, \
                          re_space, smart_split, smart_rsplit, \
                          truncate, stats, parse_qs
 
@@ -733,10 +733,31 @@ class RequestSet():
     for r in self.reqs:
       r.response = None
 
-  def __call__(self, force=False, randomised=False, verbose=1,
-               post_func=None, post_args=[]):
+  def parallel(self, threads=4):
+    stop = threading.Event()
+    indices = range(len(self.reqs))
+    jobs = []
+    for ics in chunks(indices, threads):
+      t = threading.Thread(target=self.__call__, 
+                       kwargs={"indices":ics, "verbose":False, 
+                               "stop_event":stop})
+      jobs.append(t)
+      t.start()
+    try:
+      for j in jobs:
+        while j.is_alive():
+          j.join(1)
+          done = len(self.filter(lambda x: x.response))
+          print "Running {} requests... {:.2f}%".format(len(self), done * 100. / len(self)),
+          clear_line()
+    except KeyboardInterrupt:
+      stop.set()
+    print "Running {} requests...done.".format(len(self))
+    
+  def __call__(self, indices=None, stop_event=None, force=False, randomised=False, 
+               verbose=1, post_func=None, post_args=[]):
     if not self.reqs:
-      raise Exception("No request to proceed")
+      raise Exception("No request to process")
     hostnames = set([r.hostname for r in self.reqs])
     ports = set([r.port for r in self.reqs])
     use_ssls = set([r.use_ssl for r in self.reqs])
@@ -752,11 +773,13 @@ class RequestSet():
     if verbose:
       print "Running {} requests...".format(len(self.reqs)),
       clear_line()
-    indices = range(len(self.reqs))
+    indices = range(len(self.reqs)) if not indices else indices
     if randomised: random.shuffle(indices)
     done = 0
     todo = len(self.reqs)
     for i in indices:
+      if stop_event and stop_event.is_set():
+        return
       r = self.reqs[i]
       if verbose:
         print "Running {} requests...{:.2f}%".format(todo, done * 100. / todo),
