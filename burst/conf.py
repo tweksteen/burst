@@ -55,8 +55,12 @@ class Configuration(object):
     - target: use to specify the target in case of proxy-unaware application
     - update_content_length: flag to automatically update the header on edition
   """
-  ssl_map = {"SSLv3": ssl.PROTOCOL_SSLv3, "SSLv23": ssl.PROTOCOL_SSLv23,
-             "SSLv2": ssl.PROTOCOL_SSLv2, "TLSv1": ssl.PROTOCOL_TLSv1}
+  _ssl_map = {"SSLv3": ssl.PROTOCOL_SSLv3, "SSLv23": ssl.PROTOCOL_SSLv23,
+             "TLSv1": ssl.PROTOCOL_TLSv1}
+  try: 
+    _ssl_map["SSLv2"] = ssl.PROTOCOL_SSLv2
+  except AttributeError:
+    pass
 
   def __init__(self):
     self.ip = '127.0.0.1'
@@ -92,15 +96,15 @@ class Configuration(object):
                     "ssl_verify": "get"}
 
   def _get_ssl_version(self):
-    for k, v in self.ssl_map.items():
+    for k, v in self._ssl_map.items():
       if v == self._ssl_version:
         return k
 
   def _set_ssl_version(self, v):
     try:
-      self._ssl_version = self.ssl_map[v]
+      self._ssl_version = self._ssl_map[v]
     except KeyError:
-      raise Exception("Possible values are: " + ", ".join(self.ssl_map.keys()))
+      raise Exception("Possible values are: " + ", ".join(self._ssl_map.keys()))
 
   ssl_version = property(_get_ssl_version, _set_ssl_version)
 
