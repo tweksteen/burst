@@ -22,7 +22,7 @@ from burst.conf import conf
 from burst.cookie import Cookie
 from burst.color import *
 from burst.exception import *
-from burst.utils import make_table, clear_line, chunks, \
+from burst.utils import make_table, clear_line, chunks, encode, \
                          re_space, smart_split, smart_rsplit, \
                          truncate, stats, parse_qs
 

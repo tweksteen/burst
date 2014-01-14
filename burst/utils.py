@@ -11,6 +11,8 @@ import threading
 import subprocess
 import collections
 
+from burst.conf import conf
+
 try:
   import termios
   has_termios = True
@@ -213,7 +215,9 @@ def remove_color(s):
 def _ljust(v, l):
   return v + " " * (l - len(remove_color(v)))
 
-def make_table(requests, fields, width=80):
+def make_table(requests, fields, width=None):
+  if not width:
+    width = 80
   data = []
   fields_len = {}
   fields_names = zip(*fields)[0]
@@ -277,7 +281,7 @@ def test_make_table():
       bin_size = fcntl.ioctl(i, termios.TIOCGWINSZ, '????')
       _, width = struct.unpack('hh', bin_size)
     except:
-      width = 80
+      width = None
   reqs = [["/path1/blah/test/1/2/application.aspx", "q=test&rap=4", "200", "4324"],
           ["/path3/blah/test/4/5/my_favorite_applet.jsp", "q=test&rap=admin", "200", "4324"],
           ["/path2/testing", "q=t&mytoken=1AB20C2E1F99275F28A39757B", "500", "0"]]
