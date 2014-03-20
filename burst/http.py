@@ -661,11 +661,11 @@ class RequestSet():
             ("Length", n_length, None)]
 
     if any([hasattr(x, "payload") for x in self.reqs]):
-      cols.insert(2, 
+      cols.insert(2,
                   ("Point", lambda r, i: getattr(r, "injection_point", "-"),
                   (2, truncate)))
-      cols.insert(3, 
-                  ("Payload", lambda r, i: getattr(r, "payload", "-").encode('string_escape'), 
+      cols.insert(3,
+                  ("Payload", lambda r, i: getattr(r, "payload", "-").encode('string_escape'),
                   (3, truncate)))
       cols.append(("Time", lambda r, i: "{:.4f}".format(r.response.time.total_seconds()) if
                                         (r.response and hasattr(r.response, "time")) else "-", None))
@@ -714,11 +714,14 @@ class RequestSet():
         if self._summary_attr(rs, lambda x: x.response.time.total_seconds(), "Time: [{:.3f} {:.3f} {:.3f}]", split):
           print
 
+  def responded(self):
+    return self.filter(lambda x: x.response)
+
   def by_length(self):
-    return RequestSet(sorted(self.reqs, key=operator.attrgetter("response.length")))
+    return RequestSet(sorted(self.responded().reqs, key=operator.attrgetter("response.length")))
 
   def by_status(self):
-    return RequestSet(sorted(self.reqs, key=operator.attrgetter("response.status")))
+    return RequestSet(sorted(self.responded().reqs, key=operator.attrgetter("response.status")))
 
   def by_path(self):
     return RequestSet(sorted(self.reqs, key=operator.attrgetter("path")))
@@ -738,8 +741,8 @@ class RequestSet():
     indices = range(len(self.reqs))
     jobs = []
     for ics in chunks(indices, threads):
-      t = threading.Thread(target=self.__call__, 
-                       kwargs={"indices":ics, "verbose":False, 
+      t = threading.Thread(target=self.__call__,
+                       kwargs={"indices":ics, "verbose":False,
                                "stop_event":stop})
       jobs.append(t)
       t.start()
@@ -753,9 +756,9 @@ class RequestSet():
     except KeyboardInterrupt:
       stop.set()
     print "Running {} requests...done.".format(len(self))
-    
-  def __call__(self, indices=None, stop_event=None, force=False, randomised=False, 
-               verbose=1, post_func=None, post_args=[]):
+
+  def __call__(self, force=False, randomised=False, verbose=1, retry=0,
+               indices=None, stop_event=None, post_func=None, post_args=[]):
     if not self.reqs:
       raise Exception("No request to process")
     hostnames = set([r.hostname for r in self.reqs])
@@ -774,20 +777,27 @@ class RequestSet():
       print "Running {} requests...".format(len(self.reqs)),
       clear_line()
     indices = range(len(self.reqs)) if not indices else indices
-    if randomised: random.shuffle(indices)
+    if randomised:
+      random.shuffle(indices)
     done = 0
+    failed = 0
     todo = len(self.reqs)
     for i in indices:
       if stop_event and stop_event.is_set():
         return
       r = self.reqs[i]
       if verbose:
-        print "Running {} requests...{:.2f}%".format(todo, done * 100. / todo),
+        if failed:
+          print "Running {} requests...{:.2f}% (failed: {})".format(todo, 
+                                                    done * 100. / todo, failed),
+        else:
+          print "Running {} requests...{:.2f}%".format(todo, done * 100. / todo),
         clear_line()
       next = False
       if r.response and not force:
         todo -= 1
         next = True
+      retried = 0
       while not next:
         try:
           if verbose == 2: print repr(r)
@@ -801,6 +811,10 @@ class RequestSet():
         except (socket.error, BadStatusLine):
           conn = self._init_connection()
           next = False
+          retried += 1
+          if retried > retry:
+            failed += 1
+            next = True
         if conf.delay:
           time.sleep(conf.delay)
     if verbose:
