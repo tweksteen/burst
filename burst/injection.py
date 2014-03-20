@@ -29,14 +29,14 @@ def _get_payload(p):
   except KeyError:
     raise PayloadNotFound("Possible values are: " + ", ".join(payloads.keys()))
 
-def _inject_query(r, value, pds, pre_func):
+def _inject_query(r, value, pds):
   rs = []
   i_pts = parse_qs(r.query)
   if value in i_pts:
     nq = i_pts.copy()
     parsed_url = urlparse.urlparse(r.url)
     for p in pds:
-      nq[value] = [pre_func(p), ]
+      nq[value] = [p, ]
       s = list(parsed_url)
       s[4] = urlencode(nq)
       r_new = r.copy()
@@ -46,13 +46,13 @@ def _inject_query(r, value, pds, pre_func):
       rs.append(r_new)
   return rs
 
-def _inject_post(r, value, pds, pre_func):
+def _inject_post(r, value, pds):
   rs = []
   i_pts = parse_qs(r.content)
   if value in i_pts:
     nc = i_pts.copy()
     for p in pds:
-      nc[value] = [pre_func(p), ]
+      nc[value] = [p, ]
       n_content = urlencode(nc)
       r_new = r.copy()
       r_new.raw_content = n_content
@@ -63,7 +63,7 @@ def _inject_post(r, value, pds, pre_func):
       rs.append(r_new)
   return rs
 
-def _inject_json(r, value, pds, pre_func):
+def _inject_json(r, value, pds):
   rs = []
   try:
     x = json.loads(r.content)
@@ -72,7 +72,7 @@ def _inject_json(r, value, pds, pre_func):
   if x.has_key(value):
     n_json = x.copy()
     for p in pds:
-      n_json[value] = pre_func(p)
+      n_json[value] = p
       r_new = r.copy()
       r_new.raw_content = json.dumps(n_json)
       r_new.content = r_new.raw_content
@@ -82,7 +82,7 @@ def _inject_json(r, value, pds, pre_func):
       rs.append(r_new)
   return rs
 
-def _inject_cookie(r, value, pds, pre_func):
+def _inject_cookie(r, value, pds):
   rs = []
   cookies = r.cookies
   for i, c in enumerate(cookies):
@@ -92,7 +92,7 @@ def _inject_cookie(r, value, pds, pre_func):
     return rs
   c = Cookie(value, "")
   for p in pds:
-    c.value = pre_func(p)
+    c.value = p
     cookies[i] = c
     r_new = r.copy()
     r_new.remove_header('Cookie')
@@ -102,11 +102,12 @@ def _inject_cookie(r, value, pds, pre_func):
     rs.append(r_new)
   return rs
 
-def _inject_at(r, offset, payloads, pre_func=encode, choice=None):
+def _inject_at(r, offset, payloads, pre_func=None, choice=None):
   rs = []
   orig = str(r)
-  pds = _get_payload(payloads)
-  if not pre_func: pre_func = lambda x: x
+  if not pre_func:
+    pre_func = lambda x: encode(x)
+  pds = [ pre_func(pd) for pd in _get_payload(payloads) ]
   if isinstance(offset, (list, tuple)):
     off_b, off_e = offset
   elif isinstance(offset, basestring):
@@ -129,7 +130,7 @@ def _inject_at(r, offset, payloads, pre_func=encode, choice=None):
   else:
     off_b = off_e = offset
   for p in pds:
-    ct = orig[:off_b] + pre_func(p) + orig[off_e:]
+    ct = orig[:off_b] + p + orig[off_e:]
     ct = re.sub("Content-Length:.*\n", "", ct)
     r_new = Request(ct, hostname=r.hostname, port=r.port, use_ssl=r.use_ssl)
     r_new.update_content_length()
@@ -139,15 +140,15 @@ def _inject_at(r, offset, payloads, pre_func=encode, choice=None):
   return rs
 
 def _inject_to(r, value, payloads, pre_func=None):
-  pds = _get_payload(payloads)
   if not pre_func:
     pre_func = lambda x: encode(x)
-  rqs = RequestSet(_inject_query(r, value, pds, pre_func))
+  pds = [ pre_func(pd) for pd in _get_payload(payloads) ]
+  rqs = RequestSet(_inject_query(r, value, pds))
   if r.method in ("POST", "PUT"):
-    rqs += RequestSet(_inject_post(r, value, pds, pre_func))
+    rqs += RequestSet(_inject_post(r, value, pds))
   if r.has_header("Cookie"):
-    rqs += RequestSet(_inject_cookie(r, value, pds, pre_func))
-  rqs += RequestSet(_inject_json(r, value, pds, pre_func))
+    rqs += RequestSet(_inject_cookie(r, value, pds))
+  rqs += RequestSet(_inject_json(r, value, pds))
   if not rqs:
     raise NoInjectionPointFound()
   return rqs
