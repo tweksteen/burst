@@ -30,6 +30,7 @@ def _get_links(r):
     else:
       base = r.url
     links = [x.get("href") for x in root.xpath("//a|//area") if x.get('href')]
+    links += [x.get("src") for x in root.xpath("//frame") if x.get('src')]
     for l in links:
       try:
         l.encode('ascii')
