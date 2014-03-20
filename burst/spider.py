@@ -57,7 +57,8 @@ def _get_links(r):
     pass
   return RequestSet(new_reqs)
 
-def spider(init, max=-1, ignore_qs=False, post_func=None, hosts=None):
+def spider(init, max=-1, ignore_qs=False, post_func=None,
+           excluded_func=None, hosts=None):
   """
   Spider a request by following some links.
 
@@ -66,6 +67,8 @@ def spider(init, max=-1, ignore_qs=False, post_func=None, hosts=None):
   post_func - A hook to be executed after each new page fetched
   hosts     - A lists of authorised hosts to spider on. By default
               only the hostname of r_init is allowed.
+  excluded_func - A predicate that must indicates if a Request should
+                  be executed.
   """
   nb = 0
   checked = []
@@ -98,6 +101,8 @@ def spider(init, max=-1, ignore_qs=False, post_func=None, hosts=None):
         post_func(r)
       for nr in to_add:
         if nr.hostname not in hs:
+          continue
+        if excluded_func and excluded_func(nr):
           continue
         if not ignore_qs and any(nr == rc for rc in checked + list(q)):
           continue
