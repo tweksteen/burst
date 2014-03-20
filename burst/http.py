@@ -383,9 +383,10 @@ class Response():
   def __init__(self, fd, request, chunk_func=None):
     try:
       banner = read_banner(fd)
-      # ASSUMPTION: A response status line contains three elements
+      # ASSUMPTION: A response status line contains at least two elements
       #             seperated by a space
-      self.http_version, self.status, self.reason = banner
+      self.http_version, self.status = banner[:2]
+      self.reason = banner[2] if len(banner) == 3 else ""
     except ValueError:
       raise BadStatusLine(banner)
     self.raw_headers = read_headers(fd)
