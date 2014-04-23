@@ -29,75 +29,94 @@ def _get_payload(p):
   except KeyError:
     raise PayloadNotFound("Possible values are: " + ", ".join(payloads.keys()))
 
-def _inject_query(r, value, pds):
+def _inject_query(r, target, payloads, append):
   rs = []
   i_pts = parse_qs(r.query)
-  if value in i_pts:
+  if target in i_pts:
     nq = i_pts.copy()
     parsed_url = urlparse.urlparse(r.url)
-    for p in pds:
-      nq[value] = [p, ]
+    # ASSUMPTION: When injecting in a query, the parameter is not polluted
+    original_value = nq[target][0]
+    for p in payloads:
+      if append:
+        nq[target] = [ original_value + p, ]
+      else:
+        nq[target] = [p, ]
       s = list(parsed_url)
       s[4] = urlencode(nq)
       r_new = r.copy()
       r_new.url = urlparse.urlunparse(s)
-      r_new.injection_point = value
+      r_new.injection_point = target
       r_new.payload = p
       rs.append(r_new)
   return rs
 
-def _inject_post(r, value, pds):
+def _inject_post(r, target, payloads, append):
   rs = []
   i_pts = parse_qs(r.content)
-  if value in i_pts:
+  if target in i_pts:
     nc = i_pts.copy()
-    for p in pds:
-      nc[value] = [p, ]
+    # ASSUMPTION: When injecting in the request body, the parameter is not
+    #             polluted
+    original_value = nc[target][0]
+    for p in payloads:
+      if append:
+        nc[target] = [ original_value + p, ]
+      else:
+        nc[target] = [p, ]
       n_content = urlencode(nc)
       r_new = r.copy()
       r_new.raw_content = n_content
       r_new.content = n_content
-      r_new.injection_point = value
+      r_new.injection_point = target
       r_new.payload = p
       r_new.update_content_length()
       rs.append(r_new)
   return rs
 
-def _inject_json(r, value, pds):
+def _inject_json(r, target, payloads, append):
   rs = []
   try:
     x = json.loads(r.content)
   except (ValueError, TypeError):
     return rs
-  if x.has_key(value):
+  if x.has_key(target):
     n_json = x.copy()
-    for p in pds:
-      n_json[value] = p
+    original_value = str(n_json[target])
+    for p in payloads:
+      if append:
+        n_json[target] = original_value + p
+      else:
+        n_json[target] = p
       r_new = r.copy()
       r_new.raw_content = json.dumps(n_json)
       r_new.content = r_new.raw_content
-      r_new.injection_point = value
+      r_new.injection_point = target
       r_new.payload = p
       r_new.update_content_length()
       rs.append(r_new)
   return rs
 
-def _inject_cookie(r, value, pds):
+def _inject_cookie(r, target, payloads, append):
   rs = []
   cookies = r.cookies
   for i, c in enumerate(cookies):
-    if c.name == value:
+    if c.name == target:
+      original_value = c.value
       break
   else:
     return rs
-  c = Cookie(value, "")
-  for p in pds:
-    c.value = p
+  c = Cookie(target, "")
+  for p in payloads:
+    if append:
+      c.value = original_value + p
+    else:
+      c.value = p
     cookies[i] = c
     r_new = r.copy()
     r_new.remove_header('Cookie')
     r_new.add_header('Cookie', "; ".join([str(x) for x in cookies]))
-    r_new.injection_point = value
+    r_new.injection_point = target
     r_new.payload = p
     rs.append(r_new)
   return rs
@@ -107,7 +126,7 @@ def _inject_at(r, offset, payloads, pre_func=None, choice=None):
   orig = str(r)
   if not pre_func:
     pre_func = lambda x: encode(x)
-  pds = [ pre_func(pd) for pd in _get_payload(payloads) ]
+  payloads = [ pre_func(pd) for pd in _get_payload(payloads) ]
   if isinstance(offset, (list, tuple)):
     off_b, off_e = offset
   elif isinstance(offset, basestring):
@@ -129,7 +148,7 @@ def _inject_at(r, offset, payloads, pre_func=None, choice=None):
     off_b, off_e = idx, idx + len(offset)
   else:
     off_b = off_e = offset
-  for p in pds:
+  for p in payloads:
     ct = orig[:off_b] + p + orig[off_e:]
     ct = re.sub("Content-Length:.*\n", "", ct)
     r_new = Request(ct, hostname=r.hostname, port=r.port, use_ssl=r.use_ssl)
@@ -139,16 +158,16 @@ def _inject_at(r, offset, payloads, pre_func=None, choice=None):
     rs.append(r_new)
   return rs
 
-def _inject_to(r, value, payloads, pre_func=None):
+def _inject_to(r, target, payloads, pre_func=None, append=False):
   if not pre_func:
     pre_func = lambda x: encode(x)
-  pds = [ pre_func(pd) for pd in _get_payload(payloads) ]
-  rqs = RequestSet(_inject_query(r, value, pds))
+  payloads = [ pre_func(pd) for pd in _get_payload(payloads) ]
+  rqs = RequestSet(_inject_query(r, target, payloads, append))
   if r.method in ("POST", "PUT"):
-    rqs += RequestSet(_inject_post(r, value, pds))
+    rqs += RequestSet(_inject_post(r, target, payloads, append))
   if r.has_header("Cookie"):
-    rqs += RequestSet(_inject_cookie(r, value, pds))
-  rqs += RequestSet(_inject_json(r, value, pds))
+    rqs += RequestSet(_inject_cookie(r, target, payloads, append))
+  rqs += RequestSet(_inject_json(r, target, payloads, append))
   if not rqs:
     raise NoInjectionPointFound()
   return rqs
@@ -250,8 +269,8 @@ def fuzz_headers(r, payloads="default"):
   rs = []
   for i, e in enumerate(r.headers):
     k, v = e
-    pds = _get_payload(payloads)
-    for p in pds:
+    payloads = _get_payload(payloads)
+    for p in payloads:
       r_new = r.copy()
       h_new = (k, p)
       r_new.headers[i] = h_new
