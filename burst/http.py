@@ -61,6 +61,8 @@ class Request():
       self.url = url
     else:
       p_url = urlparse.urlparse(url)
+      if not p_url.scheme:
+        raise BurstException("No scheme: " + str(url))
       self.url = urlparse.urlunparse(("", "") + p_url[2:])
       self.hostname = p_url.hostname
       if not self.hostname:
@@ -360,7 +362,8 @@ class Request():
                                   "in burst/http.py:Request.follow")
 
 def create(url):
-  """Create a request on the fly, based on a URL"""
+  """Create a request on the fly, based on a URL.
+  The URL must contain the scheme."""
   p_url = urlparse.urlparse(url)
   host = p_url.hostname
   if not p_url.path:
