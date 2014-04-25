@@ -11,31 +11,47 @@ from burst.conf import conf, SESSION_DIR, ARCHIVE_DIR
 from burst.http import Request, RequestSet, history
 from burst.color import *
 
-session_name = "default"
-session_dict = {}
-session_readonly = False
-last_save = None
+class Session:
+  def __init__(self):
+    self.name = "default"
+    self.readonly = False
+    self.last_save = None
+    self.ns = {}
+    self.shell = None
+
+  @property
+  def namespace(self):
+    if self.shell:
+      user_ns = self.shell.user_ns
+      user_ns_hidden = self.shell.user_ns_hidden
+      self.ns = {}
+      for k in user_ns:
+        if not k.startswith('_') and k not in user_ns_hidden:
+          self.ns[k] = user_ns[k]
+
+    return self.ns
+
+user_session = Session()
 
 def reset_last_save():
-  global last_save
-  last_save = datetime.datetime.now()
+  user_session.last_save = datetime.datetime.now()
 
 def should_save():
-  delta_t = datetime.datetime.now() - last_save
-  return (delta_t > datetime.timedelta(minutes=20) and not session_readonly)
+  delta_t = datetime.datetime.now() - user_session.last_save
+  return (delta_t > datetime.timedelta(minutes=20) and not user_session.readonly)
 
 def clear_session():
-  for k in session_dict:
+  for k in user_session.namespace:
     if k != "__builtins__" and k in __builtin__.__dict__:
       del __builtin__.__dict__[k]
-  session_dict.clear()
+  user_session.namespace.clear()
   history.clear()
   conf.__init__()
   conf.load()
 
 def load_session():
   global history
-  d = os.path.join(SESSION_DIR, session_name)
+  d = os.path.join(SESSION_DIR, user_session.name)
   if os.path.exists(d):
     fs = sorted(glob.glob(d + "/*"))
     if fs:
@@ -49,14 +65,14 @@ def load_session():
       if "__conf" in v:
         conf.import_dict(v["__conf"])
         del v["__conf"]
-      session_dict.update(v)
-      __builtin__.__dict__.update(session_dict)
+      user_session.namespace.update(v)
+      __builtin__.__dict__.update(v)
   else:
     os.mkdir(d, 0700)
   reset_last_save()
 
 def autosave_session():
-  if conf.autosave and session_name != "default" and not session_readonly:
+  if conf.autosave and user_session.name != "default" and not user_session.readonly:
     save()
 
 def save(force=False):
@@ -71,17 +87,17 @@ def save(force=False):
     print error("""The force parameter should be a boolean. """
                 """Are you looking for switch_session?""")
     return
-  if session_name == "default" and not force:
+  if user_session.name == "default" and not force:
     print error("""It is usually a bad idea to save your data in the default session,\n"""
                 """you should create another session with switch_session('my_session').\n"""
                 """If you are sure, use save(force=True)""")
     return
-  if session_readonly and not force:
+  if user_session.readonly and not force:
     print error("""This session is read-only.\n"""
                 """To overwrite it, use save(force=True)""")
     return
-  d = os.path.join(SESSION_DIR, session_name)
-  to_save = session_dict.copy()
+  d = os.path.join(SESSION_DIR, user_session.name)
+  to_save = user_session.namespace.copy()
   to_save["__conf"] = conf
   to_save["__history"] = history
   if "__builtins__" in to_save:
@@ -104,9 +120,9 @@ def save(force=False):
 
 def archive(name=None):
   if not name:
-    name = session_name
-  to_archive = [v for k, v in session_dict.items() if isinstance(v, Request)]
-  for rs in [v for k, v in session_dict.items() if isinstance(v, RequestSet)]:
+    name = user_session.name
+  to_archive = [v for k, v in user_session.namespace.items() if isinstance(v, Request)]
+  for rs in [v for k, v in user_session.namespace.items() if isinstance(v, RequestSet)]:
     to_archive.extend(rs)
   to_archive.extend(history)
   output = ""
@@ -130,13 +146,12 @@ def switch_session(name="default"):
 
   See also: save, lss.
   """
-  global session_name
-  if name == session_name: return
-  if session_name != "default":
-    if conf.autosave and not session_readonly:
+  if name == user_session.name: return
+  if user_session.name != "default":
+    if conf.autosave and not user_session.readonly:
       save()
     clear_session()
-  session_name = name
+  user_session.name = name
   load_session()
 
 ss = switch_session

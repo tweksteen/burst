@@ -32,9 +32,10 @@ except ImportError:
 term_width = None
 
 def _usage():
-  print """Usage: burst [-bhlrv] [-s session_name]
+  print """Usage: burst [-bhlrvi] [-s session_name]
     -b: no graphical banner
     -h: print this help message
+    -i: use IPython's interactive shell
     -l: list existing sessions
     -v: print the version and exit
     -s: create or load a session
@@ -77,8 +78,8 @@ def _update_term_width(snum, frame):
 
 class ColorPrompt(object):
   def __str__(self):
-    session_name = burst.session.session_name
-    read_only = burst.session.session_readonly
+    session_name = burst.session.user_session.name
+    read_only = burst.session.user_session.readonly
     prompt = '\001{}\002'.format(info('\002>>> \001'))
     if session_name != "default":
       if read_only:
@@ -90,18 +91,45 @@ class ColorPrompt(object):
       prompt = '\001{}\002 '.format(c('\002' + session_name + '\001')) + prompt
     return prompt
 
+re_print_alias = re.compile(r'^p\s(.*)')
+re_view_alias = re.compile(r'^v\s(.*)')
+re_extview_alias = re.compile(r'^w\s(.*)')
+def expand_alias(line):
+  if re_print_alias.match(line):
+    line = re_print_alias.sub(r'print \1', line)
+  if re_view_alias.match(line):
+    line = re_view_alias.sub(r'view(\1)', line)
+  if re_extview_alias.match(line):
+    line = re_extview_alias.sub(r'external_view(\1)', line)
+  return line
+
 class BurstInteractiveConsole(code.InteractiveConsole):
-  re_print_alias = re.compile(r'^p\s(.*)')
-  re_view_alias = re.compile(r'^v\s(.*)')
-  re_extview_alias = re.compile(r'^w\s(.*)')
   def push(self, line):
-    if self.re_print_alias.match(line):
-      line = self.re_print_alias.sub(r'print \1', line)
-    if self.re_view_alias.match(line):
-      line = self.re_view_alias.sub(r'view(\1)', line)
-    if self.re_extview_alias.match(line):
-      line = self.re_extview_alias.sub(r'external_view(\1)', line)
-    code.InteractiveConsole.push(self, line)
+    code.InteractiveConsole.push(self, expand_alias(line))
+
+try:
+  from IPython.frontend.terminal.embed import InteractiveShellEmbed
+  from IPython.core.prefilter import PrefilterTransformer
+
+  class IPythonInteractiveConsole(InteractiveShellEmbed):
+    def atexit_operations(self):
+      burst.session.autosave_session()
+      super(IPythonInteractiveConsole, self).atexit_operations()
+
+  class IPythonTransformer(PrefilterTransformer):
+    def transform(self, line, continue_prompt):
+      return expand_alias(line)
+
+  def IPythonColorPrompt(shell):
+    from IPython.core.prompts import LazyEvaluate
+    shell.prompt_manager.in_template = 'In [\\#] {burst}'
+    shell.prompt_manager.in2_template = '   .\\D.'
+    shell.prompt_manager.out_template = 'Out[\\#] {burst}'
+    shell.prompt_manager.lazy_evaluate_fields = {'burst': LazyEvaluate(ColorPrompt().__str__)}
+
+  has_ipython = True
+except ImportError:
+  has_ipython = False
 
 def help(obj=None):
   if not obj:
@@ -137,14 +165,16 @@ def interact(local_dict=None):
  | '_ \ || | '_(_-<  _|
  |_.__/\_,_|_| /__/\__|
 """
+  use_ipython = False
+
   # Parse arguments
   try:
-    opts = getopt.getopt(sys.argv[1:], "s:bhlvr")
+    opts = getopt.getopt(sys.argv[1:], "s:bhlvri")
     for opt, param in opts[0]:
       if opt == "-h":
         _usage()
       elif opt == "-s":
-        burst.session.session_name = param
+        burst.session.user_session.name = param
       elif opt == "-l":
         burst.session.list_sessions()
         sys.exit(0)
@@ -154,7 +184,9 @@ def interact(local_dict=None):
       elif opt == "-b":
         banner = "Burst {}".format(burst.__version__)
       elif opt == "-r":
-        burst.session.session_readonly = True
+        burst.session.user_session.readonly = True
+      elif opt == "-i":
+        use_ipython = True
     if opts[1]:
       _usage()
   except getopt.GetoptError:
@@ -187,15 +219,15 @@ def interact(local_dict=None):
   # Experimental: Insert provided local variables 
   # (only used when scripted)
   if local_dict:
-    burst.session.session_dict.update(local_dict)
+    burst.session.user_session.namespace.update(local_dict)
 
   # Setup autocompletion if readline
-  if has_readline:
+  if has_readline and not use_ipython:
     class BurstCompleter(rlcompleter.Completer):
       def global_matches(self, text):
         matches = []
         n = len(text)
-        for word in dir(__builtin__) + burst.session.session_dict.keys():
+        for word in dir(__builtin__) + burst.session.user_session.namespace.keys():
           if word[:n] == text and word != "__builtins__":
             matches.append(word)
         return matches
@@ -209,7 +241,7 @@ def interact(local_dict=None):
         try:
           thisobject = eval(expr)
         except:
-          thisobject = eval(expr, burst.session.session_dict)
+          thisobject = eval(expr, burst.session.user_session.namespace)
         words = dir(thisobject)
         if hasattr(thisobject, "__class__"):
           words = words + rlcompleter.get_class_members(thisobject.__class__)
@@ -230,7 +262,18 @@ def interact(local_dict=None):
   signal.signal(signal.SIGWINCH, _update_term_width)
 
   # And run the interpreter!
-  sys.ps1 = ColorPrompt()
-  atexit.register(burst.session.autosave_session)
-  aci = BurstInteractiveConsole(burst.session.session_dict)
-  aci.interact(banner)
+  if use_ipython:
+    if not has_ipython:
+      print warning("Option -i requires ipython to be installed")
+      sys.exit(1)
+
+    shell = burst.session.user_session.shell = IPythonInteractiveConsole(user_ns=burst.session.user_session.namespace, banner1=banner)
+    IPythonColorPrompt(shell)
+    IPythonTransformer(shell=shell, prefilter_manager=shell.prefilter_manager)
+    shell()
+
+  else:
+    sys.ps1 = ColorPrompt()
+    atexit.register(burst.session.autosave_session)
+    aci = BurstInteractiveConsole(burst.session.user_session.namespace)
+    aci.interact(banner)

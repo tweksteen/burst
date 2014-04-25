@@ -137,7 +137,7 @@ class Configuration(object):
 
   def save(self, force=False):
     import burst.session
-    if burst.session.session_name != "default" and not force:
+    if burst.session.user_session.name != "default" and not force:
       from burst.color import error
       print error("""The current configuration is automatically saved when
 your session is saved (see save() and conf.autosave).
