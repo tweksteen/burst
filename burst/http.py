@@ -724,6 +724,9 @@ class RequestSet():
   def by_length(self):
     return RequestSet(sorted(self.responded().reqs, key=operator.attrgetter("response.length")))
 
+  def by_time(self):
+    return RequestSet(sorted(self.responded().reqs, key=operator.attrgetter("response.time")))
+
   def by_status(self):
     return RequestSet(sorted(self.responded().reqs, key=operator.attrgetter("response.status")))
 
