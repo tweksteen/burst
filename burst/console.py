@@ -123,7 +123,7 @@ try:
   def IPythonColorPrompt(shell):
     from IPython.core.prompts import LazyEvaluate
     shell.prompt_manager.in_template = 'In [\\#] {burst}'
-    shell.prompt_manager.in2_template = '   .\\D.'
+    shell.prompt_manager.in2_template = '  .\\D. {burst}'
     shell.prompt_manager.out_template = 'Out[\\#] {burst}'
     shell.prompt_manager.lazy_evaluate_fields = {'burst': LazyEvaluate(ColorPrompt().__str__)}
 
