@@ -6,14 +6,14 @@ _burst()
     COMPREPLY=()
     cur="${COMP_WORDS[COMP_CWORD]}"
     prev="${COMP_WORDS[COMP_CWORD-1]}"
-    opts="-b -h -l -v -s -r"
+    opts="-b -h -l -v -s -r -i"
 
     if [[ ${cur} == -* ]] ; then
         COMPREPLY=( $(compgen -W "${opts}" -- ${cur}) )
         return 0
     fi
 
-    if [[ ${prev} == -s ]]; then
+    if [[ ${prev} == -*s* ]]; then
         local sessions=$(ls ~/.burst/sessions)
         COMPREPLY=( $(compgen -o filenames -W '${sessions}' -- ${cur}) )
         return 0
