@@ -776,8 +776,9 @@ class RequestSet():
     self.hostname = hostnames.pop()
     self.port = ports.pop()
     self.use_ssl = use_ssls.pop()
-    if force and verbose:
-      print "Clearing previous responses..."
+    if force:
+      if verbose:
+        print "Clearing previous responses..."
       self.clear()
     conn = self._init_connection()
     if verbose:
