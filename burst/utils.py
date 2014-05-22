@@ -32,14 +32,6 @@ re_ansi_color = re.compile(r"(\x1b\[[;\d]*[A-Za-z])|\x01|\x02").sub
 
 ellipsis = u"\u2026"
 
-def bg(fct, *args, **kwds):
-  t = threading.Thread(target=fct, args=args, kwargs=kwds)
-  t.start()
-
-def jobs():
-  for t in threading.enumerate():
-    print t.name
-
 def pxml(r):
   if hasattr(r, "content"):
     s = r.content
