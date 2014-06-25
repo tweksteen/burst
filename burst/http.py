@@ -179,6 +179,10 @@ class Request():
       s.write(self.content)
     return s.getvalue()
 
+  def __mul__(self, op):
+    """Duplicate a request"""
+    return RequestSet([self.copy() for i in range(op)])
+
   def __eq__(self, r):
     """Compare two requests based on the host, port, use of ssl, url, headers
     and content (if present)"""
@@ -796,7 +800,7 @@ class RequestSet():
       r = self.reqs[i]
       if verbose:
         if failed:
-          print "Running {} requests...{:.2f}% (failed: {})".format(todo, 
+          print "Running {} requests...{:.2f}% (failed: {})".format(todo,
                                                     done * 100. / todo, failed),
         else:
           print "Running {} requests...{:.2f}%".format(todo, done * 100. / todo),
