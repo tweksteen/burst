@@ -747,26 +747,27 @@ class RequestSet():
     for r in self.reqs:
       r.response = None
 
-  def parallel(self, threads=4):
+  def parallel(self, threads=4, verbose=True, **kw):
     stop = threading.Event()
     indices = range(len(self.reqs))
     jobs = []
     for ics in chunks(indices, threads):
-      t = threading.Thread(target=self.__call__,
-                       kwargs={"indices":ics, "verbose":False,
-                               "stop_event":stop})
+      kw.update({"indices":ics, "stop_event":stop, "verbose":False})
+      t = threading.Thread(target=self.__call__, kwargs=kw)
       jobs.append(t)
       t.start()
     try:
       for j in jobs:
         while j.is_alive():
           j.join(1)
-          done = len(self.filter(lambda x: x.response))
-          print "Running {} requests... {:.2f}%".format(len(self), done * 100. / len(self)),
+          if verbose:
+            done = len(self.filter(lambda x: x.response))
+            print "Running {} requests... {:.2f}%".format(len(self), done * 100. / len(self)),
           clear_line()
     except KeyboardInterrupt:
       stop.set()
-    print "Running {} requests...done.".format(len(self))
+    if verbose:
+      print "Running {} requests...done.".format(len(self))
 
   def __call__(self, force=False, randomised=False, verbose=1, retry=0,
                indices=None, stop_event=None, post_func=None, post_args=[]):
