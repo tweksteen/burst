@@ -28,13 +28,13 @@ class ProxyError(BurstException):
 class CertError(BurstException):
   pass
 
-class PayloadNotFound(BurstException): 
+class PayloadNotFound(BurstException):
   pass
 
-class NoInjectionPointFound(BurstException): 
+class NoInjectionPointFound(BurstException):
   pass
 
-class NonUniqueInjectionPoint(BurstException): 
+class NonUniqueInjectionPoint(BurstException):
   pass
 
 class CookieException(BurstException):

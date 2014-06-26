@@ -160,8 +160,8 @@ def interact(local_dict=None):
   __builtin__.__dict__["help"] = help
   __builtin__.__dict__["python_help"] = pydoc.help
 
-  banner = """  _                _   
- | |__ _  _ _ _ __| |_ 
+  banner = """  _                _
+ | |__ _  _ _ _ __| |_
  | '_ \ || | '_(_-<  _|
  |_.__/\_,_|_| /__/\__|
 """
@@ -216,7 +216,7 @@ def interact(local_dict=None):
   # load the "default" session.
   burst.session.load_session()
 
-  # Experimental: Insert provided local variables 
+  # Experimental: Insert provided local variables
   # (only used when scripted)
   if local_dict:
     burst.session.user_session.namespace.update(local_dict)

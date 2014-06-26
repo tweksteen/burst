@@ -34,7 +34,7 @@ def load_plugins():
   for f in glob.glob(os.path.join(PLUGIN_DIR, "*.py")):
     m, ext = os.path.splitext(os.path.basename(f))
     __builtin__.__dict__.update(__import__(m, globals(), locals(), ".").__dict__)
-    
+
 class Configuration(object):
   """
   Class representing the configuration of Burst. You should use
@@ -57,7 +57,7 @@ class Configuration(object):
   """
   _ssl_map = {"SSLv3": ssl.PROTOCOL_SSLv3, "SSLv23": ssl.PROTOCOL_SSLv23,
              "TLSv1": ssl.PROTOCOL_TLSv1}
-  try: 
+  try:
     _ssl_map["SSLv2"] = ssl.PROTOCOL_SSLv2
   except AttributeError:
     pass

@@ -26,7 +26,7 @@ def _get_links(r):
     root = lxml.html.fromstring(r.response.content)
     base_tag = root.xpath('//base')
     if base_tag and base_tag[0].get('href'):
-      base = base_tag[0].get(["href"])
+      base = base_tag[0].get(['href'])
     else:
       base = r.url
     links = [x.get("href") for x in root.xpath("//a|//area") if x.get('href')]

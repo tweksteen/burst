@@ -109,7 +109,7 @@ def chunks(l, n):
   for i in xrange(0, n-1):
     yield l[i*newn:i*newn+newn]
   yield l[n*newn-newn:]
-    
+
 def view(args):
   fd, fname = tempfile.mkstemp()
   with os.fdopen(fd, 'w') as f:
