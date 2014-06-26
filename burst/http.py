@@ -183,6 +183,8 @@ class Request():
     """Duplicate a request"""
     return RequestSet([self.copy() for i in range(op)])
 
+  __rmul__ = __mul__
+
   def __eq__(self, r):
     """Compare two requests based on the host, port, use of ssl, url, headers
     and content (if present)"""
