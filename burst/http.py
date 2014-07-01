@@ -12,6 +12,7 @@ import random
 import tempfile
 import webbrowser
 import threading
+import shlex
 import subprocess
 import datetime
 from collections import defaultdict
@@ -24,7 +25,8 @@ from burst.color import *
 from burst.exception import *
 from burst.utils import make_table, clear_line, chunks, encode, \
                          re_space, smart_split, smart_rsplit, \
-                         truncate, stats, parse_qs
+                         truncate, stats, parse_qs, play_notifier, \
+                         play_updater
 
 class Request():
   """The Request class is the base of Burst. To create an instance, you have
@@ -207,23 +209,31 @@ class Request():
       return False
     return True
 
-  def __call__(self, conn=None, chunk_func=None):
+  def _init_connection(self):
+      return connect(self.hostname, self.port, self.use_ssl)
+
+  def __call__(self, conn=None, chunk_func=None, complete=True):
     """Make the request to the server. If conn is supplied, it will be used
-    as connection socket. If chunk_func is supplied, it will be call for
-    every chunk received, if appplicable.
+    as connection socket.
+
+    If chunk_func is supplied, it will be call for every chunk received, if
+    applicable.
+
+    If complete is False, the response is not read. The method
+    _read_response must be called manually later on.
     """
-    if conn:
-      sock = conn
-    else:
-      sock = connect(self.hostname, self.port, self.use_ssl)
+    sock = conn if conn else self._init_connection()
     if conf.history:
       history_lock.acquire()
       history.append(self)
       history_lock.release()
     _send_request(sock, self)
-    t_start = datetime.datetime.now()
+    self.sent_date = datetime.datetime.now()
+    if complete:
+      self._read_response(sock, chunk_func)
+
+  def _read_response(self, sock, chunk_func):
     self.response = Response(sock.makefile('rb', 0), self, chunk_func=chunk_func)
-    self.response.sent_date = t_start
     self.response.received_date = datetime.datetime.now()
 
   def edit(self):
@@ -234,7 +244,7 @@ class Request():
     fd, fname = tempfile.mkstemp(suffix=".http")
     with os.fdopen(fd, 'w') as f:
       f.write(str(self))
-    ret = subprocess.call(conf.editor.format(fname), shell=True)
+    ret = subprocess.call(shlex.split(conf.editor.format(fname)))
     if not ret:
       f = open(fname, 'r')
       self.__init__(f, self.hostname, self.port, self.use_ssl)
@@ -257,7 +267,7 @@ class Request():
     If post_func is provided, it will be called once the response has been read.
     A Response is passed as argument, it should return a Response.
 
-    The behaviour of your editor can be modified via the conf.editor_play
+    The behaviour of your editor can be modified via the conf.play_start
     parameters.
     """
     r_tmp = self.copy()
@@ -271,34 +281,44 @@ class Request():
       with os.fdopen(fdrep, 'w') as f:
         f.write(str(self.response))
     last_access = os.stat(freqname).st_mtime
-    ret = subprocess.Popen(conf.editor_play.format(freqname,frepname), shell=True)
+    ret = subprocess.Popen(shlex.split(conf.play_start.format(freqname,frepname)))
     r_new = None
     while ret.poll() != 0:
       if os.stat(freqname).st_mtime != last_access:
+        play_notifier("Reading request...")
         freq = open(freqname, 'r')
         try:
           r_new = Request(freq, self.hostname, self.port, self.use_ssl)
           if r_new.method in ('POST', 'PUT') and conf.update_content_length:
+            play_notifier("Updating Content Length...")
             r_new.update_content_length()
           freq.close()
           if pre_func:
+            play_notifier("Calling pre_func...")
             r_new = pre_func(r_new)
           if call_func:
+            play_notifier("Calling call_func...")
             call_func(r_new)
           else:
-            r_new()
+            play_notifier("Connecting...")
+            c = r_new._init_connection()
+            play_notifier("Sending request...")
+            r_new(conn=c, complete=False)
+            play_notifier("Reading response...")
+            r_new._read_response(c, None)
           if post_func:
+            play_notifier("Calling post_func...")
             res_text = post_func(r_new.response)
           else:
             res_text = r_new.response
           if res_text:
             frep = open(frepname, 'w')
             frep.write(str(res_text))
+            frep.close()
+          play_notifier("")
+          play_updater()
         except Exception, e:
-          frep = open(frepname, 'w')
-          frep.write("Error:\n")
-          frep.write(str(e))
-        frep.close()
+          play_notifier("Exception: " + str(e))
         last_access = os.stat(freqname).st_mtime
       # hack to avoid 100% CPU usage. Should be replaced by pyinotify.
       time.sleep(0.1)
@@ -415,7 +435,7 @@ class Response():
 
   @property
   def time(self):
-    return self.received_date - self.sent_date
+    return self.received_date - self.request.sent_date
 
   @property
   def headers(self):
@@ -462,7 +482,7 @@ class Response():
       self.remove_header("Content-Length")
     with os.fdopen(fd, 'w') as f:
       f.write(self.raw())
-    ret = subprocess.call(conf.editor.format(fname), shell=True)
+    ret = subprocess.call(shlex.split(conf.editor.format(fname)))
     if not ret:
       f = open(fname, 'r')
       self.__init__(f, self.request)

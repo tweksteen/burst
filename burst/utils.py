@@ -4,6 +4,7 @@ import sys
 import time
 import math
 import json
+import shlex
 import base64
 import urllib
 import tempfile
@@ -114,15 +115,23 @@ def view(args):
   fd, fname = tempfile.mkstemp()
   with os.fdopen(fd, 'w') as f:
     f.write(str(args))
-  subprocess.call(conf.viewer.format(fname), shell=True)
+  subprocess.call(shlex.split(conf.viewer.format(fname)))
   os.remove(fname)
 
 def external_view(args):
   fd, fname = tempfile.mkstemp()
   with os.fdopen(fd, 'w') as f:
     f.write(str(args))
-  subprocess.Popen(conf.external_viewer.format(fname), shell=True, preexec_fn=os.setpgrp)
+  subprocess.Popen(shlex.split(conf.external_viewer.format(fname)), preexec_fn=os.setpgrp)
   #todo: cleanup
+
+def play_notifier(message):
+  if conf.play_notify:
+    subprocess.call(shlex.split(conf.play_notify.format(message)))
+
+def play_updater():
+  if conf.play_update:
+    subprocess.call(shlex.split(conf.play_update))
 
 def idle(request, delay=60, predicate=None, verbose=False):
   if not predicate:

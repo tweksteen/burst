@@ -47,6 +47,7 @@ class Configuration(object):
     - history: keep a copy of all the requests made
     - viewer, external_viewer: command used for v and w aliases
     - editor, diff_editor: external editors called when editing
+    - play_start, play_notify, play_update: commands to execute when using Request.play
     - term_width: expected width of the terminal
     - ssl_version: ssl version used with the server (SSLv2, SSLv3, SSLv23, TLSv1)
     - ssl_verify: path to CA certs chain. If None, no verification is made
@@ -54,6 +55,15 @@ class Configuration(object):
     - ssl_hostname: static hostname to use for SSL
     - target: use to specify the target in case of proxy-unaware application
     - update_content_length: flag to automatically update the header on edition
+
+  Each value can be modified for your local installation by creating the
+  file ~/.burst/burst.conf. This file uses the ConfigParser format.
+  For instance:
+
+    [burst]
+    port = 8081
+    ssl_verify = None
+
   """
   _ssl_map = {"SSLv3": ssl.PROTOCOL_SSLv3, "SSLv23": ssl.PROTOCOL_SSLv23,
              "TLSv1": ssl.PROTOCOL_TLSv1}
@@ -76,9 +86,16 @@ class Configuration(object):
     self.viewer = '/bin/less -R {}'
     self.external_viewer = '/usr/bin/xterm -e /bin/less -R {}'
     self.editor = '/usr/bin/vim -b {}'
-    self.editor_play = '/usr/bin/vim -b -o2 -c "set autoread" ' \
-                            '-c "autocmd CursorMoved * checktime" ' \
-                            '-c "autocmd CursorHold * checktime" {} {}'
+    self.play_start = '/usr/bin/gvim -v --servername burst -b -o2 ' \
+                      '-c "set autoread" ' \
+                      '-c "autocmd CursorMoved * checktime" ' \
+                      '-c "autocmd CursorHold * checktime" {} {} '
+    self.play_notify = '/usr/bin/gvim -v --servername burst ' \
+                       '--remote-send \':silent set stl={}<CR>\''
+    self.play_update = '/usr/bin/gvim -v --servername burst ' \
+                       '--remote-send \':silent wincmd b<CR>\' ' \
+                       '--remote-send \':silent e<CR>\' ' \
+                       '--remote-send \':silent wincmd t<CR>\''
     self.diff_editor = "/usr/bin/vimdiff {} {}"
     self.ssl_hostname = None
     self.ssl_reverse = False
@@ -88,8 +105,8 @@ class Configuration(object):
     self._values = {"port": "getint", "proxy": "get", "timeout": "getint",
                     "ssl_version": "get", "autosave": "getboolean", "viewer": "get",
                     "external_viewer": "get", "history": "getboolean",
-                    "editor": "get", "diff_editor": "get",
-                    "editor_play": "get", "term_width": "get",
+                    "editor": "get", "diff_editor": "get", "play_notify": "get",
+                    "play_start": "get", "play_update": "get", "term_width": "get",
                     "delay": "getint", "color_enabled": "getboolean",
                     "update_content_length": "getboolean", "ip": "get",
                     "target": "get", "ssl_hostname": "get", "ssl_reverse": "getboolean",
