@@ -315,7 +315,7 @@ class Request():
             frep = open(frepname, 'w')
             frep.write(str(res_text))
             frep.close()
-          play_notifier("")
+          play_notifier("Time: " + str(r_new.response.time.total_seconds()))
           play_updater()
         except Exception, e:
           play_notifier("Exception: " + str(e))
