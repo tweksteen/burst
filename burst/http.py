@@ -410,6 +410,8 @@ class Response():
   """A response object, always associated with a request.
   """
   def __init__(self, fd, request, chunk_func=None):
+    if isinstance(fd, basestring):
+      fd = StringIO(fd)
     try:
       banner = read_banner(fd)
       # ASSUMPTION: A response status line contains at least two elements
@@ -658,6 +660,12 @@ class RequestSet():
 
   def cmp_response(self, i1, i2):
     compare(self[i1].response, self[i2].response)
+
+  def diff(self, other, predicate):
+    if len(self) != len(other):
+      raise BurstException("A RequestSet of the same size is required")
+    return RequestSet([self[i] for i in range(len(self))
+            if predicate(self[i], other[i])])
 
   def __repr__(self):
     status = defaultdict(int)
