@@ -26,11 +26,11 @@ def _get_links(r):
     root = lxml.html.fromstring(r.response.content)
     base_tag = root.xpath('//base')
     if base_tag and base_tag[0].get('href'):
-      base = base_tag[0].get(['href'])
+      base = base_tag[0].get('href')
     else:
       base = r.url
-    links = [x.get("href") for x in root.xpath("//a|//area") if x.get('href')]
-    links += [x.get("src") for x in root.xpath("//frame") if x.get('src')]
+    links = [ x.get("href").strip() for x in root.xpath("//a|//area") if x.get('href')]
+    links += [ x.get("src").strip() for x in root.xpath("//frame") if x.get('src')]
     for l in links:
       try:
         l.encode('ascii')
@@ -51,7 +51,7 @@ def _get_links(r):
         nr.url = urlparse.urlunparse(urlparse.urlparse(r.url)[:2] + urlparse.urlparse(n_path)[2:])
         new_reqs.append(nr)
       else:
-        if url_p.scheme not in ("ftp", "irc", "xmpp", "mms"):
+        if url_p.scheme not in ("ftp", "irc", "xmpp", "mms", "tel"):
           print "UNKNOWN PROTOCOL Miam!?:" + l, url_p.scheme
   except lxml.etree.XMLSyntaxError:
     pass
