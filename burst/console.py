@@ -179,7 +179,7 @@ def interact(local_dict=None):
         burst.session.list_sessions()
         sys.exit(0)
       elif opt == "-v":
-        print "Burst {}, Copyright (c) 2013 Thiébaud Weksteen".format(burst.__version__)
+        print "Burst {}, Copyright (c) 2014 Thiébaud Weksteen".format(burst.__version__)
         sys.exit(0)
       elif opt == "-b":
         banner = "Burst {}".format(burst.__version__)
