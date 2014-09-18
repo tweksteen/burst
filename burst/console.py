@@ -259,7 +259,8 @@ def interact(local_dict=None):
 
   # Hooked window resizing
   _update_term_width(None, None)
-  signal.signal(signal.SIGWINCH, _update_term_width)
+  if has_termios:
+    signal.signal(signal.SIGWINCH, _update_term_width)
 
   # And run the interpreter!
   if use_ipython:
