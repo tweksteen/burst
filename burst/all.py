@@ -13,3 +13,4 @@ from burst.utils     import encode, e, ee, decode, d, dd, parse_qs, \
                              pjson, d64, e64
 from burst.spider    import spider, s
 from burst.alert     import NullAlerter, GenericAlerter, RequestKeywordAlerter
+from burst.external  import import_from_burp
