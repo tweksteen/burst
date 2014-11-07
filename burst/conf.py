@@ -12,6 +12,17 @@ SESSION_DIR = os.path.join(CONF_DIR, "sessions")
 ARCHIVE_DIR = os.path.join(CONF_DIR, "archives")
 PLUGIN_DIR = os.path.join(CONF_DIR, "plugins")
 
+def get_ca_certs_path():
+  certpaths = { "fedora":  "/etc/pki/tls/cert.pem",
+                "ubuntu":  "/etc/ssl/certs/ca-certificates.crt",
+                "suse":    "/etc/ssl/ca-bundle.pem",
+                "freebsd": "/usr/local/share/certs/ca-root-nss.crt" }
+
+  for key, path in certpaths.iteritems():
+    if os.path.isfile(path):
+      return path
+  return None
+
 def check_config_dir():
   existed = True
   if not os.path.exists(CONF_DIR):
@@ -99,7 +110,7 @@ class Configuration(object):
     self.diff_editor = "/usr/bin/vimdiff {} {}"
     self.ssl_hostname = None
     self.ssl_reverse = False
-    self.ssl_verify = "/etc/pki/tls/cert.pem"
+    self.ssl_verify = get_ca_certs_path()
     self.update_content_length = True
     self._ssl_version = ssl.PROTOCOL_SSLv23
     self._values = {"port": "getint", "proxy": "get", "timeout": "getint",
