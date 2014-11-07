@@ -79,7 +79,7 @@ def save(force=False):
   """ Save the current session.
   By default, this function is automatically called when the session
   is terminated (either by switching session (ss) or exiting Burst)
-  except is the session is "default" or if conf.autosave is False.
+  except if the session is "default" or if conf.autosave is False.
 
   See also: ss, lss, conf.autosave.
   """
