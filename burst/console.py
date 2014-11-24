@@ -35,6 +35,7 @@ def _usage():
   print """Usage: burst [-abhlrvi] [-s session_name]
     -a: archive a session
     -b: no graphical banner
+    -d: delete a session
     -h: print this help message
     -i: use IPython's interactive shell
     -l: list existing sessions
@@ -169,10 +170,11 @@ def interact(local_dict=None):
   use_ipython = False
   read_only = False
   archive = False
+  delete = False
 
   # Parse arguments
   try:
-    opts = getopt.getopt(sys.argv[1:], "s:abhlvri")
+    opts = getopt.getopt(sys.argv[1:], "s:abdhlvri")
     for opt, param in opts[0]:
       if opt == "-h":
         _usage()
@@ -190,13 +192,15 @@ def interact(local_dict=None):
         read_only = True
       elif opt == "-a":
         archive = True
+      elif opt == "-d":
+        delete = True
       elif opt == "-i":
         use_ipython = True
     if opts[1]:
       _usage()
   except getopt.GetoptError:
     _usage()
-  if any([archive, read_only]):
+  if any([archive, read_only, delete]):
     if burst.session.user_session.name == "default":
       print error("A session name must be specified using -s")
       sys.exit(0)
@@ -207,6 +211,9 @@ def interact(local_dict=None):
       burst.session.user_session.readonly = True
     elif archive:
       burst.session.archive()
+      sys.exit(0)
+    elif delete:
+      burst.session.delete()
       sys.exit(0)
 
 
