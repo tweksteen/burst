@@ -49,6 +49,10 @@ def clear_session():
   conf.__init__()
   conf.load()
 
+def exists():
+  d = os.path.join(SESSION_DIR, user_session.name)
+  return os.path.exists(d)
+
 def load_session():
   global history
   d = os.path.join(SESSION_DIR, user_session.name)

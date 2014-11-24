@@ -32,14 +32,15 @@ except ImportError:
 term_width = None
 
 def _usage():
-  print """Usage: burst [-bhlrvi] [-s session_name]
+  print """Usage: burst [-abhlrvi] [-s session_name]
+    -a: archive a session
     -b: no graphical banner
     -h: print this help message
     -i: use IPython's interactive shell
     -l: list existing sessions
     -v: print the version and exit
     -s: create or load a session
-    -r: put the session in read-only"""
+    -r: open the session read-only"""
   sys.exit(0)
 
 def _save_history():
@@ -166,10 +167,12 @@ def interact(local_dict=None):
  |_.__/\_,_|_| /__/\__|
 """
   use_ipython = False
+  read_only = False
+  archive = False
 
   # Parse arguments
   try:
-    opts = getopt.getopt(sys.argv[1:], "s:bhlvri")
+    opts = getopt.getopt(sys.argv[1:], "s:abhlvri")
     for opt, param in opts[0]:
       if opt == "-h":
         _usage()
@@ -184,13 +187,28 @@ def interact(local_dict=None):
       elif opt == "-b":
         banner = "Burst {}".format(burst.__version__)
       elif opt == "-r":
-        burst.session.user_session.readonly = True
+        read_only = True
+      elif opt == "-a":
+        archive = True
       elif opt == "-i":
         use_ipython = True
     if opts[1]:
       _usage()
   except getopt.GetoptError:
     _usage()
+  if any([archive, read_only]):
+    if burst.session.user_session.name == "default":
+      print error("A session name must be specified using -s")
+      sys.exit(0)
+    elif not burst.session.exists():
+      print error("This session name does not exist")
+      sys.exit(0)
+    elif read_only:
+      burst.session.user_session.readonly = True
+    elif archive:
+      burst.session.archive()
+      sys.exit(0)
+
 
   # First time setup
   if not burst.conf.check_config_dir():
