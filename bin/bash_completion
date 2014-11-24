@@ -6,7 +6,7 @@ _burst()
     COMPREPLY=()
     cur="${COMP_WORDS[COMP_CWORD]}"
     prev="${COMP_WORDS[COMP_CWORD-1]}"
-    opts="-a -b -h -l -v -s -r -i"
+    opts="-a -b -d -h -l -v -s -r -i"
 
     if [[ ${cur} == -* ]] ; then
         COMPREPLY=( $(compgen -W "${opts}" -- ${cur}) )
