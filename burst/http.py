@@ -782,8 +782,9 @@ class RequestSet():
     indices = range(len(self.reqs))
     jobs = []
     for ics in chunks(indices, threads):
-      kw.update({"indices":ics, "stop_event":stop, "verbose":False})
-      t = threading.Thread(target=self.__call__, kwargs=kw)
+      mkw = kw.copy()
+      mkw.update({"indices":ics, "stop_event":stop, "verbose":False})
+      t = threading.Thread(target=self.__call__, kwargs=mkw)
       jobs.append(t)
       t.start()
     try:
