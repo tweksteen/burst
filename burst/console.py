@@ -110,7 +110,7 @@ class BurstInteractiveConsole(code.InteractiveConsole):
     code.InteractiveConsole.push(self, expand_alias(line))
 
 try:
-  from IPython.frontend.terminal.embed import InteractiveShellEmbed
+  from IPython.terminal.embed import InteractiveShellEmbed
   from IPython.core.prefilter import PrefilterTransformer
 
   class IPythonInteractiveConsole(InteractiveShellEmbed):
