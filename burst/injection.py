@@ -201,7 +201,7 @@ def inject(r, to=None, at=None, payloads="default", **kwds):
   payloads could either be a list of the payloads to inject or a key
   of the global dictionnary 'payloads'.
 
-  Before being injected, each payload pass through the pre_func function
+  Before being injected, each payload goes through the pre_func function
   which is by default 'encode'.
 
   See also: payloads, inject_all, find_injection_points
