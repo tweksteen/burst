@@ -290,7 +290,7 @@ def interact(local_dict=None):
   # And run the interpreter!
   if use_ipython:
     if not has_ipython:
-      print warning("Option -i requires ipython to be installed")
+      print warning("Option -i requires IPython (>= 2.x) to be installed")
       sys.exit(1)
 
     shell = burst.session.user_session.shell = IPythonInteractiveConsole(user_ns=burst.session.user_session.namespace, banner1=banner)
