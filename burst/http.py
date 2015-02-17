@@ -63,19 +63,27 @@ class Request():
       self.url = url
     else:
       p_url = urlparse.urlparse(url)
-      if not p_url.scheme:
-        raise BurstException("No scheme: " + str(url))
       self.url = urlparse.urlunparse(("", "") + p_url[2:])
-      self.hostname = p_url.hostname
-      if not self.hostname:
-        raise BurstException("No hostname: " + str(url))
-      if p_url.scheme == 'https':
-        self.use_ssl = True
-        self.port = int(p_url.port) if p_url.port else 443
-      else:
-        self.port = int(p_url.port) if p_url.port else 80
-        self.use_ssl = use_ssl
+      if p_url.scheme:
+        self.hostname = p_url.hostname
+        if not self.hostname:
+          raise BurstException("No hostname: " + str(url))
+        if p_url.scheme == 'https':
+          self.use_ssl = True
+          self.port = int(p_url.port) if p_url.port else 443
+        else:
+          self.port = int(p_url.port) if p_url.port else 80
+          self.use_ssl = use_ssl
     self.raw_headers = read_headers(fd)
+    if not hasattr(self, "hostname"): # Last chance, try the Host header
+      hosts = self.get_header('Host')
+      if not hosts:
+        raise BurstException("Unable to find the host for the request")
+      else:
+        host = hosts[0]
+      self.hostname = host.split(":")[0]
+      self.port = int(host.split(":")[1]) if ":" in host else 80
+      self.use_ssl = False
     self.raw_content = read_content(fd, parse_headers(self.raw_headers), method=self.method)
     if self.raw_content:
       self.content = _clear_content(parse_headers(self.raw_headers), self.raw_content)
@@ -391,6 +399,8 @@ def create(url):
   """Create a request on the fly, based on a URL.
   The URL must contain the scheme."""
   p_url = urlparse.urlparse(url)
+  if not p_url.scheme:
+    raise BurstException("The scheme is required (http:// or https://)")
   host = p_url.hostname
   if not p_url.path:
     url += "/"
