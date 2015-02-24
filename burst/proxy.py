@@ -297,6 +297,7 @@ class ProxyHTTPRequestHandler(SocketServer.StreamRequestHandler):
       if not self._do_connection():
         return False
       ui_lock.acquire()
+      self.r.response = self.server.post_func(self.r.response)
       if not automated or self.server.verbose:
         if pre_action == "a" and not self.server.auto:
           flush_input()
@@ -378,8 +379,8 @@ class ProxyHTTPServer(SocketServer.ThreadingMixIn, SocketServer.TCPServer):
         traceback.print_tb(exc_traceback)
 
 def proxy(ip=None, port=None, rules=(ru_bypass_ssl, ru_forward_images,),
-          alerter=None, persistent=True, pre_func=None, decode_func=None,
-          forward_chunked=False, verbose=False):
+          alerter=None, persistent=True, pre_func=None, post_func=None,
+          decode_func=None, forward_chunked=False, verbose=False):
   """Intercept all HTTP(S) requests on port. Return a RequestSet of all the
   answered requests.
 
@@ -388,6 +389,7 @@ def proxy(ip=None, port=None, rules=(ru_bypass_ssl, ru_forward_images,),
   alerter         -- alerter triggered on each response, by default GenericAlerter
   rules           -- set of rules for automated actions over requests
   pre_func        -- callback used before processing a request
+  post_func       -- callback used before processing a response
   decode_func     -- callback used when (de)coding a request/response content, by
                      default, decode().
   forward_chunked -- forward chunked response without waiting for the end of it
@@ -406,12 +408,14 @@ def proxy(ip=None, port=None, rules=(ru_bypass_ssl, ru_forward_images,),
   if not rules: rules = []
   if not decode_func: decode_func = decode
   if not pre_func: pre_func = lambda x:x
+  if not post_func: post_func = lambda x:x
   print "Running on", ip + ":" + str(port)
   print "Ctrl-C to interrupt the proxy..."
   httpd = ProxyHTTPServer((ip, port), ProxyHTTPRequestHandler)
   httpd.rules = rules
   httpd.auto = False
   httpd.pre_func = pre_func
+  httpd.post_func = post_func
   httpd.decode_func = decode_func
   httpd.alerter = alerter
   httpd.reqs = []
