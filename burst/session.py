@@ -2,10 +2,10 @@ import os
 import cPickle
 import datetime
 import glob
-import types
 import gzip
 import operator
 import __builtin__
+from cStringIO import StringIO
 
 from burst.conf import conf, SESSION_DIR, ARCHIVE_DIR
 from burst.http import Request, RequestSet, history
@@ -79,6 +79,13 @@ def autosave_session():
   if conf.autosave and user_session.name != "default" and not user_session.readonly:
     save()
 
+def is_pickable(x):
+  try:
+    cPickle.dump(x, StringIO(), -1)
+    return True
+  except:
+    return False
+
 def save(force=False):
   """ Save the current session.
   By default, this function is automatically called when the session
@@ -107,7 +114,7 @@ def save(force=False):
   if "__builtins__" in to_save:
     del to_save["__builtins__"]
   for k in to_save.keys():
-    if type(to_save[k]) in (types.TypeType, types.ClassType, types.ModuleType, types.FunctionType, types.NoneType):
+    if not is_pickable(to_save[k]):
       del to_save[k]
   if not os.path.exists(d):
     os.mkdir(d, 0700)
