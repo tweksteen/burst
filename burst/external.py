@@ -153,6 +153,7 @@ def import_from_curl(curl=None):
     return s
 
   def set_url(o, url):
+    url = url.replace(' ','%20')
     p_url = urlparse(url)
     if p_url.scheme:
       o[URL] = url
@@ -170,36 +171,44 @@ def import_from_curl(curl=None):
     if curl[i].startswith('-'):
       this = curl[i]
       i   += 1
-      arg  = expand_injects(curl[i])
+      arg  = None
+      if i < len(curl):
+        arg  = expand_injects(curl[i])
+
       if this in __curl_unimplemented[0].union(__curl_unimplemented[1]):
         print 'not implemented: ignoring option "{}"'.format(this)
         if this in __curl_unimplemented[1]:
           i += 1
         continue
-      elif this in ('-A', '--user-agent'):
-        o[USERAGENT] = arg
-      elif this in ('-b', '--cookie'):
-        o[HEADERS].append('Cookie: {}'.format(arg))
-      elif this in ('-d', '--data', '--data-ascii'):
-        o[METHOD] = 'POST'
-        o[BODY]   = arg
-      elif this in ('-e', '--referer'):
-        o[HEADERS].append('Referer: {}'.format(arg))
-      elif this in ('-H', '--header'):
-        o[HEADERS].append(arg)
-      elif this in ('--url'):
-        o = set_url(o, arg)
-      elif this in ('u','--user'):
-        if not ':' in arg:
-          arg += ':'
-        o[HEADERS].append('Authorization: Basic {}'.format(
-          b64encode(arg) ))
-      elif this in ('-r','--range'):
-        o[HEADERS].append('Range: bytes={}'.format(arg))
-      elif this in ('-X','--request'):
-        o[METHOD] = arg
-      else:
-        raise Exception('not implemented and unknown option: "{}"'.format(this))
+
+      ## options that require an argument, check that we have one
+      elif arg:
+        if this in ('-A', '--user-agent'):
+          o[USERAGENT] = arg
+        elif this in ('-b', '--cookie'):
+          o[HEADERS].append('Cookie: {}'.format(arg))
+        elif this in ('-d', '--data', '--data-ascii'):
+          o[METHOD] = 'POST'
+          o[BODY]   = arg
+        elif this in ('-e', '--referer'):
+          o[HEADERS].append('Referer: {}'.format(arg))
+        elif this in ('-H', '--header'):
+          o[HEADERS].append(arg)
+        elif this in ('--url'):
+          o = set_url(o, arg)
+        elif this in ('u','--user'):
+          if not ':' in arg:
+            arg += ':'
+          o[HEADERS].append('Authorization: Basic {}'.format(
+            b64encode(arg) ))
+        elif this in ('-r','--range'):
+          o[HEADERS].append('Range: bytes={}'.format(arg))
+        elif this in ('-X','--request'):
+          o[METHOD] = arg
+        else:
+          raise Exception('not implemented and unknown option: "{}"'.format(this))
+
+    ## not a --switch, and not an argument, so parse it as a URL:
     else:
       o = set_url(o, expand_injects(curl[i]))
     i += 1
