@@ -60,7 +60,7 @@ class Configuration(object):
     - editor, diff_editor: external editors called when editing
     - play_start, play_notify, play_update: commands to execute when using Request.play
     - term_width: expected width of the terminal
-    - ssl_version: ssl version used with the server (SSLv2, SSLv3, SSLv23, TLSv1)
+    - ssl_version: ssl version used with the server (SSLv2, SSLv3, SSLv23, TLSv1, TLSv1_1, TLSv1_2) - note that different versions of the `ssl` module supports different protocols
     - ssl_verify: path to CA certs chain. If None, no verification is made
     - ssl_reverse: contact the server to determine hostname for the SSL certificate
     - ssl_hostname: static hostname to use for SSL
@@ -76,12 +76,9 @@ class Configuration(object):
     ssl_verify = None
 
   """
-  _ssl_map = {"SSLv3": ssl.PROTOCOL_SSLv3, "SSLv23": ssl.PROTOCOL_SSLv23,
-             "TLSv1": ssl.PROTOCOL_TLSv1}
-  try:
-    _ssl_map["SSLv2"] = ssl.PROTOCOL_SSLv2
-  except AttributeError:
-    pass
+  _ssl_map = {}
+  for proto in filter(lambda p: p.startswith('PROTOCOL_'), dir(ssl)):
+    _ssl_map[ proto[len('_') + proto.find('_') : ] ] = ssl.__dict__[proto]
 
   def __init__(self):
     self.ip = '127.0.0.1'
@@ -112,7 +109,8 @@ class Configuration(object):
     self.ssl_reverse = False
     self.ssl_verify = get_ca_certs_path()
     self.update_content_length = True
-    self._ssl_version = ssl.PROTOCOL_SSLv23
+    # default to latest TLS version supported
+    self._ssl_version = max(self._ssl_map.values())
     self._values = {"port": "getint", "proxy": "get", "timeout": "getint",
                     "ssl_version": "get", "autosave": "getboolean", "viewer": "get",
                     "external_viewer": "get", "history": "getboolean",
