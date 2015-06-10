@@ -5,7 +5,7 @@ from burst.http import Request, RequestSet
 from shlex import split
 from urlparse import urlparse
 from base64 import b64encode
-from hashlib import pbkdf2_hmac
+from hashlib import sha256
 from os import urandom
 from re import VERBOSE, compile
 
@@ -136,8 +136,7 @@ def import_from_curl(curl=None):
     matches = []
     for m in re_curl_counter.finditer(s):
       inject_counter[0] += 1
-      key = pbkdf2_hmac('sha256', uniqueness,
-        '{}_{}'.format(inject_counter, m.start()),1).encode('hex')
+      key = sha256('{}_{}_{}'.format(uniqueness, inject_counter, m.start())).digest().encode('hex')
       matches.append(key)
       values = [int(i or '1') for i in m.groups()]
 
