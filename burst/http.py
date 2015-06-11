@@ -808,7 +808,8 @@ class RequestSet():
     except KeyboardInterrupt:
       stop.set()
     if verbose:
-      print "Running {} requests...done.".format(len(self))
+      ## the two extra spaces in the end erase the left over "00%" from "100%"
+      print "Running {} requests... done.  ".format(len(self))
 
   def __call__(self, force=False, randomised=False, verbose=1, retry=0,
                indices=None, stop_event=None, post_func=None, post_args=[]):
