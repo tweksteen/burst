@@ -1,4 +1,5 @@
 import os
+import re
 import time
 import copy
 import zlib
@@ -15,9 +16,10 @@ import threading
 import shlex
 import subprocess
 import datetime
+import itertools
 from collections import defaultdict
 from StringIO import StringIO
-
+from hashlib import sha256
 from burst import console
 from burst.conf import conf
 from burst.cookie import Cookie
@@ -27,6 +29,33 @@ from burst.utils import make_table, clear_line, chunks, encode, \
                          re_space, smart_split, smart_rsplit, \
                          truncate, stats, parse_qs, play_notifier, \
                          play_updater
+
+re_curl_counter = re.compile(r"""
+    \[
+    (?P<start> [0-9]+ )
+    -
+    (?P<stop>  [0-9]+ )
+    (?# optionally take a step argument: )
+    :?
+    (?P<step>  [0-9]* )
+    \]""", re.VERBOSE)
+
+re_curl_characters = re.compile(r"""
+    \[
+    (?P<start> [a-z] )
+    -
+    (?P<stop>  [a-z] )
+    (?# optionally take a step argument: )
+    :?
+    (?P<step> [0-9]* )
+    """, re.VERBOSE)
+
+re_curl_brace_set = re.compile(r"""
+    \{
+    (?P<first> ( [^\n,]* ,)* )
+    (?P<last> [^\n,]+ )
+    \}
+    """, re.VERBOSE)
 
 class Request():
   """The Request class is the base of Burst. To create an instance, you have
@@ -90,6 +119,57 @@ class Request():
     else:
       self.content = ""
     self.response = None
+
+  def expand_curl_ranges(self):
+    """Expands curl range sequences in the Request, returning a new RequestSet"""
+    matches = {}
+
+    def param_inject(s):
+      def _param_inject(generator):
+        ## can't come up with a better/faster way to generate unique keys in a thread-safe fashion :-(
+        key = sha256('{}_{}'.format(len(matches), str(self))).digest().encode('hex')[:20]
+        matches[key] = {
+          'at': key,
+          'payloads': generator }
+        return key
+      def _param_inject_counter(m):
+        values = [int(i or '1') for i in m.groups()]
+        ## NOTE: curl's ranges are inclusive; python's are not, account for that:
+        values[1] += 1
+        return _param_inject( xrange(*values) )
+      def _param_inject_characters(m):
+        start = ord(m.group('start'))
+        stop  = ord(m.group('stop')) + 1
+        step  = int( m.group('step') or '1' )
+        return _param_inject( (chr(c) for c in xrange(start, stop, step)) )
+      def _param_inject_brace_set(m):
+        print m.groupdict()
+        intermediary = (m.group('first') or '').split(',')[:-1]
+        return _param_inject( (g for g in (intermediary + [m.group('last')])) )
+      ## replace the patterns with the corresponding hashes:
+      ret = re_curl_counter.sub(    _param_inject_counter,    s)
+      ret = re_curl_characters.sub( _param_inject_characters, ret)
+      ret = re_curl_brace_set.sub(  _param_inject_brace_set,  ret)
+      return ret
+
+    ## Configure the prototype and set up sequence hooks
+    proto = self.copy()
+    proto.url         = param_inject( proto.url )
+    proto.content     = param_inject( proto.content )
+    proto.raw_headers = param_inject( proto.raw_headers )
+
+    rs = [ RequestSet(proto) ]
+
+    for params in matches.values():
+      previous = rs[-1]
+      new_rs = RequestSet()
+      pls = itertools.tee(params['payloads'], len(previous))
+      for i in xrange(len(previous)):
+        ## create len(rs[-1]) copies of the payload generator
+        ## (otherwise it's exhausted by first run):
+        new_rs.append(inject(previous[i].copy(), at=params['at'], payloads=pls[i]))
+      rs[0] = new_rs
+    return rs[0]
 
   @property
   def path(self):
@@ -630,7 +710,9 @@ class RequestSet():
   """
 
   def __init__(self, reqs=None):
-    self.reqs = reqs if reqs else []
+    if isinstance(reqs, Request):
+      reqs = [ reqs ]
+    self.reqs = reqs if isinstance(reqs, list) else []
     self.hostname = None
 
   def __getitem__(self, i):
@@ -648,7 +730,12 @@ class RequestSet():
     return bool(self.reqs)
 
   def append(self, r):
-    self.reqs.append(r)
+    if   isinstance(r, Request):
+      self.reqs.append(r)
+    elif isinstance(r, RequestSet):
+      self.extend(r)
+    else:
+      raise TypeError
 
   def extend(self, rs):
     self.reqs.extend(rs)
@@ -676,6 +763,13 @@ class RequestSet():
       raise BurstException("A RequestSet of the same size is required")
     return RequestSet([self[i] for i in range(len(self))
             if predicate(self[i], other[i])])
+
+  def expand_curl_ranges(self):
+    """Expands curl range sequences in the RequestSet"""
+    new_rs = RequestSet()
+    for r in self.reqs:
+      new_rs.extend(r.expand_curl_ranges())
+    self.reqs = new_rs
 
   def __repr__(self):
     status = defaultdict(int)

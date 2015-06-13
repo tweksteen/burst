@@ -3,6 +3,9 @@ import urlparse
 import glob
 import os.path
 import json
+import itertools
+from types import XRangeType, GeneratorType
+from collections import Iterator
 
 from burst.http import Request, RequestSet
 from burst.exception import *
@@ -22,10 +25,19 @@ for k in ('sqli', 'xss', 'cmd', 'dir', 'misc'):
 
 def _get_payload(p):
   try:
-    if isinstance(p, list):
-      return p
-    else:
+    ## convert <type 'xrange'>s into generators:
+    if isinstance(p, XRangeType):
+      p = (str(i) for i in p)
+    elif isinstance(p, list):
+      ## handle numeric ranges:
+      p = (str(i) for i in iter(p))
+
+    if isinstance(p, basestring):
       return payloads[p]
+    elif isinstance(p, GeneratorType) or isinstance(p, Iterator) or 'next' in dir(p):
+      return (str(i) for i in p)
+    else:
+      raise PayloadNotFound('Payload argument is of type %s, but only accepted types are: xrange, generator, list, string' % type(p))
   except KeyError:
     raise PayloadNotFound("Possible values are: " + ", ".join(payloads.keys()))
 
@@ -126,15 +138,15 @@ def _inject_at(r, offset, payloads, pre_func=None, choice=None):
   orig = str(r)
   if not pre_func:
     pre_func = lambda x: encode(x)
-  payloads = [ pre_func(pd) for pd in _get_payload(payloads) ]
+  payloads = ( pre_func(pd) for pd in _get_payload(payloads) )
   if isinstance(offset, (list, tuple)):
     off_b, off_e = offset
   elif isinstance(offset, basestring):
     ct = str(r).count(offset)
     if ct > 1:
       if not choice or choice > ct:
-        raise NonUniqueInjectionPoint("The pattern is not unique in" + \
-                                      " the request, use choice<=" + str(ct))
+        raise NonUniqueInjectionPoint(("The pattern '{}' is not unique in " + \
+                                       "the request, use choice<={}").format(offset,ct))
       else:
         c_off = 0
         for i in range(choice):
@@ -142,7 +154,7 @@ def _inject_at(r, offset, payloads, pre_func=None, choice=None):
           c_off += idx + 1
         idx = c_off - 1
     elif ct < 1:
-      raise NoInjectionPointFound("Could not find the pattern")
+      raise NoInjectionPointFound("Could not find the pattern", offset)
     else:
       idx = str(r).find(offset)
     off_b, off_e = idx, idx + len(offset)
@@ -150,6 +162,7 @@ def _inject_at(r, offset, payloads, pre_func=None, choice=None):
     off_b = off_e = offset
   for p in payloads:
     ct = orig[:off_b] + p + orig[off_e:]
+    ## TODO this seems unsound:
     ct = re.sub("Content-Length:.*\n", "", ct)
     r_new = Request(ct, hostname=r.hostname, port=r.port, use_ssl=r.use_ssl)
     r_new.update_content_length()
@@ -161,7 +174,7 @@ def _inject_at(r, offset, payloads, pre_func=None, choice=None):
 def _inject_to(r, target, payloads, pre_func=None, append=False):
   if not pre_func:
     pre_func = lambda x: encode(x)
-  payloads = [ pre_func(pd) for pd in _get_payload(payloads) ]
+  payloads = ( pre_func(pd) for pd in _get_payload(payloads) )
   rqs = RequestSet(_inject_query(r, target, payloads, append))
   if r.method in ("POST", "PUT"):
     rqs += RequestSet(_inject_post(r, target, payloads, append))
@@ -213,13 +226,13 @@ def inject(r, to=None, at=None, payloads="default", **kwds):
   elif to and at:
     print error("Wow, too many parameters. It is either 'to' or 'at'.")
   elif to:
-    if isinstance(to, (list, tuple)):
+    if isinstance(to, (list, tuple, GeneratorType, Iterator)) or 'next' in dir(p):
       for t in to:
         rqs.extend(_inject_multi(r, _inject_to, t, payloads, **kwds))
     else:
       rqs.extend(_inject_multi(r, _inject_to, to, payloads, **kwds))
   elif at:
-    if isinstance(at, (list, tuple)):
+    if isinstance(at, (list, tuple, GeneratorType, Iterator)) or 'next' in dir(p):
       for a in at:
         rqs.extend(_inject_multi(r, _inject_at, a, payloads, **kwds))
     else:
