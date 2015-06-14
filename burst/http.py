@@ -31,31 +31,39 @@ from burst.utils import make_table, clear_line, chunks, encode, \
                          play_updater
 
 re_curl_counter = re.compile(r"""
+    (?# ignore patterns with leading unbalanced backslashes )
+      (?P<escaped> \x5c ?  )
+      (?P<leading_escapes> (?: \x5c\x5c )* )
     \[
-    (?P<start> [0-9]+ )
-    -
-    (?P<stop>  [0-9]+ )
-    (?# optionally take a step argument: )
-    :?
-    (?P<step>  [0-9]* )
-    \]""", re.VERBOSE)
+      (?P<start> [0-9]+ )
+      -
+      (?P<stop>  [0-9]+ )
+      (?# optionally take a step argument: )
+        :?
+        (?P<step>  [0-9]* )
+    \]  """, re.VERBOSE)
 
 re_curl_characters = re.compile(r"""
+    (?# ignore patterns with leading unbalanced backslashes )
+      (?P<escaped> \x5c ?  )
+      (?P<leading_escapes> (?: \x5c\x5c )* )
     \[
-    (?P<start> [a-z] )
-    -
-    (?P<stop>  [a-z] )
-    (?# optionally take a step argument: )
-    :?
-    (?P<step> [0-9]* )
-    """, re.VERBOSE)
+      (?P<start> [^-\n] )
+      -
+      (?P<stop>  [^-\n] )
+      (?# optionally take a step argument: )
+        :?
+        (?P<step> [0-9]* )
+    \]  """, re.VERBOSE)
 
 re_curl_brace_set = re.compile(r"""
+    (?# ignore patterns with leading unbalanced backslashes )
+      (?P<escaped> \x5c ?  )
+      (?P<leading_escapes> (?: \x5c\x5c )* )
     \{
-    (?P<first> ( [^\n,]* ,)* )
-    (?P<last> [^\n,]+ )
-    \}
-    """, re.VERBOSE)
+      (?P<first> ( [^\n,]* ,)* )
+      (?P<last>    [^\n,]* )
+    \} """, re.VERBOSE)
 
 class Request():
   """The Request class is the base of Burst. To create an instance, you have
@@ -132,20 +140,40 @@ class Request():
           'at': key,
           'payloads': generator }
         return key
+
       def _param_inject_counter(m):
-        values = [int(i or '1') for i in m.groups()]
+        escapes = m.expand(m.group('leading_escapes'))
+        if m.group('escaped'):
+          ret = escapes + m.string[m.end('leading_escapes') : m.end(0)]
+          return _param_inject( [ ret ] )
+
+        values = [int(i or '1') for i in m.group(3, 4)]
         ## NOTE: curl's ranges are inclusive; python's are not, account for that:
         values[1] += 1
-        return _param_inject( xrange(*values) )
+        return _param_inject( (escapes + str(i) for i in xrange(*values)) )
+
       def _param_inject_characters(m):
+        escapes = m.expand(m.group('leading_escapes'))
         start = ord(m.group('start'))
+        ## NOTE: curl's ranges are inclusive; python's are not, account for that:
         stop  = ord(m.group('stop')) + 1
+        if m.group('escaped'):
+          ret = escapes + m.string[m.end('leading_escapes') : m.end(0)]
+          return _param_inject( [ ret ] )
         step  = int( m.group('step') or '1' )
-        return _param_inject( (chr(c) for c in xrange(start, stop, step)) )
+        return _param_inject(
+          (escapes + chr(c) for c in xrange(start, stop, step)) )
+
       def _param_inject_brace_set(m):
-        print m.groupdict()
-        intermediary = (m.group('first') or '').split(',')[:-1]
-        return _param_inject( (g for g in (intermediary + [m.group('last')])) )
+        escapes = m.expand(m.group('leading_escapes'))
+        first = m.group('first') or ''
+        last  = [m.group('last') or '']
+        if m.group('escaped'):
+          ret = escapes + m.string[m.end('leading_escapes') : m.end(0)]
+          return _param_inject( [ret] )
+        intermediary = first.split(',')[:-1]
+        return _param_inject( (escapes + g for g in intermediary + last) )
+
       ## replace the patterns with the corresponding hashes:
       ret = re_curl_counter.sub(    _param_inject_counter,    s)
       ret = re_curl_characters.sub( _param_inject_characters, ret)
