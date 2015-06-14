@@ -78,11 +78,8 @@ def import_from_curl(curl=None):
   HEADERS   = 'HEADERS'
   METHOD    = 'METHOD'
   CONTENT   = 'CONTENT'
-  INJECTS   = 'INJECTS'
 
-  o = { HEADERS   : []
-      , INJECTS   : {}
-      }
+  o = { HEADERS   : [] }
 
   def add_url(url):
     rs.append(create(url.replace(' ','%20')))
@@ -119,7 +116,7 @@ def import_from_curl(curl=None):
         elif this in ('u','--user'):
           if not ':' in arg:
             arg += ':'
-          ## this should probably be a first class citizen in Request:
+          ## TODO this should probably be a first class citizen in Request:
           o[HEADERS].append(('Authorization', 'Basic {}'.format( b64encode(arg) )))
         elif this in ('-r','--range'):
           o[HEADERS].append(('Range', 'bytes={}'.format(arg)))
@@ -142,6 +139,7 @@ def import_from_curl(curl=None):
     rs[i].content = o.get(CONTENT, rs[i].content)
     for hd , val in o[HEADERS]:
       if hd not in ('Cookie',):
+        ## replace unique headers
         rs[i].remove_header(hd)
       rs[i].add_header(hd, val)
 
