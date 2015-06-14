@@ -1,7 +1,6 @@
 from burst.http import Request, RequestSet
 
 from shlex import split
-from urlparse import urlparse
 from base64 import b64encode
 from ..http import parse_headers
 
