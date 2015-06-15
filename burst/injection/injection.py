@@ -6,7 +6,7 @@ import json
 import itertools
 from collections import Iterable
 
-from burst.http import Request, RequestSet
+import burst.http
 from burst.exception import *
 from burst.color import *
 from burst.cookie import Cookie
@@ -156,7 +156,7 @@ def _inject_at(r, offset, payloads, pre_func=None, choice=None):
     ct = orig[:off_b] + p + orig[off_e:]
     # FIXME: at most match only the headers
     ct = re.sub("Content-Length:.*\n", "", ct)
-    r_new = Request(ct, hostname=r.hostname, port=r.port, use_ssl=r.use_ssl)
+    r_new = burst.http.Request(ct, hostname=r.hostname, port=r.port, use_ssl=r.use_ssl)
     r_new.update_content_length()
     r_new.injection_point = "@" + str(offset)
     r_new.payload = p
@@ -167,21 +167,21 @@ def _inject_to(r, target, payloads, pre_func=None, append=False):
   if not pre_func:
     pre_func = lambda x: encode(x)
   payloads = ( pre_func(pd) for pd in _get_payload(payloads) )
-  rqs = RequestSet(_inject_query(r, target, payloads, append))
+  rqs = burst.http.RequestSet(_inject_query(r, target, payloads, append))
   if r.method in ("POST", "PUT"):
-    rqs += RequestSet(_inject_post(r, target, payloads, append))
+    rqs += burst.http.RequestSet(_inject_post(r, target, payloads, append))
   if r.has_header("Cookie"):
-    rqs += RequestSet(_inject_cookie(r, target, payloads, append))
-  rqs += RequestSet(_inject_json(r, target, payloads, append))
+    rqs += burst.http.RequestSet(_inject_cookie(r, target, payloads, append))
+  rqs += burst.http.RequestSet(_inject_json(r, target, payloads, append))
   if not rqs:
     raise NoInjectionPointFound()
   return rqs
 
 def _inject_multi(r, method, target, payloads, **kwds):
-  if isinstance(r, Request):
+  if isinstance(r, burst.http.Request):
     return method(r, target, payloads, **kwds)
-  elif isinstance(r, RequestSet):
-    rs = RequestSet()
+  elif isinstance(r, burst.http.RequestSet):
+    rs = burst.http.RequestSet()
     for ro in r:
       payloads, current_payloads = itertools.tee(payloads)
       rs.extend(method(ro, target, current_payloads, **kwds))
@@ -216,7 +216,7 @@ def inject(r, to=None, at=None, payloads="default", **kwds):
 
   See also: payloads, inject_all, find_injection_points
   """
-  rqs = RequestSet()
+  rqs = burst.http.RequestSet()
   if not to and not at:
     print error("I need some help here. Where should I inject? " + \
                 "Try 'help(inject)'")
@@ -270,7 +270,7 @@ def inject_all(r, payloads="default"):
   ips = find_injection_points(r)
   if ips:
     return reduce(lambda x, y: x + y, [i(r, to=ip, payloads=payloads) for ip in ips])
-  return RequestSet()
+  return burst.http.RequestSet()
 
 i_all = inject_all
 
@@ -287,6 +287,6 @@ def fuzz_headers(r, payloads="default"):
       r_new.injection_point = k
       r_new.payload = p
       rs.append(r_new)
-  return RequestSet(rs)
+  return burst.http.RequestSet(rs)
 
 f_h = fuzz_headers
