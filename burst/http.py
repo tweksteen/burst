@@ -175,9 +175,9 @@ class Request():
         return _param_inject( (escapes + g for g in intermediary + last) )
 
       ## replace the patterns with the corresponding hashes:
-      ret = re_curl_counter.sub(    _param_inject_counter,    s)
-      ret = re_curl_characters.sub( _param_inject_characters, ret)
-      ret = re_curl_brace_set.sub(  _param_inject_brace_set,  ret)
+      ret = re_curl_counter.sub(_param_inject_counter, s)
+      ret = re_curl_characters.sub(_param_inject_characters, ret)
+      ret = re_curl_brace_set.sub(_param_inject_brace_set, ret)
       return ret
 
     ## Configure the prototype and set up sequence hooks
@@ -186,18 +186,10 @@ class Request():
     proto.content     = param_inject( proto.content )
     proto.raw_headers = param_inject( proto.raw_headers )
 
-    rs = [ RequestSet(proto) ]
-
+    rs = RequestSet([proto,])
     for params in matches.values():
-      previous = rs[-1]
-      new_rs = RequestSet()
-      pls = itertools.tee(params['payloads'], len(previous))
-      for i in xrange(len(previous)):
-        ## create len(rs[-1]) copies of the payload generator
-        ## (otherwise it's exhausted by first run):
-        new_rs.append(inject(previous[i].copy(), at=params['at'], payloads=pls[i]))
-      rs[0] = new_rs
-    return rs[0]
+      rs = inject(rs, at=params['at'], payloads=params['payloads'])
+    return rs
 
   @property
   def path(self):
@@ -738,9 +730,9 @@ class RequestSet():
   """
 
   def __init__(self, reqs=None):
-    if isinstance(reqs, Request):
-      reqs = [ reqs ]
-    self.reqs = reqs if isinstance(reqs, list) else []
+    if reqs and not isinstance(reqs, (RequestSet, list, tuple)):
+      raise TypeError("RequestSet only takes lists as arguments")
+    self.reqs = reqs if reqs else []
     self.hostname = None
 
   def __getitem__(self, i):
@@ -758,12 +750,7 @@ class RequestSet():
     return bool(self.reqs)
 
   def append(self, r):
-    if   isinstance(r, Request):
-      self.reqs.append(r)
-    elif isinstance(r, RequestSet):
-      self.extend(r)
-    else:
-      raise TypeError
+    self.reqs.append(r)
 
   def extend(self, rs):
     self.reqs.extend(rs)

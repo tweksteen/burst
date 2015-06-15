@@ -4,8 +4,7 @@ import glob
 import os.path
 import json
 import itertools
-from types import XRangeType, GeneratorType
-from collections import Iterator
+from collections import Iterable
 
 from burst.http import Request, RequestSet
 from burst.exception import *
@@ -25,19 +24,12 @@ for k in ('sqli', 'xss', 'cmd', 'dir', 'misc'):
 
 def _get_payload(p):
   try:
-    ## convert <type 'xrange'>s into generators:
-    if isinstance(p, XRangeType):
-      p = (str(i) for i in p)
-    elif isinstance(p, list):
-      ## handle numeric ranges:
-      p = (str(i) for i in iter(p))
-
     if isinstance(p, basestring):
       return payloads[p]
-    elif isinstance(p, GeneratorType) or isinstance(p, Iterator) or 'next' in dir(p):
+    elif isinstance(p, Iterable):
       return (str(i) for i in p)
     else:
-      raise PayloadNotFound('Payload argument is of type %s, but only accepted types are: xrange, generator, list, string' % type(p))
+      raise PayloadNotFound('Payload argument is of type %s, but only iterables and strings are accepted' % type(p))
   except KeyError:
     raise PayloadNotFound("Possible values are: " + ", ".join(payloads.keys()))
 
@@ -162,7 +154,7 @@ def _inject_at(r, offset, payloads, pre_func=None, choice=None):
     off_b = off_e = offset
   for p in payloads:
     ct = orig[:off_b] + p + orig[off_e:]
-    ## TODO this seems unsound:
+    # FIXME: at most match only the headers
     ct = re.sub("Content-Length:.*\n", "", ct)
     r_new = Request(ct, hostname=r.hostname, port=r.port, use_ssl=r.use_ssl)
     r_new.update_content_length()
@@ -189,9 +181,11 @@ def _inject_multi(r, method, target, payloads, **kwds):
   if isinstance(r, Request):
     return method(r, target, payloads, **kwds)
   elif isinstance(r, RequestSet):
-    return RequestSet(reduce(lambda x, y: x + y,
-           [ method(ro, target, payloads, **kwds) for ro in r ]))
-
+    rs = RequestSet()
+    for ro in r:
+      payloads, current_payloads = itertools.tee(payloads)
+      rs.extend(method(ro, target, current_payloads, **kwds))
+    return rs
 
 def inject(r, to=None, at=None, payloads="default", **kwds):
   """ Inject a request.
@@ -211,6 +205,9 @@ def inject(r, to=None, at=None, payloads="default", **kwds):
   point is found, an error is raised. If the string is found more than
   once, the function will suggest to provide the 'choice' integer keyword.
 
+  For instance, with the URL http://example.org?test=abcd,
+  injecting with to="test" is equivalent to at="abcd".
+
   payloads could either be a list of the payloads to inject or a key
   of the global dictionnary 'payloads'.
 
@@ -226,13 +223,13 @@ def inject(r, to=None, at=None, payloads="default", **kwds):
   elif to and at:
     print error("Wow, too many parameters. It is either 'to' or 'at'.")
   elif to:
-    if isinstance(to, (list, tuple, GeneratorType, Iterator)) or 'next' in dir(p):
+    if isinstance(to, Iterable) and not isinstance(to, basestring):
       for t in to:
         rqs.extend(_inject_multi(r, _inject_to, t, payloads, **kwds))
     else:
       rqs.extend(_inject_multi(r, _inject_to, to, payloads, **kwds))
   elif at:
-    if isinstance(at, (list, tuple, GeneratorType, Iterator)) or 'next' in dir(p):
+    if isinstance(at, Iterable) and not isinstance(at, basestring):
       for a in at:
         rqs.extend(_inject_multi(r, _inject_at, a, payloads, **kwds))
     else:
