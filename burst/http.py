@@ -135,7 +135,7 @@ class Request():
     def param_inject(s):
       def _param_inject(generator):
         ## can't come up with a better/faster way to generate unique keys in a thread-safe fashion :-(
-        key = sha256('{}_{}'.format(len(matches), str(self))).digest().encode('hex')[:20]
+        key = sha256('{}_{}'.format(len(matches), str(self))).hexdigest()[:20]
         matches[key] = {
           'at': key,
           'payloads': generator }
