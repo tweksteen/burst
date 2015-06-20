@@ -639,8 +639,6 @@ class RequestSet():
   """
 
   def __init__(self, reqs=None):
-    if reqs and not isinstance(reqs, (RequestSet, list, tuple)):
-      raise TypeError("RequestSet only takes lists as arguments")
     self.reqs = reqs if reqs else []
     self.hostname = None
 
