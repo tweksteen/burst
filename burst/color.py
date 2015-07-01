@@ -7,6 +7,7 @@ style_error = "\033[31m"
 style_warning = "\033[33m"
 style_info = "\033[34m"
 style_stealthy = "\033[37m"
+style_bright_red = "\033[1;31m"
 
 def __generic_style(c):
   def _x(s, rl=False):
@@ -25,6 +26,7 @@ warning = __generic_style(style_warning)
 great_success = __generic_style(style_great_success)
 stealthy = __generic_style(style_stealthy)
 info = __generic_style(style_info)
+bright_red = __generic_style(style_bright_red)
 
 def color_status(status, rl=False):
   if status.startswith("2"):
