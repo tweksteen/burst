@@ -96,13 +96,17 @@ class ColorPrompt(object):
 re_print_alias = re.compile(r'^p\s(.*)')
 re_view_alias = re.compile(r'^v\s(.*)')
 re_extview_alias = re.compile(r'^w\s(.*)')
+re_grep_alias = re.compile(r'^g(?:rep)?((?: -o)?) +(.+?) +(.+)')
+def __re_grep_alias_callback(m):
+  only = (m.group(1) == ' -o')
+  pattern = m.group(2).replace('\x5c','\x5c\x5c').replace(r'"','\x5c"')
+  return r'grep("{}", ({}), only={})'.format(pattern, m.group(3), only)
+
 def expand_alias(line):
-  if re_print_alias.match(line):
-    line = re_print_alias.sub(r'print \1', line)
-  if re_view_alias.match(line):
-    line = re_view_alias.sub(r'view(\1)', line)
-  if re_extview_alias.match(line):
-    line = re_extview_alias.sub(r'external_view(\1)', line)
+  line = re_print_alias.sub(r'print \1', line)
+  line = re_view_alias.sub(r'view(\1)', line)
+  line = re_extview_alias.sub(r'external_view(\1)', line)
+  line = re_grep_alias.sub(__re_grep_alias_callback, line)
   return line
 
 class BurstInteractiveConsole(code.InteractiveConsole):

@@ -10,7 +10,7 @@ from burst.session   import switch_session, ss, save, list_sessions, \
                              lss, archive
 from burst.utils     import encode, e, ee, decode, d, dd, parse_qs, \
                              urlencode, view, idle, external_view, pxml, \
-                             pjson, d64, e64
+                             pjson, d64, e64, grep
 from burst.spider    import spider, s
 from burst.alert     import NullAlerter, GenericAlerter, RequestKeywordAlerter
 from burst.external  import import_from_burp

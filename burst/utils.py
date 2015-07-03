@@ -13,6 +13,7 @@ import subprocess
 import collections
 
 from burst.conf import conf
+from burst.color import bright_red as color_bright_red
 
 try:
   import termios
@@ -43,7 +44,7 @@ def pxml(r):
       x = etree.fromstring(s)
       return etree.tostring(x, pretty_print = True)
     except ValueError:
-      print "Shit Tyrone, get it together!"
+      print "Shit Tyrone, get it together!" # TODO what a professional error message
     except etree.XMLSyntaxError:
       print "Unable to parse the XML. Looking for goat sex?"
   else:
@@ -124,6 +125,22 @@ def external_view(args):
     f.write(str(args))
   subprocess.Popen(shlex.split(conf.external_viewer.format(fname)), preexec_fn=os.setpgrp)
   #todo: cleanup
+
+
+def grep(pattern, subject, only=False):
+  """Print the `subject` string with text matching the `pattern` colored bright red.
+     If `only` is set to True, only text matching the `pattern` is printed.
+     An alias with the syntax 'g [-o] <pattern> <subject>' is available in the console.
+  """
+  if isinstance(pattern, basestring):
+    pattern = re.compile(pattern, re.IGNORECASE | re.LOCALE | re.DOTALL)
+  def _grep_replace(m):
+    return color_bright_red(m.group(0))
+  if only:
+    for m in pattern.finditer(str(subject)):
+      print _grep_replace(m)
+  else:
+    print pattern.sub(_grep_replace, str(subject))
 
 def play_notifier(message):
   if conf.play_notify:
