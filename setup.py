@@ -4,7 +4,7 @@ from distutils.core import setup
 
 setup(
     name = 'burst',
-    version = '0.6',
+    version = '0.7',
     packages = ['burst'],
     scripts = ['bin/burst'],
     package_data = {'burst': [ 'payloads/*',]},
