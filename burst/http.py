@@ -15,9 +15,11 @@ import threading
 import shlex
 import subprocess
 import datetime
+import itertools
 from collections import defaultdict
 from StringIO import StringIO
 
+import burst.injection
 from burst import console
 from burst.conf import conf
 from burst.cookie import Cookie
@@ -27,6 +29,7 @@ from burst.utils import make_table, clear_line, chunks, encode, \
                          re_space, smart_split, smart_rsplit, \
                          truncate, stats, parse_qs, play_notifier, \
                          play_updater
+
 
 class Request():
   """The Request class is the base of Burst. To create an instance, you have
@@ -216,6 +219,12 @@ class Request():
        self.path != r.path:
       return False
     return True
+
+  def expand_curl_ranges(self):
+    return burst.injection.expand_curl_ranges(self)
+
+  def inject(self, **kwds):
+    return burst.injection.inject(self, **kwds)
 
   def _init_connection(self):
       return connect(self.hostname, self.port, self.use_ssl)
@@ -676,6 +685,13 @@ class RequestSet():
       raise BurstException("A RequestSet of the same size is required")
     return RequestSet([self[i] for i in range(len(self))
             if predicate(self[i], other[i])])
+
+  def expand_curl_ranges(self):
+    """Expands curl range sequences in the RequestSet"""
+    new_rs = RequestSet()
+    for r in self.reqs:
+      new_rs.extend(r.expand_curl_ranges())
+    self.reqs = new_rs
 
   def __repr__(self):
     status = defaultdict(int)
