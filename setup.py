@@ -5,7 +5,7 @@ from distutils.core import setup
 setup(
     name = 'burst',
     version = '0.7',
-    packages = ['burst'],
+    packages = ['burst', 'burst.injection', 'burst.external'],
     scripts = ['bin/burst'],
     package_data = {'burst': [ 'payloads/*',]},
     description = 'Burst: interactive HTTP(S) tool/framework',
